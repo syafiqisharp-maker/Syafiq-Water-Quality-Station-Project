@@ -12,6 +12,7 @@
   compensation.
   - DisplayManager.h/.cpp: Anti-flicker character LCD layout and refresh
   manager.
+  - ButtonHandler.h/.cpp: Debouncing and short/long press detection wrapper.
 
   Wiring Connection for 30-pin ESP32:
   - RS485-to-TTL Converter (for DO Sensor):
@@ -44,6 +45,7 @@
 #include "DisplayManager.h"
 #include "PHSensor.h"
 #include "TurbiditySensor.h"
+#include "ButtonHandler.h"
 #include <Arduino.h>
 #include <Wire.h>
 
@@ -55,20 +57,12 @@ enum SystemMode { MODE_NORMAL, MODE_DO_CALIBRATION, MODE_PH_CALIBRATION, MODE_TU
 SystemMode currentMode = MODE_NORMAL;
 float currentTurbidity = 0.0;
 
-// --- Button Settings ---
+// --- Buttons ---
 #define BUTTON_DO_PIN 12
 #define BUTTON_PH_PIN 13
 
-bool lastButtonDoState = HIGH;
-unsigned long buttonDoPressTime = 0;
-bool buttonDoLongPressHandled = false;
-
-bool lastButtonPhState = HIGH;
-unsigned long buttonPhPressTime = 0;
-bool buttonPhLongPressHandled = false;
-
-const unsigned long DEBOUNCE_DELAY = 50;
-const unsigned long LONG_PRESS_DELAY = 2000;
+ButtonHandler doButton(BUTTON_DO_PIN);
+ButtonHandler phButton(BUTTON_PH_PIN);
 
 // Timers for non-blocking task execution
 unsigned long lastPollTime = 0;
@@ -95,8 +89,21 @@ DisplayManager displayManager;
 // FUNCTION PROTOTYPES
 // ==========================================
 void checkSerialCommands();
-void processCommand(const String &cmd);
 void checkButtons();
+
+// Event Handlers
+void startDOCalibration();
+void startTurbidityCalibration();
+void enterPHCalibration();
+void executePHCalibration();
+void exitPHCalibration();
+void forwardPHCommand(const String &cmd);
+
+// State Handlers
+void handleNormalMode(unsigned long currentMillis);
+void handleDOCalibrationMode(unsigned long currentMillis);
+void handleTurbidityCalibrationMode();
+void handlePHCalibrationMode(unsigned long currentMillis);
 
 // ==========================================
 // SETUP
@@ -115,8 +122,8 @@ void setup() {
   Wire.begin();
 
   // Initialize Buttons
-  pinMode(BUTTON_DO_PIN, INPUT_PULLUP);
-  pinMode(BUTTON_PH_PIN, INPUT_PULLUP);
+  doButton.begin();
+  phButton.begin();
 
   // Initialize sensor modules
   doSensor.begin();
@@ -156,117 +163,125 @@ void setup() {
 // MAIN LOOP
 // ==========================================
 void loop() {
-  // 1. Process incoming Serial monitor commands and Button presses
+  // 1. Process incoming commands and buttons
   checkSerialCommands();
   checkButtons();
 
   unsigned long currentMillis = millis();
 
-  // 2. Poll Sensors (Non-blocking)
-  // In pH calibration mode, we poll the pH sensor faster (every 1s) for
-  // real-time pots adjustment. In normal mode, we poll both sensors every 5
-  // seconds.
-  unsigned long activePollInterval =
-      (currentMode == MODE_PH_CALIBRATION) ? 1000U : POLL_INTERVAL_MS;
+  // 2. State Machine Router
+  switch (currentMode) {
+    case MODE_NORMAL:
+      handleNormalMode(currentMillis);
+      break;
+    case MODE_DO_CALIBRATION:
+      handleDOCalibrationMode(currentMillis);
+      break;
+    case MODE_TURBIDITY_CAL:
+      handleTurbidityCalibrationMode();
+      break;
+    case MODE_PH_CALIBRATION:
+      handlePHCalibrationMode(currentMillis);
+      break;
+  }
+}
 
-  if (currentMillis - lastPollTime >= activePollInterval) {
+// ==========================================
+// STATE HANDLERS
+// ==========================================
+void handleNormalMode(unsigned long currentMillis) {
+  // 1. Poll Sensors
+  if (currentMillis - lastPollTime >= POLL_INTERVAL_MS) {
     lastPollTime = currentMillis;
 
-    // Query DO Sensor (Skip during pH calibration to maximize serial/I2C speed
-    // and avoid noise)
-    if (currentMode != MODE_PH_CALIBRATION) {
-      doSensor.query();
-    }
+    doSensor.query();
 
-    // Query pH Sensor with temperature compensation
-    float currentTemp =
-        doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+    float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
     phSensor.update(currentTemp);
 
-    // Query Turbidity
     currentTurbidity = turbiditySensor.getTurbidityPct();
     Serial.print(F("Turbidity: "));
     Serial.print(currentTurbidity, 1);
     Serial.println(F(" %"));
   }
 
-  // 3. Handle DO Calibration State Machine (Non-blocking countdown)
-  if (currentMode == MODE_DO_CALIBRATION) {
-    if (currentMillis - lastCountdownMillis >= 1000U) {
-      lastCountdownMillis = currentMillis;
-
-      if (doCalCountdown > 0) {
-        Serial.print(F("DO Calibration starting in "));
-        Serial.print(doCalCountdown);
-        Serial.println(F(" seconds..."));
-        displayManager.showDOCalibrationScreen(doCalCountdown);
-        doCalCountdown--;
-      } else {
-        Serial.println(
-            F("Sending 100% calibration command to DO sensor via Modbus..."));
-        displayManager.showDOCalibrationScreen(0);
-
-        bool success = doSensor.sendCalibrationCommand();
-        if (success) {
-          Serial.println(F("\n>>> SUCCESS: 100% Calibration Command SENT "
-                           "successfully! <<<"));
-          Serial.println(
-              F("Sensor is storing parameters. Returning to normal mode."));
-        } else {
-          Serial.println(F("\n>>> ERROR: Calibration Command FAILED! Check "
-                           "connections. <<<"));
-        }
-        Serial.println(
-            F("========================================================\n"));
-
-        // Keep the success/fail result on screen for 3 seconds, then return to
-        // normal monitoring
-        delay(3000);
-        displayManager.clear();
-        currentMode = MODE_NORMAL;
-        lastPollTime = millis(); // Reset poll timer
-      }
-    }
-  }
-
-  // 3.5 Handle Turbidity Calibration (Non-blocking loop integration, but with 3s screen hold)
-  if (currentMode == MODE_TURBIDITY_CAL) {
-    displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(), false);
-    Serial.println(F("Turbidity Calibration: Reading sensor..."));
-    
-    turbiditySensor.calibrateCleanWater();
-
-    Serial.print(F("New Turbidity Ref (vClean) Set to: "));
-    Serial.print(turbiditySensor.getVClean());
-    Serial.println(F(" V"));
-
-    displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(), true);
-    delay(3000); // 3-second hold to present success payload as approved
-    displayManager.clear();
-    currentMode = MODE_NORMAL;
-    lastPollTime = millis();
-  }
-
-  // 4. Update the LCD Display (Every 1 second)
+  // 2. Refresh Display
   if (currentMillis - lastDisplayRefreshTime >= DISPLAY_REFRESH_MS) {
     lastDisplayRefreshTime = currentMillis;
 
-    if (currentMode == MODE_NORMAL) {
-      float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : NAN;
-      float satVal = doSensor.isDataValid() ? doSensor.getSaturation() : NAN;
-      float concVal =
-          doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
-      displayManager.showNormalScreen(satVal, concVal, tempVal,
-                                      phSensor.getPH(), currentTurbidity);
-    } else if (currentMode == MODE_PH_CALIBRATION) {
-      if (millis() - phCalStatusMsgTimer > 3000) {
-        phCalStatusMsg = "Btn:Cal | Hold:Exit";
+    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : NAN;
+    float satVal = doSensor.isDataValid() ? doSensor.getSaturation() : NAN;
+    float concVal = doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
+    displayManager.showNormalScreen(satVal, concVal, tempVal, phSensor.getPH(), currentTurbidity);
+  }
+}
+
+void handleDOCalibrationMode(unsigned long currentMillis) {
+  if (currentMillis - lastCountdownMillis >= 1000U) {
+    lastCountdownMillis = currentMillis;
+
+    if (doCalCountdown > 0) {
+      Serial.print(F("DO Calibration starting in "));
+      Serial.print(doCalCountdown);
+      Serial.println(F(" seconds..."));
+      displayManager.showDOCalibrationScreen(doCalCountdown);
+      doCalCountdown--;
+    } else {
+      Serial.println(F("Sending 100% calibration command to DO sensor via Modbus..."));
+      displayManager.showDOCalibrationScreen(0);
+
+      bool success = doSensor.sendCalibrationCommand();
+      if (success) {
+        Serial.println(F("\n>>> SUCCESS: 100% Calibration Command SENT successfully! <<<"));
+        Serial.println(F("Sensor is storing parameters. Returning to normal mode."));
+      } else {
+        Serial.println(F("\n>>> ERROR: Calibration Command FAILED! Check connections. <<<"));
       }
-      float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
-      displayManager.showPHCalibrationScreen(phSensor.getVoltage(), tempVal,
-                                             phSensor.getPH(),
-                                             phCalStatusMsg.c_str());
+      Serial.println(F("========================================================\n"));
+
+      delay(3000);
+      displayManager.clear();
+      currentMode = MODE_NORMAL;
+      lastPollTime = millis();
     }
+  }
+}
+
+void handleTurbidityCalibrationMode() {
+  displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(), false);
+  Serial.println(F("Turbidity Calibration: Reading sensor..."));
+  
+  turbiditySensor.calibrateCleanWater();
+
+  Serial.print(F("New Turbidity Ref (vClean) Set to: "));
+  Serial.print(turbiditySensor.getVClean());
+  Serial.println(F(" V"));
+
+  displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(), true);
+  delay(3000); // 3-second hold to present success payload as approved
+  displayManager.clear();
+  currentMode = MODE_NORMAL;
+  lastPollTime = millis();
+}
+
+void handlePHCalibrationMode(unsigned long currentMillis) {
+  // 1. Fast Poll (1s)
+  if (currentMillis - lastPollTime >= 1000U) {
+    lastPollTime = currentMillis;
+
+    float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+    phSensor.update(currentTemp);
+  }
+
+  // 2. Refresh Display
+  if (currentMillis - lastDisplayRefreshTime >= DISPLAY_REFRESH_MS) {
+    lastDisplayRefreshTime = currentMillis;
+
+    if (millis() - phCalStatusMsgTimer > 3000) {
+      phCalStatusMsg = "Btn:Cal | Hold:Exit";
+    }
+    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+    displayManager.showPHCalibrationScreen(phSensor.getVoltage(), tempVal, phSensor.getPH(), phCalStatusMsg.c_str());
   }
 }
 
@@ -274,72 +289,32 @@ void loop() {
 // SERIAL MONITOR & BUTTON INTERACTION HANDLERS
 // ==========================================
 void checkButtons() {
-  unsigned long currentMillis = millis();
+  doButton.update();
+  phButton.update();
 
-  // --- Button 1: DO Calibration & Turbidity Calibration (Short/Long Press) ---
-  int readingDo = digitalRead(BUTTON_DO_PIN);
-
-  if (readingDo == LOW && lastButtonDoState == HIGH) {
-    // DO Button pressed down (Falling edge)
-    buttonDoPressTime = currentMillis;
-    buttonDoLongPressHandled = false;
-  }
-
-  if (readingDo == LOW && !buttonDoLongPressHandled) {
-    // Check for long press
-    if ((currentMillis - buttonDoPressTime) >= LONG_PRESS_DELAY) {
-      buttonDoLongPressHandled = true;
-      if (currentMode == MODE_NORMAL) {
-        currentMode = MODE_TURBIDITY_CAL;
-      }
+  // --- DO / Turbidity Button ---
+  if (doButton.isLongPressed()) {
+    if (currentMode == MODE_NORMAL) {
+      startTurbidityCalibration();
+    }
+  } else if (doButton.isShortPressed()) {
+    if (currentMode == MODE_NORMAL) {
+      startDOCalibration();
     }
   }
 
-  if (readingDo == HIGH && lastButtonDoState == LOW) {
-    // DO Button released (Rising edge)
-    if (!buttonDoLongPressHandled &&
-        (currentMillis - buttonDoPressTime) > DEBOUNCE_DELAY) {
-      // Short press
-      if (currentMode == MODE_NORMAL) {
-        processCommand("CAL100");
-      }
+  // --- pH Button ---
+  if (phButton.isLongPressed()) {
+    if (currentMode == MODE_PH_CALIBRATION) {
+      exitPHCalibration();
+    }
+  } else if (phButton.isShortPressed()) {
+    if (currentMode == MODE_NORMAL) {
+      enterPHCalibration();
+    } else if (currentMode == MODE_PH_CALIBRATION) {
+      executePHCalibration();
     }
   }
-  lastButtonDoState = readingDo;
-
-  // --- Button 2: pH Calibration (Short/Long Press) ---
-  int readingPh = digitalRead(BUTTON_PH_PIN);
-
-  if (readingPh == LOW && lastButtonPhState == HIGH) {
-    // pH Button pressed down (Falling edge)
-    buttonPhPressTime = currentMillis;
-    buttonPhLongPressHandled = false;
-  }
-
-  if (readingPh == LOW && !buttonPhLongPressHandled) {
-    // Check for long press while held down
-    if ((currentMillis - buttonPhPressTime) >= LONG_PRESS_DELAY) {
-      buttonPhLongPressHandled = true;
-      if (currentMode == MODE_PH_CALIBRATION) {
-        processCommand("EXITPH");
-      }
-    }
-  }
-
-  if (readingPh == HIGH && lastButtonPhState == LOW) {
-    // pH Button released (Rising edge)
-    if (!buttonPhLongPressHandled &&
-        (currentMillis - buttonPhPressTime) > DEBOUNCE_DELAY) {
-      // It was a short press
-      if (currentMode == MODE_NORMAL) {
-        processCommand("ENTERPH");
-      } else if (currentMode == MODE_PH_CALIBRATION) {
-        processCommand("CALPH");
-      }
-    }
-  }
-
-  lastButtonPhState = readingPh;
 }
 
 void checkSerialCommands() {
@@ -349,7 +324,22 @@ void checkSerialCommands() {
     if (ch == '\n' || ch == '\r') {
       if (inputBuffer.length() > 0) {
         inputBuffer.trim();
-        processCommand(inputBuffer);
+        
+        if (currentMode == MODE_NORMAL) {
+          if (inputBuffer.equalsIgnoreCase("CAL100")) startDOCalibration();
+          else if (inputBuffer.equalsIgnoreCase("ENTERPH")) enterPHCalibration();
+          else {
+            Serial.print(F("Unknown command: "));
+            Serial.println(inputBuffer);
+          }
+        } else if (currentMode == MODE_PH_CALIBRATION) {
+          if (inputBuffer.equalsIgnoreCase("CALPH")) executePHCalibration();
+          else if (inputBuffer.equalsIgnoreCase("EXITPH")) exitPHCalibration();
+          else forwardPHCommand(inputBuffer);
+        } else if (currentMode == MODE_DO_CALIBRATION) {
+          Serial.println(F("Please wait. DO calibration is in progress."));
+        }
+        
         inputBuffer = "";
       }
     } else {
@@ -360,52 +350,53 @@ void checkSerialCommands() {
   }
 }
 
-void processCommand(const String &cmd) {
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
-
-  if (currentMode == MODE_NORMAL) {
-    if (cmd.equalsIgnoreCase("CAL100")) {
-      currentMode = MODE_DO_CALIBRATION;
-      doCalCountdown = 5;
-      lastCountdownMillis = millis();
-      Serial.println(
-          F("\n========================================================"));
-      Serial.println(F("WARNING: Starting 100% Atmospheric Calibration."));
-      Serial.println(F("Ensure probe is in water-saturated air (e.g. above "
-                       "water surface)..."));
-      Serial.println(
-          F("========================================================"));
-      displayManager.showDOCalibrationScreen(doCalCountdown);
-    } else if (cmd.equalsIgnoreCase("ENTERPH")) {
-      currentMode = MODE_PH_CALIBRATION;
-      phSensor.sendCalibrationCommand(currentTemp, "enterph");
-      phCalStatusMsg = "Btn:Cal | Hold:Exit";
-      phCalStatusMsgTimer = 0;
-      Serial.println(F(
-          "Entered pH calibration mode. Solution temperature is compensated."));
-    } else {
-      Serial.print(F("Unknown command: "));
-      Serial.println(cmd);
-    }
-  } else if (currentMode == MODE_PH_CALIBRATION) {
-    if (cmd.equalsIgnoreCase("CALPH")) {
-      phSensor.sendCalibrationCommand(currentTemp, "calph");
-      phCalStatusMsg = ">>> Calibrated! <<<";
-      phCalStatusMsgTimer = millis();
-      Serial.println(F("Executed pH calibration for current buffer solution."));
-    } else if (cmd.equalsIgnoreCase("EXITPH")) {
-      phSensor.sendCalibrationCommand(currentTemp, "exitph");
-      currentMode = MODE_NORMAL;
-      displayManager.clear();
-      Serial.println(F("Exited pH calibration mode. Settings saved to NVS."));
-      lastPollTime = millis();
-    } else {
-      Serial.print(F("Forwarding custom calibration command to pH: "));
-      Serial.println(cmd);
-      phSensor.sendCalibrationCommand(currentTemp, cmd.c_str());
-    }
-  } else if (currentMode == MODE_DO_CALIBRATION) {
-    Serial.println(F("Please wait. DO calibration is in progress."));
-  }
+// ==========================================
+// EVENT ACTIONS
+// ==========================================
+void startDOCalibration() {
+  currentMode = MODE_DO_CALIBRATION;
+  doCalCountdown = 5;
+  lastCountdownMillis = millis();
+  Serial.println(F("\n========================================================"));
+  Serial.println(F("WARNING: Starting 100% Atmospheric Calibration."));
+  Serial.println(F("Ensure probe is in water-saturated air (e.g. above water surface)..."));
+  Serial.println(F("========================================================"));
+  displayManager.showDOCalibrationScreen(doCalCountdown);
 }
 
+void startTurbidityCalibration() {
+  currentMode = MODE_TURBIDITY_CAL;
+}
+
+void enterPHCalibration() {
+  currentMode = MODE_PH_CALIBRATION;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  phSensor.sendCalibrationCommand(currentTemp, "enterph");
+  phCalStatusMsg = "Btn:Cal | Hold:Exit";
+  phCalStatusMsgTimer = 0;
+  Serial.println(F("Entered pH calibration mode. Solution temperature is compensated."));
+}
+
+void executePHCalibration() {
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  phSensor.sendCalibrationCommand(currentTemp, "calph");
+  phCalStatusMsg = ">>> Calibrated! <<<";
+  phCalStatusMsgTimer = millis();
+  Serial.println(F("Executed pH calibration for current buffer solution."));
+}
+
+void exitPHCalibration() {
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  phSensor.sendCalibrationCommand(currentTemp, "exitph");
+  currentMode = MODE_NORMAL;
+  displayManager.clear();
+  Serial.println(F("Exited pH calibration mode. Settings saved to NVS."));
+  lastPollTime = millis();
+}
+
+void forwardPHCommand(const String &cmd) {
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  Serial.print(F("Forwarding custom calibration command to pH: "));
+  Serial.println(cmd);
+  phSensor.sendCalibrationCommand(currentTemp, cmd.c_str());
+}

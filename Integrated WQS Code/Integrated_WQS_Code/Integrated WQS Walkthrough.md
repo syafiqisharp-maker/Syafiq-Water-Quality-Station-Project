@@ -15,6 +15,7 @@ All source files are located inside the directory:
 *   **`PHSensor.h` & `PHSensor.cpp`**: Implements the `PHSensor` class, wrapping the `DFRobot_PH` library, reading voltages via ESP32's optimized `analogReadMilliVolts()`, and performing temperature compensation.
 *   **`TurbiditySensor.h` & `TurbiditySensor.cpp`**: Implements the `TurbiditySensor` class which handles ADC reading, Beer-Lambert Law interpolation for mapping voltage to Turbidity Percentage, and NVS persistence for clear-water baseline calibration.
 *   **`DisplayManager.h` & `DisplayManager.cpp`**: Controls the LCD Model 2004A-V1.3 using the `LiquidCrystal_I2C` library. Uses an anti-flicker differential frame buffer to only update characters that change on screen.
+*   **`ButtonHandler.h` & `ButtonHandler.cpp`**: A clean, reusable wrapper class for physical tactile buttons. It handles non-blocking debouncing and short vs. long press detection.
 
 ---
 
