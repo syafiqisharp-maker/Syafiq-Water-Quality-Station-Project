@@ -14,13 +14,16 @@ public:
     void begin();
 
     // Render the normal monitoring screen
-    void showNormalScreen(float doSat, float doConc, float temp, float ph);
+    void showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct);
 
     // Render the DO calibration screen with countdown
     void showDOCalibrationScreen(int countdownSeconds);
 
     // Render the pH calibration screen with raw voltage and status
     void showPHCalibrationScreen(float voltage, float temp, float currentPH, const char* statusMsg = nullptr);
+
+    // Render the Turbidity calibration screen
+    void showTurbidityCalibrationScreen(float vClean, bool success = false);
 
     // Completely clear the LCD and reset the internal line buffers
     void clear();

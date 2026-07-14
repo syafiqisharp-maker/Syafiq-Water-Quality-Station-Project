@@ -43,22 +43,25 @@
 #include "DOSensor.h"
 #include "DisplayManager.h"
 #include "PHSensor.h"
+#include "TurbiditySensor.h"
 #include <Arduino.h>
 #include <Wire.h>
 
 // ==========================================
 // SYSTEM STATE ENUMS & VARIABLES
 // ==========================================
-enum SystemMode { MODE_NORMAL, MODE_DO_CALIBRATION, MODE_PH_CALIBRATION };
+enum SystemMode { MODE_NORMAL, MODE_DO_CALIBRATION, MODE_PH_CALIBRATION, MODE_TURBIDITY_CAL };
 
 SystemMode currentMode = MODE_NORMAL;
+float currentTurbidity = 0.0;
 
 // --- Button Settings ---
 #define BUTTON_DO_PIN 12
 #define BUTTON_PH_PIN 13
 
 bool lastButtonDoState = HIGH;
-unsigned long lastDebounceDoTime = 0;
+unsigned long buttonDoPressTime = 0;
+bool buttonDoLongPressHandled = false;
 
 bool lastButtonPhState = HIGH;
 unsigned long buttonPhPressTime = 0;
@@ -85,6 +88,7 @@ unsigned long phCalStatusMsgTimer = 0;
 // Using ESP32 HardwareSerial Serial2
 DOSensor doSensor(Serial2, DO_RX_PIN, DO_TX_PIN, RS485_RE_DE_PIN);
 PHSensor phSensor(PH_PIN);
+TurbiditySensor turbiditySensor(34);
 DisplayManager displayManager;
 
 // ==========================================
@@ -118,10 +122,12 @@ void setup() {
   doSensor.begin();
   phSensor.begin();
   displayManager.begin();
+  turbiditySensor.begin();
 
   Serial.println(F("-> I2C LCD Display: Initialized OK"));
   Serial.println(F("-> DO Sensor (RS485 Serial2): Initialized OK"));
   Serial.println(F("-> pH Sensor (GPIO 35): Initialized OK"));
+  Serial.println(F("-> Turbidity Sensor (GPIO 34): Initialized OK"));
   Serial.println(F("--------------------------------------------------------"));
   Serial.println(F("System Ready. Polling sensors every 5 seconds."));
   Serial.println(
@@ -135,11 +141,12 @@ void setup() {
   phSensor.update(initTemp);
 
   // Initial display refresh
+  currentTurbidity = turbiditySensor.getTurbidityPct();
   displayManager.showNormalScreen(
       doSensor.isDataValid() ? doSensor.getSaturation() : NAN,
       doSensor.isDataValid() ? doSensor.getConcentration() : NAN,
       doSensor.isDataValid() ? doSensor.getTemperature() : NAN,
-      phSensor.getPH());
+      phSensor.getPH(), currentTurbidity);
 
   lastPollTime = millis();
   lastDisplayRefreshTime = millis();
@@ -175,6 +182,12 @@ void loop() {
     float currentTemp =
         doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
     phSensor.update(currentTemp);
+
+    // Query Turbidity
+    currentTurbidity = turbiditySensor.getTurbidityPct();
+    Serial.print(F("Turbidity: "));
+    Serial.print(currentTurbidity, 1);
+    Serial.println(F(" %"));
   }
 
   // 3. Handle DO Calibration State Machine (Non-blocking countdown)
@@ -216,6 +229,24 @@ void loop() {
     }
   }
 
+  // 3.5 Handle Turbidity Calibration (Non-blocking loop integration, but with 3s screen hold)
+  if (currentMode == MODE_TURBIDITY_CAL) {
+    displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(), false);
+    Serial.println(F("Turbidity Calibration: Reading sensor..."));
+    
+    turbiditySensor.calibrateCleanWater();
+
+    Serial.print(F("New Turbidity Ref (vClean) Set to: "));
+    Serial.print(turbiditySensor.getVClean());
+    Serial.println(F(" V"));
+
+    displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(), true);
+    delay(3000); // 3-second hold to present success payload as approved
+    displayManager.clear();
+    currentMode = MODE_NORMAL;
+    lastPollTime = millis();
+  }
+
   // 4. Update the LCD Display (Every 1 second)
   if (currentMillis - lastDisplayRefreshTime >= DISPLAY_REFRESH_MS) {
     lastDisplayRefreshTime = currentMillis;
@@ -226,7 +257,7 @@ void loop() {
       float concVal =
           doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
       displayManager.showNormalScreen(satVal, concVal, tempVal,
-                                      phSensor.getPH());
+                                      phSensor.getPH(), currentTurbidity);
     } else if (currentMode == MODE_PH_CALIBRATION) {
       if (millis() - phCalStatusMsgTimer > 3000) {
         phCalStatusMsg = "Btn:Cal | Hold:Exit";
@@ -245,21 +276,32 @@ void loop() {
 void checkButtons() {
   unsigned long currentMillis = millis();
 
-  // --- Button 1: DO Calibration (Short Press) ---
+  // --- Button 1: DO Calibration & Turbidity Calibration (Short/Long Press) ---
   int readingDo = digitalRead(BUTTON_DO_PIN);
-  if (readingDo != lastButtonDoState) {
-    lastDebounceDoTime = currentMillis;
+
+  if (readingDo == LOW && lastButtonDoState == HIGH) {
+    // DO Button pressed down (Falling edge)
+    buttonDoPressTime = currentMillis;
+    buttonDoLongPressHandled = false;
   }
 
-  if ((currentMillis - lastDebounceDoTime) > DEBOUNCE_DELAY) {
-    static int buttonDoState = HIGH;
-    if (readingDo != buttonDoState) {
-      buttonDoState = readingDo;
-      if (buttonDoState == LOW) {
-        // DO Button Pressed (Falling edge)
-        if (currentMode == MODE_NORMAL) {
-          processCommand("CAL100");
-        }
+  if (readingDo == LOW && !buttonDoLongPressHandled) {
+    // Check for long press
+    if ((currentMillis - buttonDoPressTime) >= LONG_PRESS_DELAY) {
+      buttonDoLongPressHandled = true;
+      if (currentMode == MODE_NORMAL) {
+        currentMode = MODE_TURBIDITY_CAL;
+      }
+    }
+  }
+
+  if (readingDo == HIGH && lastButtonDoState == LOW) {
+    // DO Button released (Rising edge)
+    if (!buttonDoLongPressHandled &&
+        (currentMillis - buttonDoPressTime) > DEBOUNCE_DELAY) {
+      // Short press
+      if (currentMode == MODE_NORMAL) {
+        processCommand("CAL100");
       }
     }
   }
@@ -366,3 +408,4 @@ void processCommand(const String &cmd) {
     Serial.println(F("Please wait. DO calibration is in progress."));
   }
 }
+

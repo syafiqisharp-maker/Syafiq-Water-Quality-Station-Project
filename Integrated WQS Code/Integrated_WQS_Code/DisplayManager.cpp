@@ -26,7 +26,7 @@ void DisplayManager::clear() {
 }
 
 // Render the normal monitoring screen
-void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph) {
+void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct) {
     // Line 0: Dissolved Oxygen Saturation & Concentration
     if (doSat < 0.0 || isnan(doSat) || doConc < 0.0 || isnan(doConc)) {
         updateLine(0, "DO: --.-%% --.--mg/L");
@@ -48,8 +48,12 @@ void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, flo
         updateLine(2, "pH:   %.2f", ph);
     }
 
-    // Line 3: User's name centered
-    updateLine(3, "       Syafiq       ");
+    // Line 3: Turbidity
+    if (turbidityPct < 0.0 || isnan(turbidityPct)) {
+        updateLine(3, "Turb: --.- %%       ");
+    } else {
+        updateLine(3, "Turb: %.1f %%       ", turbidityPct);
+    }
 }
 
 // Render the DO calibration screen with countdown
@@ -83,6 +87,19 @@ void DisplayManager::showPHCalibrationScreen(float voltage, float temp, float cu
         updateLine(3, "%s", statusMsg);
     } else {
         updateLine(3, "Btn:Cal | Hold:Exit ");
+    }
+}
+
+// Render the Turbidity calibration screen
+void DisplayManager::showTurbidityCalibrationScreen(float vClean, bool success) {
+    updateLine(0, "* TURB CALIBRATION *");
+    updateLine(1, "Place in clean water");
+    if (success) {
+        updateLine(2, "Ref: %.2fV Set!    ", vClean);
+        updateLine(3, ">>> CAL SUCCESS <<<<");
+    } else {
+        updateLine(2, "Reading sensor...   ");
+        updateLine(3, "                    ");
     }
 }
 
