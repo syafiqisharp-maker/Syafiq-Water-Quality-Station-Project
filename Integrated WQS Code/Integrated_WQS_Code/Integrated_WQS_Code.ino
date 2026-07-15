@@ -1,43 +1,40 @@
 /*
   Integrated Water Quality Station (WQS)
 
-  This sketch integrates the DFRobot RS485 Fluorescence Dissolved Oxygen (DO)
-  Sensor (SEN0681) and the Gravity Analog pH Sensor V2 on a 30-pin ESP32. It
-  outputs data to an LCD Model 2004A-V1.3 (20x4 Character I2C LCD).
+  This sketch integrates three sensors on a 30-pin ESP32:
+  1. DFRobot RS485 Fluorescence Dissolved Oxygen (DO) Sensor (SEN0681)
+  2. Gravity Analog pH Sensor V2
+  3. Analog Turbidity Sensor
+  It outputs data to an LCD Model 2004A-V1.3 (20x4 Character I2C LCD).
 
   Architecture:
-  - Config.h         : General definitions, pin mappings, timing.
-  - DOSensor.h/.cpp   : RS485 Modbus RTU communication wrapper for DO sensor.
-  - PHSensor.h/.cpp   : Gravity Analog pH sensor wrapper with temperature
-  compensation.
-  - DisplayManager.h/.cpp: Anti-flicker character LCD layout and refresh
-  manager.
-  - ButtonHandler.h/.cpp: Debouncing and short/long press detection wrapper.
+  - Config.h             : General definitions, pin mappings, timing.
+  - DOSensor.h/.cpp      : RS485 Modbus RTU communication wrapper for DO sensor.
+  - PHSensor.h/.cpp      : Gravity Analog pH sensor wrapper with temp comp.
+  - TurbiditySensor.h/.cpp: Analog turbidity sensor wrapper with NVS calibration.
+  - DisplayManager.h/.cpp: Anti-flicker character LCD layout & refresh manager.
+  - ButtonHandler.h/.cpp : Debouncing and short/long press detection wrapper.
 
   Wiring Connection for 30-pin ESP32:
   - RS485-to-TTL Converter (for DO Sensor):
       * TXD / RO (Receive Out) -> ESP32 RX2 (GPIO 16)
       * RXD / DI (Driver In)   -> ESP32 TX2 (GPIO 17)
-      * GND                    -> ESP32 GND
-      * VCC                    -> ESP32 5V (or external 5V)
   - Analog pH Sensor:
       * Analog Signal (A)      -> ESP32 GPIO 35 (ADC1_CH7)
-      * VCC (V)                -> ESP32 5V (or 3.3V, check sensor version)
-      * GND (G)                -> ESP32 GND
+  - Analog Turbidity Sensor:
+      * Signal OUT             -> ESP32 GPIO 34 (Requires 1/2 Voltage Divider)
   - I2C LCD Display (2004A with PCF8574 Backpack):
       * SDA                    -> ESP32 GPIO 21
       * SCL                    -> ESP32 GPIO 22
-      * VCC                    -> ESP32 5V
-      * GND                    -> ESP32 GND
+  - Physical Buttons:
+      * DO/Turbidity Button    -> ESP32 GPIO 12 (to GND)
+      * pH Button              -> ESP32 GPIO 13 (to GND)
 
   Serial Commands:
   - CAL100  -> Enters DO atmospheric 100% calibration countdown (5s countdown).
-  - enterph -> Enters pH calibration mode (solution temperature is automatically
-  compensated).
-  - calph   -> Calibrates current pH buffer solution (auto-detects pH 4.0 or 7.0
-  standard buffer).
-  - exitph  -> Saves pH calibration parameters to NVS flash and returns to
-  normal monitoring.
+  - enterph -> Enters pH calibration mode (temp automatically compensated).
+  - calph   -> Calibrates current pH buffer solution (auto-detects pH 4.0 or 7.0).
+  - exitph  -> Saves pH calibration parameters to NVS flash and returns to normal.
 */
 
 #include "Config.h"
@@ -144,7 +141,7 @@ void setup() {
 
   // Perform initial readings immediately
   doSensor.query();
-  float initTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  float initTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
   phSensor.update(initTemp);
 
   // Initial display refresh
@@ -196,7 +193,7 @@ void handleNormalMode(unsigned long currentMillis) {
 
     doSensor.query();
 
-    float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+    float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
     phSensor.update(currentTemp);
 
     currentTurbidity = turbiditySensor.getTurbidityPct();
@@ -269,7 +266,7 @@ void handlePHCalibrationMode(unsigned long currentMillis) {
   if (currentMillis - lastPollTime >= 1000U) {
     lastPollTime = currentMillis;
 
-    float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+    float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
     phSensor.update(currentTemp);
   }
 
@@ -280,7 +277,7 @@ void handlePHCalibrationMode(unsigned long currentMillis) {
     if (millis() - phCalStatusMsgTimer > 3000) {
       phCalStatusMsg = "Btn:Cal | Hold:Exit";
     }
-    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
     displayManager.showPHCalibrationScreen(phSensor.getVoltage(), tempVal, phSensor.getPH(), phCalStatusMsg.c_str());
   }
 }
@@ -370,7 +367,7 @@ void startTurbidityCalibration() {
 
 void enterPHCalibration() {
   currentMode = MODE_PH_CALIBRATION;
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
   phSensor.sendCalibrationCommand(currentTemp, "enterph");
   phCalStatusMsg = "Btn:Cal | Hold:Exit";
   phCalStatusMsgTimer = 0;
@@ -378,7 +375,7 @@ void enterPHCalibration() {
 }
 
 void executePHCalibration() {
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
   phSensor.sendCalibrationCommand(currentTemp, "calph");
   phCalStatusMsg = ">>> Calibrated! <<<";
   phCalStatusMsgTimer = millis();
@@ -386,7 +383,7 @@ void executePHCalibration() {
 }
 
 void exitPHCalibration() {
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
   phSensor.sendCalibrationCommand(currentTemp, "exitph");
   currentMode = MODE_NORMAL;
   displayManager.clear();
@@ -395,7 +392,7 @@ void exitPHCalibration() {
 }
 
 void forwardPHCommand(const String &cmd) {
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 25.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
   Serial.print(F("Forwarding custom calibration command to pH: "));
   Serial.println(cmd);
   phSensor.sendCalibrationCommand(currentTemp, cmd.c_str());

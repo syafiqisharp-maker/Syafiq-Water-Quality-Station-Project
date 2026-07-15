@@ -3,7 +3,7 @@
 
 // Constructor
 PHSensor::PHSensor(int pin) 
-    : _pin(pin), _voltage(0.0), _phValue(7.00) {}
+    : _pin(pin), _voltage(0.0), _phValue(7.00), _lastCalVoltage(0.0) {}
 
 // Initialise the pH sensor pin and DFRobot library
 void PHSensor::begin() {
@@ -37,7 +37,7 @@ float PHSensor::readOversampledMilliVolts() {
 #else
         samples[i] = analogRead(_pin) / 1024.0f * 5000.0f;
 #endif
-        delay(5); // 5 ms gap → 20 samples = 100 ms total, negligible in a 5 s poll cycle
+        delay(50); // 50 ms gap -> 20 samples = 1000 ms total
     }
 
     // --- 2. Sort ascending (bubble sort; tiny array, fast enough) ---
@@ -70,16 +70,30 @@ void PHSensor::sendCalibrationCommand(float solutionTemperature, const char* cmd
     strncpy(cmdBuf, cmd, sizeof(cmdBuf));
     cmdBuf[sizeof(cmdBuf) - 1] = '\0';
 
+    String cmdStr = String(cmd);
+    cmdStr.toUpperCase();
+
+    // Workaround for DFRobot_PH library limitation:
+    // The library only saves EEPROM during "EXITPH" if the CURRENT voltage 
+    // is still within the buffer solution range. If the user removes the probe 
+    // before exiting, it fails to save. We cache the voltage when "CALPH" is 
+    // called, and replay it for "EXITPH".
+    float voltageToPass = _voltage;
+    if (cmdStr.indexOf("CALPH") >= 0) {
+        _lastCalVoltage = _voltage;
+    } else if (cmdStr.indexOf("EXITPH") >= 0 && _lastCalVoltage > 0.0) {
+        voltageToPass = _lastCalVoltage;
+    }
+
     // Execute calibration command
-    _ph.calibration(_voltage, solutionTemperature, cmdBuf);
+    _ph.calibration(voltageToPass, solutionTemperature, cmdBuf);
 
 #if defined(ESP32) || defined(ESP8266)
     // The DFRobot_PH library writes to EEPROM but does not call commit().
     // On ESP32, changes to EEPROM remain in RAM until EEPROM.commit() is called.
-    String cmdStr = String(cmd);
-    cmdStr.toUpperCase();
     if (cmdStr.indexOf("EXITPH") >= 0) {
         EEPROM.commit();
+        _lastCalVoltage = 0.0; // Reset cache after exit
     }
 #endif
 }

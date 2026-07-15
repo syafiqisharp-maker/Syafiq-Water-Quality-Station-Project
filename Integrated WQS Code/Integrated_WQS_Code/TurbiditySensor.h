@@ -5,6 +5,9 @@
 #include <esp_adc_cal.h>
 #include <Preferences.h>
 
+#define TURBIDITY_NUM_SAMPLES 20
+#define TURBIDITY_DISCARD_EACH 6
+
 class TurbiditySensor {
 public:
     TurbiditySensor(int pin);
@@ -23,6 +26,7 @@ private:
 
     void loadBaseline();
     void saveBaseline();
+    float readOversampledVoltage();
 };
 
 #endif // TURBIDITY_SENSOR_H

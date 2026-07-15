@@ -31,6 +31,7 @@ private:
     int _pin;
     float _voltage;
     float _phValue;
+    float _lastCalVoltage; // Caches voltage during CALPH to ensure EXITPH saves correctly
     DFRobot_PH _ph;
 
     // Collect, sort, and trim-average multiple ADC readings to reduce ESP32 ADC noise

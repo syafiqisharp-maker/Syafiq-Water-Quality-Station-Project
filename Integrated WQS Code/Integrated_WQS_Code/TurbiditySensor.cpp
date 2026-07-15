@@ -34,25 +34,14 @@ float TurbiditySensor::getVClean() const {
 }
 
 void TurbiditySensor::calibrateCleanWater() {
-    float sumMV = 0;
-    for (int i = 0; i < 10; i++) {
-        int raw = analogRead(_pin);
-        sumMV += esp_adc_cal_raw_to_voltage(raw, &_adcChars);
-    }
-    float measuredV = (sumMV / 10.0) / 1000.0;
-    _vClean = measuredV * 2.0;
+    float measuredV = readOversampledVoltage();
+    _vClean = measuredV * 1.84;
     saveBaseline();
 }
 
 float TurbiditySensor::getTurbidityPct() {
-    float sumMV = 0;
-    // Fast non-blocking accumulation
-    for (int i = 0; i < 10; i++) {
-        int raw = analogRead(_pin);
-        sumMV += esp_adc_cal_raw_to_voltage(raw, &_adcChars);
-    }
-    float voltageMeasured = (sumMV / 10.0) / 1000.0;
-    float voltageSensor = voltageMeasured * 2.0;
+    float voltageMeasured = readOversampledVoltage();
+    float voltageSensor = voltageMeasured * 1.84;
 
     float clampedV = voltageSensor;
     if (clampedV > _vClean) clampedV = _vClean;
@@ -69,4 +58,35 @@ float TurbiditySensor::getTurbidityPct() {
     if (turbidityPct > 100.0) turbidityPct = 100.0;
 
     return turbidityPct;
+}
+
+float TurbiditySensor::readOversampledVoltage() {
+    float samples[TURBIDITY_NUM_SAMPLES];
+
+    // --- 1. Collect samples with a small inter-sample gap ---
+    for (int i = 0; i < TURBIDITY_NUM_SAMPLES; i++) {
+        int raw = analogRead(_pin);
+        samples[i] = esp_adc_cal_raw_to_voltage(raw, &_adcChars) / 1000.0; // Convert to volts
+        delay(50); // 50 ms gap -> 20 samples = 1000 ms total
+    }
+
+    // --- 2. Sort ascending (bubble sort) ---
+    for (int i = 0; i < TURBIDITY_NUM_SAMPLES - 1; i++) {
+        for (int j = 0; j < TURBIDITY_NUM_SAMPLES - 1 - i; j++) {
+            if (samples[j] > samples[j + 1]) {
+                float tmp    = samples[j];
+                samples[j]   = samples[j + 1];
+                samples[j + 1] = tmp;
+            }
+        }
+    }
+
+    // --- 3. Trim-mean: average the middle values only ---
+    float sum       = 0.0f;
+    int   validCount = TURBIDITY_NUM_SAMPLES - 2 * TURBIDITY_DISCARD_EACH; // 20 - (2 * 6) = 8 samples
+    for (int i = TURBIDITY_DISCARD_EACH; i < TURBIDITY_NUM_SAMPLES - TURBIDITY_DISCARD_EACH; i++) {
+        sum += samples[i];
+    }
+
+    return sum / (float)validCount;
 }

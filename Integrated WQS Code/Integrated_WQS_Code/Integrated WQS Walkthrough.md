@@ -12,7 +12,8 @@ All source files are located inside the directory:
 *   **`Integrated WQS Code.ino`**: The main Arduino sketch. Coordinates the non-blocking execution schedules of sensor polling, LCD updates, and Serial Monitor command processing.
 *   **`Config.h`**: Centralized configuration file containing pin configurations, Modbus registers, LCD specifications, and timing intervals.
 *   **`DOSensor.h` & `DOSensor.cpp`**: Implements the `DOSensor` class which encapsulates the Modbus RTU communication protocol for the DFRobot RS485 Dissolved Oxygen sensor (SKU: SEN0681).
-*   **`PHSensor.h` & `PHSensor.cpp`**: Implements the `PHSensor` class, wrapping the `DFRobot_PH` library, reading voltages via ESP32's optimized `analogReadMilliVolts()`, and performing temperature compensation.
+*   **`PHSensor.h` & `PHSensor.cpp`**: Implements the `PHSensor` class, wrapping the `DFRobot_PH` library, reading voltages via ESP32's optimized `analogReadMilliVolts()`, and performing temperature compensation. Added debounce timing and separated long-press logic for accurate mode switching.
+*   **pH Calibration Bug Fix**: Overcame a DFRobot_PH library bug where calibration data failed to save if the probe was removed from the buffer solution before exiting. `PHSensor` now caches the valid voltage during the `CALPH` command and replays it during `EXITPH` to ensure EEPROM commits successfully every time.
 *   **`TurbiditySensor.h` & `TurbiditySensor.cpp`**: Implements the `TurbiditySensor` class which handles ADC reading, Beer-Lambert Law interpolation for mapping voltage to Turbidity Percentage, and NVS persistence for clear-water baseline calibration.
 *   **`DisplayManager.h` & `DisplayManager.cpp`**: Controls the LCD Model 2004A-V1.3 using the `LiquidCrystal_I2C` library. Uses an anti-flicker differential frame buffer to only update characters that change on screen.
 *   **`ButtonHandler.h` & `ButtonHandler.cpp`**: A clean, reusable wrapper class for physical tactile buttons. It handles non-blocking debouncing and short vs. long press detection.
@@ -74,6 +75,7 @@ Open the Arduino Serial Monitor at **115200 baud** with line endings set to **Ne
 3. Wait for the voltage to stabilize.
 4. Type `calph` and press Enter. The `DFRobot_PH` library automatically detects whether the solution is pH 4.0 or 7.0 and adjusts calibration.
 5. Type `exitph` and press Enter. The library saves the calibration settings into the ESP32's native non-volatile storage (Preferences / NVS) and normal monitoring mode resumes.
+
 ### 3. Turbidity Sensor Calibration (Clean Water Baseline)
 1. Clean the turbidity probe thoroughly with distilled water and a soft cloth.
 2. Place the probe into a container of perfectly clean, clear water (e.g., distilled water).
@@ -82,6 +84,14 @@ Open the Arduino Serial Monitor at **115200 baud** with line endings set to **Ne
 5. Press and **hold Button 1 (GPIO 12) for more than 2 seconds**.
 6. The LCD will flash `* TURB CALIBRATION *`, rapidly read the sensor 10 times to compute an average clean water voltage baseline, and save this new reference to the ESP32's non-volatile storage.
 7. The LCD will display `>>> CAL SUCCESS <<<<` with the new reference voltage for 3 seconds before automatically returning to normal monitoring mode.
+
+> [!NOTE]
+> **Hardware Voltage Divider Tuning**
+> If you notice a difference between the "calibrated voltage" displayed on the screen and the actual voltage measured with a physical voltmeter at the sensor output, it is due to a combination of **resistor tolerances** in your voltage divider and **ESP32 ADC offset**.
+> You can manually fix this by updating the hardware multiplier in `TurbiditySensor.cpp`. 
+> Navigate to `TurbiditySensor::calibrateCleanWater()` and `TurbiditySensor::getTurbidityPct()` and adjust the multiplier.
+> The easiest way to calculate your exact multiplier is:
+> `New Multiplier = (Actual Target Voltage / Voltage Displayed on Screen) * Current Multiplier`
 
 ---
 

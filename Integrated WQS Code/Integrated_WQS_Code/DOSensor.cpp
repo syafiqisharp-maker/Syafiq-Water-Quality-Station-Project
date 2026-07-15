@@ -46,7 +46,8 @@ bool DOSensor::query() {
 
     if (satSuccess && conSuccess && tempSuccess) {
         // Convert register pairs to IEEE 754 32-bit float values
-        float satVal  = registersToFloat(regsSaturation[0],    regsSaturation[1]);
+        // Note: Sensor returns saturation as a ratio (e.g. 1.0 = 100%), so we multiply by 100.0
+        float satVal  = registersToFloat(regsSaturation[0],    regsSaturation[1]) * 100.0;
         float concVal = registersToFloat(regsConcentration[0], regsConcentration[1]);
         float tempVal = registersToFloat(regsTemperature[0],   regsTemperature[1]);
 
