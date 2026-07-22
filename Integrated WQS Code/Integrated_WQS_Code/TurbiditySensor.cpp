@@ -4,9 +4,6 @@ TurbiditySensor::TurbiditySensor(int pin) : _pin(pin), _vClean(4.20) {}
 
 void TurbiditySensor::begin() {
   pinMode(_pin, INPUT);
-  analogSetPinAttenuation(_pin, ADC_11db);
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, ADC_WIDTH_BIT_12, 1100,
-                           &_adcChars);
   loadBaseline();
 }
 
@@ -73,9 +70,7 @@ float TurbiditySensor::readOversampledVoltage() {
 
   // --- 1. Collect samples with a small inter-sample gap ---
   for (int i = 0; i < TURBIDITY_NUM_SAMPLES; i++) {
-    int raw = analogRead(_pin);
-    samples[i] = esp_adc_cal_raw_to_voltage(raw, &_adcChars) /
-                 1000.0; // Convert to volts
+    samples[i] = (float)analogReadMilliVolts(_pin) / 1000.0f; // Convert mV to Volts
     delay(50);           // 50 ms gap -> 20 samples = 1000 ms total
   }
 

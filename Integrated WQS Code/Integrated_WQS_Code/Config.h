@@ -36,6 +36,8 @@
 #define LCD_I2C_ADDRESS 0x27 // Default I2C address for PCF8574 (can be 0x3F)
 #define LCD_COLUMNS 20       // Columns on LCD screen
 #define LCD_ROWS 4           // Rows on LCD screen
+#define LCD_SDA_PIN 8        // I2C SDA pin for ESP32-S3
+#define LCD_SCL_PIN 9        // I2C SCL pin for ESP32-S3
 
 // ==========================================
 // TIMING CONSTANTS (Milliseconds)

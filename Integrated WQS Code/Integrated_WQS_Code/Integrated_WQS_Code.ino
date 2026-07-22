@@ -24,7 +24,8 @@
   - Analog pH Sensor:
       * Analog Signal (A)      -> ESP32-S3 GPIO 4 (ADC1_CH3)
   - Analog Turbidity Sensor:
-      * Signal OUT             -> ESP32-S3 GPIO 5 (ADC1_CH4, Requires 1/2 Voltage Divider)
+      * Signal OUT             -> ESP32-S3 GPIO 5 (ADC1_CH4, Requires 1/2
+  Voltage Divider)
   - I2C LCD Display (2004A with PCF8574 Backpack):
       * SDA                    -> ESP32-S3 GPIO 8 or GPIO 21
       * SCL                    -> ESP32-S3 GPIO 9 or GPIO 22
@@ -126,6 +127,11 @@ void handlePHCalibrationMode(unsigned long currentMillis);
 void setup() {
   // Start standard Serial for PC interface
   Serial.begin(115200);
+  // Wait up to 2 seconds for USB CDC Serial connection
+  unsigned long serialStart = millis();
+  while (!Serial && (millis() - serialStart < 2000)) {
+    delay(10);
+  }
   delay(500);
 
   Serial.println(
@@ -133,8 +139,9 @@ void setup() {
   Serial.println(F("Integrated Water Quality Station (WQS) - Initializing..."));
   Serial.println(F("========================================================"));
 
-  // Initialize I2C Bus for the LCD
-  Wire.begin();
+  // Initialize I2C Bus for the LCD with explicit timeout protection
+  Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
+  Wire.setTimeOut(250);
 
   // Initialize Buttons
   doButton.begin();
@@ -154,7 +161,8 @@ void setup() {
   Serial.println(F("-> I2C LCD Display: Initialized OK"));
   Serial.println(F("-> DO Sensor (RS485 Serial2): Initialized OK"));
   Serial.printf("-> pH Sensor (GPIO %d): Initialized OK\n", PH_PIN);
-  Serial.printf("-> Turbidity Sensor (GPIO %d): Initialized OK\n", TURBIDITY_PIN);
+  Serial.printf("-> Turbidity Sensor (GPIO %d): Initialized OK\n",
+                TURBIDITY_PIN);
   Serial.println(F("--------------------------------------------------------"));
   Serial.println(F("System Ready. Polling sensors every 5 seconds."));
   Serial.println(
@@ -469,7 +477,7 @@ void maintainWiFi() {
   if (WiFi.status() == WL_CONNECTED && !otaInitialized) {
     // Set explicit hostname for Arduino IDE Network Port discovery
     ArduinoOTA.setHostname("ESP32-S3-WQS");
-    
+
     // Optional: Uncomment to protect wireless uploads with a password
     // ArduinoOTA.setPassword("admin123");
 

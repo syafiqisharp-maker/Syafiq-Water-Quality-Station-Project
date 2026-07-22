@@ -2,7 +2,6 @@
 #define TURBIDITY_SENSOR_H
 
 #include <Arduino.h>
-#include <esp_adc_cal.h>
 #include <Preferences.h>
 
 #define TURBIDITY_NUM_SAMPLES 20
@@ -21,7 +20,6 @@ private:
     float _vClean;
     const float _vDirty = 2.50;
     
-    esp_adc_cal_characteristics_t _adcChars;
     Preferences _preferences;
 
     void loadBaseline();
