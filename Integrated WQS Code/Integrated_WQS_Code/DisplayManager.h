@@ -14,7 +14,7 @@ public:
     void begin();
 
     // Render the normal monitoring screen
-    void showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct);
+    void showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, bool wifiConnected = false);
 
     // Render the DO calibration screen with countdown
     void showDOCalibrationScreen(int countdownSeconds);

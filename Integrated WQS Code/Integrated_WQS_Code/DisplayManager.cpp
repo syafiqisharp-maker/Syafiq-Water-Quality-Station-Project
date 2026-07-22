@@ -26,7 +26,7 @@ void DisplayManager::clear() {
 }
 
 // Render the normal monitoring screen
-void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct) {
+void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, bool wifiConnected) {
     // Line 0: Dissolved Oxygen Saturation & Concentration
     if (doSat < 0.0 || isnan(doSat) || doConc < 0.0 || isnan(doConc)) {
         updateLine(0, "DO: --.-%% --.--mg/L");
@@ -49,10 +49,11 @@ void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, flo
     }
 
     // Line 3: Turbidity
+    char wifiIcon = wifiConnected ? 'W' : ' ';
     if (turbidityPct < 0.0 || isnan(turbidityPct)) {
-        updateLine(3, "Turb: --.- %%       ");
+        updateLine(3, "Turb: --.- %%      %c", wifiIcon);
     } else {
-        updateLine(3, "Turb: %.1f %%       ", turbidityPct);
+        updateLine(3, "Turb: %.1f %%      %c", turbidityPct, wifiIcon);
     }
 }
 
