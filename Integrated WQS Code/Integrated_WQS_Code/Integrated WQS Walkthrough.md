@@ -1,6 +1,6 @@
 # Integrated Water Quality Station (WQS) Walkthrough
 
-This document outlines the architecture, hardware connections, calibration instructions, and timing details for the integrated Water Quality Station codebase.
+This document outlines the architecture, hardware connections, IDE build configurations (including Partition Scheme for OTA), calibration instructions, and timing details for the integrated Water Quality Station codebase.
 
 ---
 
@@ -9,35 +9,90 @@ This document outlines the architecture, hardware connections, calibration instr
 All source files are located inside the directory:
 `Integrated WQS Code/`
 
-*   **`Integrated WQS Code.ino`**: The main Arduino sketch. Coordinates the non-blocking execution schedules of sensor polling, LCD updates, and Serial Monitor command processing.
-*   **`Config.h`**: Centralized configuration file containing pin configurations, Modbus registers, LCD specifications, and timing intervals.
+*   **`Integrated_WQS_Code.ino`**: The main Arduino sketch. Coordinates the non-blocking execution schedules of sensor polling, LCD updates, Serial command processing, and Over-The-Air (OTA) Wi-Fi updates.
+*   **`Config.h`**: Centralized configuration file containing pin definitions for ESP32-S3, Modbus registers, LCD specifications, and timing intervals.
 *   **`DOSensor.h` & `DOSensor.cpp`**: Implements the `DOSensor` class which encapsulates the Modbus RTU communication protocol for the DFRobot RS485 Dissolved Oxygen sensor (SKU: SEN0681).
-*   **`PHSensor.h` & `PHSensor.cpp`**: Implements the `PHSensor` class, wrapping the `DFRobot_PH` library, reading voltages via ESP32's optimized `analogReadMilliVolts()`, and performing temperature compensation. Added debounce timing and separated long-press logic for accurate mode switching.
-*   **pH Calibration Bug Fix**: Overcame a DFRobot_PH library bug where calibration data failed to save if the probe was removed from the buffer solution before exiting. `PHSensor` now caches the valid voltage during the `CALPH` command and replays it during `EXITPH` to ensure EEPROM commits successfully every time.
+*   **`PHSensor.h` & `PHSensor.cpp`**: Implements the `PHSensor` class, wrapping the `DFRobot_PH` library, reading voltages via ESP32's optimized `analogReadMilliVolts()`, and performing temperature compensation.
 *   **`TurbiditySensor.h` & `TurbiditySensor.cpp`**: Implements the `TurbiditySensor` class which handles ADC reading, Beer-Lambert Law interpolation for mapping voltage to Turbidity Percentage, and NVS persistence for clear-water baseline calibration.
 *   **`DisplayManager.h` & `DisplayManager.cpp`**: Controls the LCD Model 2004A-V1.3 using the `LiquidCrystal_I2C` library. Uses an anti-flicker differential frame buffer to only update characters that change on screen.
 *   **`ButtonHandler.h` & `ButtonHandler.cpp`**: A clean, reusable wrapper class for physical tactile buttons. It handles non-blocking debouncing and short vs. long press detection.
 
 ---
 
-## 🔌 Hardware Connections (30-pin ESP32)
+## ⚙️ Arduino IDE Configuration & Partition Scheme (Crucial for OTA & ESP32-S3 N16R8)
+
+When compiling and uploading code to the **ESP32-S3 N16R8** (16MB Flash / 8MB PSRAM), navigate to **Tools** in the Arduino IDE and configure these exact settings:
+
+### 1. Board Settings
+| Menu Option | Recommended Setting |
+| :--- | :--- |
+| **Board** | `ESP32S3 Dev Module` |
+| **Flash Size** | `16MB (128Mb)` |
+| **PSRAM** | `OPI PSRAM` (or `Enabled`) |
+| **USB Mode** | `Hardware CDC and JTAG` |
+| **USB CDC On Boot** | `Enabled` *(Required for `Serial.print` over native USB)* |
+| **Partition Scheme** | **`16M Flash (3MB APP / 9.9MB FATFS)`** OR **`16M Flash (2MB APP / 12.5MB SPIFFS)`** |
+
+---
+
+### 🔍 Deep-Dive: What is the Partition Scheme & Why is it Crucial?
+
+#### What is a Partition Scheme?
+The ESP32's internal 16MB flash storage is partitioned like a hard drive. It splits space between:
+1. **Application Code space (`app0` / `app1`)**
+2. **File System space (SPIFFS / FATFS / LittleFS)**
+3. **Non-Volatile Storage (NVS)** for persistent settings and calibration data.
+
+#### Why is Partition Selection Crucial for Over-The-Air (OTA) Updates?
+During an **OTA Wireless Update**, the ESP32 must continue running the current firmware while simultaneously receiving the new binary over Wi-Fi. To achieve this safely:
+* The chip requires **DUAL App Partitions** (`app0` and `app1`).
+* **How it works**:
+  1. The ESP32 runs code out of `app0`.
+  2. Over Wi-Fi, it downloads the incoming code line-by-line directly into `app1`.
+  3. Once verified, it switches the bootloader pointer to `app1` and reboots.
+
+> [!WARNING]
+> **Partition Scheme Pitfall**
+> If you select a scheme with **No OTA** (such as *"Huge APP with no OTA"* or *"16MB (15MB APP / No OTA)"*), the ESP32 only has one single app partition. **OTA update requests will fail instantly** because there is no secondary partition to store the incoming binary!
+
+#### How to Check & Set it in Arduino IDE:
+1. Open Arduino IDE.
+2. Go to top menu: **Tools > Partition Scheme**.
+3. Select **`16M Flash (3MB APP / 9.9MB FATFS)`** (or any 16M scheme containing OTA app partitions).
+
+---
+
+## 📡 Over-The-Air (OTA) Wireless Upload Guide
+
+Once your ESP32-S3 is running this code:
+
+1. **First Upload**: Upload the code via USB cable once so the ESP32 boots with Wi-Fi and OTA initialized.
+2. **Verify Wi-Fi Connection**: Ensure your PC is connected to the same network specified in `Config.h`.
+3. **Select Wireless Port**:
+   - Go to **Tools > Port**.
+   - Under **Network Ports**, select `ESP32-S3-WQS at 192.168.x.x`.
+4. **Upload Wirelessly**: Click **Upload**. Arduino IDE will compile and transfer the new firmware wirelessly over Wi-Fi without needing a USB cable.
+
+---
+
+## 🔌 Hardware Connections (ESP32-S3 44-pin Board)
 
 Please configure your physical wiring as defined below:
 
-| Device | Device Pin | ESP32 Pin | Notes |
+| Device | Device Pin | ESP32-S3 Pin | Notes |
 | :--- | :--- | :--- | :--- |
-| **I2C LCD 2004** | SDA | **GPIO 21** | ESP32 hardware I2C SDA |
-| | SCL | **GPIO 22** | ESP32 hardware I2C SCL |
+| **I2C LCD 2004** | SDA | **GPIO 8** or **GPIO 21** | ESP32-S3 hardware I2C SDA |
+| | SCL | **GPIO 9** or **GPIO 22** | ESP32-S3 hardware I2C SCL |
 | | VCC | 5V | LCD 2004 requires 5V to run |
 | | GND | GND | Common Ground |
 | **RS485-to-TTL** | RO (RXD) | **GPIO 16 (RX2)** | Hardware Serial2 RX |
 | (for DO Sensor) | DI (TXD) | **GPIO 17 (TX2)** | Hardware Serial2 TX |
 | | VCC | 5V / 3.3V | Check adapter requirements |
 | | GND | GND | Common Ground |
-| **Analog pH** | Signal (A) | **GPIO 35 (ADC1)**| Input-only pin (ideal for ADC) |
+| **Analog pH** | Signal (A) | **GPIO 4 (ADC1_CH3)**| Dedicated ADC1 pin for ESP32-S3 |
 | | VCC (V) | 5V / 3.3V | Check sensor edition |
 | | GND (G) | GND | Common Ground |
-| **Turbidity Sensor** | Signal OUT | **GPIO 34 (ADC1)**| Requires 1/2 Voltage Divider (e.g. two 10k resistors) before entering GPIO 34 |
+| **Turbidity Sensor** | Signal OUT | **GPIO 5 (ADC1_CH4)**| Dedicated ADC1 pin (Requires 1/2 Voltage Divider before entering pin) |
 | | VCC | 5V | Runs on 5V from VIN/USB |
 | | GND | GND | Common Ground |
 | **Physical Buttons** | DO/Turbidity | **GPIO 12** | Connect to GND (Uses internal pull-up) |

@@ -2,11 +2,15 @@
 #define CONFIG_H
 
 // ==========================================
-// PIN CONFIGURATIONS (ESP32 30-Pin)
+// PIN CONFIGURATIONS (ESP32-S3 44-Pin)
 // ==========================================
-#define PH_PIN 35    // Analog input pin for pH sensor (ADC1_CH7)
-#define DO_RX_PIN 16 // GPIO connected to RS485 RO (RX2)
-#define DO_TX_PIN 17 // GPIO connected to RS485 DI (TX2)
+#define PH_PIN 4        // Analog input for pH sensor (ADC1_CH3 on ESP32-S3)
+#define TURBIDITY_PIN 5 // Analog input for Turbidity sensor (ADC1_CH4 on ESP32-S3)
+#define DO_RX_PIN 16    // RS485 RO (RX2 pin on ESP32-S3)
+#define DO_TX_PIN 17    // RS485 DI (TX2 pin on ESP32-S3)
+
+#define BUTTON_DO_PIN 12 // DO / Turbidity calibration button
+#define BUTTON_PH_PIN 13 // pH calibration button
 
 // Set to the control pin if using RE/DE flow control (e.g. GPIO 4)
 // Set to -1 if using an RS485 converter with automatic flow direction

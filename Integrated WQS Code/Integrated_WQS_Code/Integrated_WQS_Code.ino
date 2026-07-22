@@ -1,11 +1,12 @@
 /*
   Integrated Water Quality Station (WQS)
 
-  This sketch integrates three sensors on a 30-pin ESP32:
+  This sketch integrates three sensors on a 44-pin ESP32-S3 (N16R8):
   1. DFRobot RS485 Fluorescence Dissolved Oxygen (DO) Sensor (SEN0681)
   2. Gravity Analog pH Sensor V2
   3. Analog Turbidity Sensor
-  It outputs data to an LCD Model 2004A-V1.3 (20x4 Character I2C LCD).
+  It outputs data to an LCD Model 2004A-V1.3 (20x4 Character I2C LCD) and
+  supports Over-The-Air (OTA) updates via Wi-Fi.
 
   Architecture:
   - Config.h             : General definitions, pin mappings, timing.
@@ -16,20 +17,20 @@
   - DisplayManager.h/.cpp: Anti-flicker character LCD layout & refresh manager.
   - ButtonHandler.h/.cpp : Debouncing and short/long press detection wrapper.
 
-  Wiring Connection for 30-pin ESP32:
+  Wiring Connection for ESP32-S3 (44-pin Board):
   - RS485-to-TTL Converter (for DO Sensor):
-      * TXD / RO (Receive Out) -> ESP32 RX2 (GPIO 16)
-      * RXD / DI (Driver In)   -> ESP32 TX2 (GPIO 17)
+      * TXD / RO (Receive Out) -> ESP32-S3 RX2 (GPIO 16)
+      * RXD / DI (Driver In)   -> ESP32-S3 TX2 (GPIO 17)
   - Analog pH Sensor:
-      * Analog Signal (A)      -> ESP32 GPIO 35 (ADC1_CH7)
+      * Analog Signal (A)      -> ESP32-S3 GPIO 4 (ADC1_CH3)
   - Analog Turbidity Sensor:
-      * Signal OUT             -> ESP32 GPIO 34 (Requires 1/2 Voltage Divider)
+      * Signal OUT             -> ESP32-S3 GPIO 5 (ADC1_CH4, Requires 1/2 Voltage Divider)
   - I2C LCD Display (2004A with PCF8574 Backpack):
-      * SDA                    -> ESP32 GPIO 21
-      * SCL                    -> ESP32 GPIO 22
+      * SDA                    -> ESP32-S3 GPIO 8 or GPIO 21
+      * SCL                    -> ESP32-S3 GPIO 9 or GPIO 22
   - Physical Buttons:
-      * DO/Turbidity Button    -> ESP32 GPIO 12 (to GND)
-      * pH Button              -> ESP32 GPIO 13 (to GND)
+      * DO/Turbidity Button    -> ESP32-S3 GPIO 12 (to GND)
+      * pH Button              -> ESP32-S3 GPIO 13 (to GND)
 
   Serial Commands:
   - CAL100  -> Enters DO atmospheric 100% calibration countdown (5s countdown).
@@ -68,9 +69,6 @@ SystemMode currentMode = MODE_NORMAL;
 float currentTurbidity = 0.0;
 
 // --- Buttons ---
-#define BUTTON_DO_PIN 12
-#define BUTTON_PH_PIN 13
-
 ButtonHandler doButton(BUTTON_DO_PIN);
 ButtonHandler phButton(BUTTON_PH_PIN);
 
@@ -97,7 +95,7 @@ unsigned long phCalStatusMsgTimer = 0;
 // Using ESP32 HardwareSerial Serial2
 DOSensor doSensor(Serial2, DO_RX_PIN, DO_TX_PIN, RS485_RE_DE_PIN);
 PHSensor phSensor(PH_PIN);
-TurbiditySensor turbiditySensor(34);
+TurbiditySensor turbiditySensor(TURBIDITY_PIN);
 DisplayManager displayManager;
 
 // ==========================================
@@ -155,8 +153,8 @@ void setup() {
 
   Serial.println(F("-> I2C LCD Display: Initialized OK"));
   Serial.println(F("-> DO Sensor (RS485 Serial2): Initialized OK"));
-  Serial.println(F("-> pH Sensor (GPIO 35): Initialized OK"));
-  Serial.println(F("-> Turbidity Sensor (GPIO 34): Initialized OK"));
+  Serial.printf("-> pH Sensor (GPIO %d): Initialized OK\n", PH_PIN);
+  Serial.printf("-> Turbidity Sensor (GPIO %d): Initialized OK\n", TURBIDITY_PIN);
   Serial.println(F("--------------------------------------------------------"));
   Serial.println(F("System Ready. Polling sensors every 5 seconds."));
   Serial.println(
@@ -469,6 +467,12 @@ void forwardPHCommand(const String &cmd) {
 // ==========================================
 void maintainWiFi() {
   if (WiFi.status() == WL_CONNECTED && !otaInitialized) {
+    // Set explicit hostname for Arduino IDE Network Port discovery
+    ArduinoOTA.setHostname("ESP32-S3-WQS");
+    
+    // Optional: Uncomment to protect wireless uploads with a password
+    // ArduinoOTA.setPassword("admin123");
+
     ArduinoOTA.onStart([]() { Serial.println("OTA Update Starting"); });
     ArduinoOTA.onEnd([]() { Serial.println("\nOTA Update Complete"); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
@@ -477,7 +481,7 @@ void maintainWiFi() {
     ArduinoOTA.onError(
         [](ota_error_t error) { Serial.printf("Error[%u]: ", error); });
     ArduinoOTA.begin();
-    Serial.println("OTA Initialized and Ready");
+    Serial.println("OTA Initialized and Ready. Hostname: ESP32-S3-WQS");
     otaInitialized = true;
   }
 
