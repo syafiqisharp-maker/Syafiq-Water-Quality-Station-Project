@@ -26,7 +26,7 @@ void DisplayManager::clear() {
 }
 
 // Render the normal monitoring screen
-void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, bool wifiConnected) {
+void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, bool loraActive) {
     // Line 0: Dissolved Oxygen Saturation & Concentration
     if (doSat < 0.0 || isnan(doSat) || doConc < 0.0 || isnan(doConc)) {
         updateLine(0, "DO: --.-%% --.--mg/L");
@@ -48,12 +48,12 @@ void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, flo
         updateLine(2, "pH:   %.2f", ph);
     }
 
-    // Line 3: Turbidity
-    char wifiIcon = wifiConnected ? 'W' : ' ';
+    // Line 3: Turbidity & LoRa status indicator
+    char loraIcon = loraActive ? 'L' : ' ';
     if (turbidityPct < 0.0 || isnan(turbidityPct)) {
-        updateLine(3, "Turb: --.- %%      %c", wifiIcon);
+        updateLine(3, "Turb: --.- %%      %c", loraIcon);
     } else {
-        updateLine(3, "Turb: %.1f %%      %c", turbidityPct, wifiIcon);
+        updateLine(3, "Turb: %.1f %%      %c", turbidityPct, loraIcon);
     }
 }
 

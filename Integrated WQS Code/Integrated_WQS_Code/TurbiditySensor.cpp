@@ -70,8 +70,9 @@ float TurbiditySensor::readOversampledVoltage() {
 
   // --- 1. Collect samples with a small inter-sample gap ---
   for (int i = 0; i < TURBIDITY_NUM_SAMPLES; i++) {
-    samples[i] = (float)analogReadMilliVolts(_pin) / 1000.0f; // Convert mV to Volts
-    delay(50);           // 50 ms gap -> 20 samples = 1000 ms total
+    samples[i] =
+        (float)analogReadMilliVolts(_pin) / 1000.0f; // Convert mV to Volts
+    delay(50); // 50 ms gap -> 20 samples = 1000 ms total
   }
 
   // --- 2. Sort ascending (bubble sort) ---

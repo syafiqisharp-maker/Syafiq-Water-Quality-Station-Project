@@ -40,21 +40,22 @@
 #define LCD_SCL_PIN 9        // I2C SCL pin for ESP32-S3
 
 // ==========================================
+// LORA RA-02 (SX1278 433MHz) SETTINGS
+// ==========================================
+#define LORA_NSS_PIN 10     // SPI Chip Select
+#define LORA_SCK_PIN 11     // SPI Clock
+#define LORA_MOSI_PIN 14    // SPI Master Out Slave In
+#define LORA_MISO_PIN 15    // SPI Master In Slave Out
+#define LORA_RST_PIN 6      // Hardware Reset pin
+#define LORA_DIO0_PIN 7     // Interrupt / Packet RX/TX Done pin
+#define LORA_BAND 433E6     // 433 MHz Frequency
+#define LORA_SYNC_WORD 0xF3 // Matching Sync Word (0xF3)
+#define LORA_RETRY_INTERVAL_MS 30000U // Non-blocking auto-reconnect retry every 30s
+
+// ==========================================
 // TIMING CONSTANTS (Milliseconds)
 // ==========================================
 #define POLL_INTERVAL_MS 5000U   // Poll sensors every 5 seconds (standardized)
 #define DISPLAY_REFRESH_MS 1000U // Refresh LCD display output every 1 second
-#define GOOGLE_SHEETS_UPLOAD_MS                                                \
-  900000U // Upload data to Google Sheets every 15 mins (900,000 ms)
-
-// ==========================================
-// WIFI & GOOGLE SHEETS SETTINGS
-// ==========================================
-#define WIFI_SSID "BAB Staff"
-#define WIFI_PASSWORD "Blu3Archip3lago"
-#define GOOGLE_SCRIPT_URL                                                      \
-  "https://script.google.com/macros/s/"                                        \
-  "AKfycbzIDhUOzAT42pBSaJqW_8REP2zyL0EwqHWQDfvH9uRvT4IUjAGPCJzAkiGXC1opqV9C/"  \
-  "exec"
 
 #endif // CONFIG_H

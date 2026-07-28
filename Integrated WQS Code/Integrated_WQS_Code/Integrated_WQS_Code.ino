@@ -49,12 +49,8 @@
 #include "PHSensor.h"
 #include "TurbiditySensor.h"
 #include <Arduino.h>
-#include <ArduinoOTA.h>
-#include <ESPmDNS.h>
-#include <HTTPClient.h>
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <WiFiUdp.h>
+#include <LoRa.h>
+#include <SPI.h>
 #include <Wire.h>
 // ==========================================
 // SYSTEM STATE ENUMS & VARIABLES
@@ -69,6 +65,10 @@ enum SystemMode {
 SystemMode currentMode = MODE_NORMAL;
 float currentTurbidity = 0.0;
 
+// --- LoRa State ---
+bool loraInitialized = false;
+unsigned long lastLoRaRetryTime = 0;
+
 // --- Buttons ---
 ButtonHandler doButton(BUTTON_DO_PIN);
 ButtonHandler phButton(BUTTON_PH_PIN);
@@ -76,11 +76,6 @@ ButtonHandler phButton(BUTTON_PH_PIN);
 // Timers for non-blocking task execution
 unsigned long lastPollTime = 0;
 unsigned long lastDisplayRefreshTime = 0;
-unsigned long lastSheetsUploadTime = 0;
-bool firstUploadDone = false;
-unsigned long lastWiFiCheck = 0;
-const unsigned long WIFI_CHECK_INTERVAL = 30000;
-bool otaInitialized = false;
 
 // DO Calibration Countdown Variables
 unsigned long lastCountdownMillis = 0;
@@ -104,8 +99,10 @@ DisplayManager displayManager;
 // ==========================================
 void checkSerialCommands();
 void checkButtons();
-void maintainWiFi();
-bool postToGoogle(float doVal, float phVal, float turbVal, float tempVal);
+bool initLoRa();
+void maintainLoRa(unsigned long currentMillis);
+void sendLoRaData(float satVal, float concVal, float tempVal, float phVal,
+                  float turbVal);
 
 // Event Handlers
 void startDOCalibration();
@@ -147,16 +144,12 @@ void setup() {
   doButton.begin();
   phButton.begin();
 
-  // Initialize WiFi (non-blocking)
-  Serial.print(F("Connecting to WiFi: "));
-  Serial.println(WIFI_SSID);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  // Initialize sensor modules
+  // Initialize sensor modules & LoRa
   doSensor.begin();
   phSensor.begin();
   displayManager.begin();
   turbiditySensor.begin();
+  initLoRa();
 
   Serial.println(F("-> I2C LCD Display: Initialized OK"));
   Serial.println(F("-> DO Sensor (RS485 Serial2): Initialized OK"));
@@ -181,7 +174,7 @@ void setup() {
       doSensor.isDataValid() ? doSensor.getSaturation() : NAN,
       doSensor.isDataValid() ? doSensor.getConcentration() : NAN,
       doSensor.isDataValid() ? doSensor.getTemperature() : NAN,
-      phSensor.getPH(), currentTurbidity, (WiFi.status() == WL_CONNECTED));
+      phSensor.getPH(), currentTurbidity, loraInitialized);
 
   lastPollTime = millis();
   lastDisplayRefreshTime = millis();
@@ -191,10 +184,7 @@ void setup() {
 // MAIN LOOP
 // ==========================================
 void loop() {
-  maintainWiFi();
-  if (otaInitialized) {
-    ArduinoOTA.handle();
-  }
+  maintainLoRa(millis());
 
   // 1. Process incoming commands and buttons
   checkSerialCommands();
@@ -223,7 +213,7 @@ void loop() {
 // STATE HANDLERS
 // ==========================================
 void handleNormalMode(unsigned long currentMillis) {
-  // 1. Poll Sensors
+  // 1. Poll Sensors & Transmit LoRa
   if (currentMillis - lastPollTime >= POLL_INTERVAL_MS) {
     lastPollTime = currentMillis;
 
@@ -237,6 +227,12 @@ void handleNormalMode(unsigned long currentMillis) {
     Serial.print(F("Turbidity: "));
     Serial.print(currentTurbidity, 1);
     Serial.println(F(" %"));
+
+    // Send sensor values via LoRa Ra-02 (non-blocking)
+    float satVal = doSensor.isDataValid() ? doSensor.getSaturation() : NAN;
+    float concVal = doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
+    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : NAN;
+    sendLoRaData(satVal, concVal, tempVal, phSensor.getPH(), currentTurbidity);
   }
 
   // 2. Refresh Display
@@ -247,25 +243,7 @@ void handleNormalMode(unsigned long currentMillis) {
     float satVal = doSensor.isDataValid() ? doSensor.getSaturation() : NAN;
     float concVal = doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
     displayManager.showNormalScreen(satVal, concVal, tempVal, phSensor.getPH(),
-                                    currentTurbidity,
-                                    (WiFi.status() == WL_CONNECTED));
-  }
-
-  // 3. Upload to Google Sheets
-  if (!firstUploadDone && currentMillis > 10000) {
-    firstUploadDone = true;
-    lastSheetsUploadTime = currentMillis;
-    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : NAN;
-    float concVal = doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
-    Serial.println(F("First Google Sheets Upload..."));
-    postToGoogle(concVal, phSensor.getPH(), currentTurbidity, tempVal);
-  } else if (firstUploadDone && (currentMillis - lastSheetsUploadTime >=
-                                 GOOGLE_SHEETS_UPLOAD_MS)) {
-    lastSheetsUploadTime = currentMillis;
-    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : NAN;
-    float concVal = doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
-    Serial.println(F("Routine Google Sheets Upload..."));
-    postToGoogle(concVal, phSensor.getPH(), currentTurbidity, tempVal);
+                                    currentTurbidity, loraInitialized);
   }
 }
 
@@ -470,86 +448,87 @@ void forwardPHCommand(const String &cmd) {
   phSensor.sendCalibrationCommand(currentTemp, cmd.c_str());
 }
 
+
+
 // ==========================================
-// WIFI & GOOGLE SHEETS HANDLERS
+// LORA RA-02 HELPER FUNCTIONS
 // ==========================================
-void maintainWiFi() {
-  if (WiFi.status() == WL_CONNECTED && !otaInitialized) {
-    // Set explicit hostname for Arduino IDE Network Port discovery
-    ArduinoOTA.setHostname("ESP32-S3-WQS");
+bool initLoRa() {
+  SPI.begin(LORA_SCK_PIN, LORA_MISO_PIN, LORA_MOSI_PIN, LORA_NSS_PIN);
+  LoRa.setPins(LORA_NSS_PIN, LORA_RST_PIN, LORA_DIO0_PIN);
 
-    // Optional: Uncomment to protect wireless uploads with a password
-    // ArduinoOTA.setPassword("admin123");
-
-    ArduinoOTA.onStart([]() { Serial.println("OTA Update Starting"); });
-    ArduinoOTA.onEnd([]() { Serial.println("\nOTA Update Complete"); });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    });
-    ArduinoOTA.onError(
-        [](ota_error_t error) { Serial.printf("Error[%u]: ", error); });
-    ArduinoOTA.begin();
-    Serial.println("OTA Initialized and Ready. Hostname: ESP32-S3-WQS");
-    otaInitialized = true;
-  }
-
-  if (millis() - lastWiFiCheck > WIFI_CHECK_INTERVAL) {
-    if (WiFi.status() != WL_CONNECTED) {
-      Serial.println(F("WiFi not connected. Attempting reconnect..."));
-      WiFi.reconnect();
-    }
-    lastWiFiCheck = millis();
+  if (LoRa.begin(LORA_BAND)) {
+    LoRa.setSyncWord(LORA_SYNC_WORD);
+    loraInitialized = true;
+    Serial.println(F("-> LoRa Ra-02 (433 MHz): Initialized OK"));
+    return true;
+  } else {
+    loraInitialized = false;
+    Serial.println(F(
+        "-> LoRa Ra-02 (433 MHz): Initialization Failed! Auto-retry enabled."));
+    return false;
   }
 }
 
-bool postToGoogle(float doVal, float phVal, float turbVal, float tempVal) {
-  if (WiFi.status() != WL_CONNECTED)
-    return false;
-
-  WiFiClientSecure client;
-  client.setInsecure();
-  HTTPClient http;
-
-  if (!http.begin(client, GOOGLE_SCRIPT_URL)) {
-    Serial.println(F("HTTP begin failed."));
-    return false;
-  }
-
-  http.addHeader("Content-Type", "application/json");
-  http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-  http.setTimeout(15000);
-
-  String jsonPayload = "{\"do\":\"" + String(doVal, 2) + "\",\"ph\":\"" +
-                       String(phVal, 2) + "\",\"turbidity\":\"" +
-                       String(turbVal, 2) + "\",\"temperature\":\"" +
-                       String(tempVal, 2) + "\"}";
-
-  int httpCode = http.POST(jsonPayload);
-  Serial.print(F("HTTP POST Code: "));
-  Serial.println(httpCode);
-
-  if (httpCode == 301 || httpCode == 302) {
-    String newUrl = http.getLocation();
-    http.end();
-    if (http.begin(client, newUrl)) {
-      http.setTimeout(15000);
-      httpCode = http.GET();
-      Serial.print(F("Redirect HTTP Code: "));
-      Serial.println(httpCode);
+void maintainLoRa(unsigned long currentMillis) {
+  if (!loraInitialized) {
+    if (currentMillis - lastLoRaRetryTime >= LORA_RETRY_INTERVAL_MS) {
+      lastLoRaRetryTime = currentMillis;
+      Serial.println(
+          F("[LORA] Attempting non-blocking auto-reconnect initialization..."));
+      initLoRa();
     }
   }
+}
 
-  bool success = false;
-  if (httpCode > 0) {
-    String response = http.getString();
-    response.trim();
-    if (response.indexOf("success") >= 0)
-      success = true;
+void sendLoRaData(float satVal, float concVal, float tempVal, float phVal,
+                  float turbVal) {
+  if (!loraInitialized)
+    return;
+
+  LoRa.beginPacket();
+  LoRa.print(F("pH:"));
+  if (isnan(phVal))
+    LoRa.print(F("N/A"));
+  else
+    LoRa.print(phVal, 2);
+
+  LoRa.print(F(",Turb:"));
+  if (isnan(turbVal))
+    LoRa.print(F("N/A"));
+  else
+    LoRa.print(turbVal, 1);
+
+  LoRa.print(F(",DO:"));
+  if (isnan(concVal))
+    LoRa.print(F("N/A"));
+  else
+    LoRa.print(concVal, 2);
+
+  LoRa.print(F(",Sat:"));
+  if (isnan(satVal))
+    LoRa.print(F("N/A"));
+  else
+    LoRa.print(satVal, 1);
+
+  LoRa.print(F(",Temp:"));
+  if (isnan(tempVal))
+    LoRa.print(F("N/A"));
+  else
+    LoRa.print(tempVal, 1);
+
+  bool success = LoRa.endPacket();
+  if (success) {
+    Serial.print(F("[LORA TX] Data sent -> pH:"));
+    Serial.print(isnan(phVal) ? 0.0 : phVal, 2);
+    Serial.print(F(", Turb:"));
+    Serial.print(isnan(turbVal) ? 0.0 : turbVal, 1);
+    Serial.print(F("%, DO:"));
+    Serial.print(isnan(concVal) ? 0.0 : concVal, 2);
+    Serial.print(F("mg/L, Temp:"));
+    Serial.print(isnan(tempVal) ? 0.0 : tempVal, 1);
+    Serial.println(F("C"));
   } else {
-    Serial.print(F("Connection failed: "));
-    Serial.println(http.errorToString(httpCode));
+    Serial.println(F("[LORA TX] Error: LoRa transmission failed!"));
   }
-
-  http.end();
-  return success;
 }
