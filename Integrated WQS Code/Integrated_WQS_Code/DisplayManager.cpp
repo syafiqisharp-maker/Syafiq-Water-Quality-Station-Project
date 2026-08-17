@@ -79,23 +79,14 @@ void DisplayManager::showDOCalibrationScreen(int countdownSeconds) {
     updateLine(3, "       Syafiq       ");
 }
 
-// Render the pH calibration screen with raw voltage and status
-void DisplayManager::showPHCalibrationScreen(float voltage, float temp, float currentPH, const char* statusMsg) {
+// Render the pH calibration screen with live pH, temp, detected buffer, and status
+void DisplayManager::showPHCalibrationScreen(float currentPH, float temp, const char* bufferName, const char* statusMsg) {
     updateLine(0, "* pH CALIBRATION *  ");
-    
-    // Determine which buffer we are in based on standard DFRobot thresholds
-    if (voltage > 1322 && voltage < 1678) {
-        updateLine(1, "Buffer: 7.0 (%.0fmV)", voltage);
-    } else if (voltage > 1854 && voltage < 2210) {
-        updateLine(1, "Buffer: 4.0 (%.0fmV)", voltage);
-    } else {
-        updateLine(1, "Buffer: ??? (%.0fmV)", voltage);
-    }
-
+    updateLine(1, "Buffer: %-12s", (bufferName != nullptr) ? bufferName : "Auto");
     updateLine(2, "pH: %.2f  T: %.1f\xDF" "C", currentPH, temp);
     
     if (statusMsg && strlen(statusMsg) > 0) {
-        updateLine(3, "%s", statusMsg);
+        updateLine(3, "%-20s", statusMsg);
     } else {
         updateLine(3, "Btn:Cal | Hold:Exit ");
     }

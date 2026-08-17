@@ -23,8 +23,8 @@ public:
     // Render the DO calibration screen with countdown
     void showDOCalibrationScreen(int countdownSeconds);
 
-    // Render the pH calibration screen with raw voltage and status
-    void showPHCalibrationScreen(float voltage, float temp, float currentPH, const char* statusMsg = nullptr);
+    // Render the pH calibration screen with live pH, temp, detected buffer, and status
+    void showPHCalibrationScreen(float currentPH, float temp, const char* bufferName = "Auto", const char* statusMsg = nullptr);
 
     // Render the Turbidity calibration screen
     void showTurbidityCalibrationScreen(float vClean, bool success = false);

@@ -2,42 +2,48 @@
 #define PH_SENSOR_H
 
 #include <Arduino.h>
-#include "DFRobot_PH.h"
 #include "Config.h"
 
 class PHSensor {
 public:
-    // Constructor accepts the analog pin connected to the pH meter
-    PHSensor(int pin);
+    // Constructor accepts the shared HardwareSerial port, slave ID, RX/TX pins, and optional RE/DE pin
+    PHSensor(HardwareSerial& serialPort, uint8_t slaveId = PH_SLAVE_ID, int rxPin = RS485_RX_PIN, int txPin = RS485_TX_PIN, int reDePin = RS485_RE_DE_PIN);
 
-    // Initialise the pH sensor pin and DFRobot library
+    // Initialise the serial port / pin modes
     void begin();
 
-    // Read voltage and update the pH value based on current solution temperature
-    void update(float solutionTemperature);
+    // Query pH and Temperature registers from the sensor (Function Code 0x03)
+    bool query();
 
-    // Sends a calibration command ("enterph", "calph", "exitph") to the DFRobot library
-    void sendCalibrationCommand(float solutionTemperature, const char* cmd);
+    // Electrode 2-Point Calibration (Function Code 0x10 to registers 0x0120-0x0121)
+    // pointIndex: 1 for Point 1 (Acid/Neutral), 2 for Point 2 (Base/Neutral)
+    // standardPH: Standard solution pH (e.g. 4.01, 7.00, 9.18, 10.01)
+    bool calibratePoint(uint8_t pointIndex, float standardPH);
+
+    // Set pH Deviation / Offset value (Function Code 0x06 to register 0x0050)
+    bool setDeviation(float deviation);
 
     // Getters
     float getPH() const { return _phValue; }
-    float getVoltage() const { return _voltage; }
-    bool isDataValid() const { return (_voltage >= 100.0f && _voltage <= 3100.0f && _phValue >= 0.0f && _phValue <= 14.0f); }
-
+    float getTemperature() const { return _temperature; }
+    bool isDataValid() const { return _dataValid; }
 
 private:
-    // Oversampling configuration
-    static const int PH_NUM_SAMPLES    = 20; // Total ADC readings per update
-    static const int PH_DISCARD_EACH   = 3;  // Drop 3 lowest + 3 highest outliers
+    HardwareSerial& _serial;
+    uint8_t _slaveId;
+    int _rxPin;
+    int _txPin;
+    int _reDePin;
 
-    int _pin;
-    float _voltage;
     float _phValue;
-    float _lastCalVoltage; // Caches voltage during CALPH to ensure EXITPH saves correctly
-    DFRobot_PH _ph;
+    float _temperature;
+    bool _dataValid;
 
-    // Collect, sort, and trim-average multiple ADC readings to reduce ESP32 ADC noise
-    float readOversampledMilliVolts();
+    // Modbus RTU communication helpers
+    bool readRegisters(uint16_t startAddress, uint16_t quantity, uint16_t* destBuffer);
+    bool writeSingleRegister(uint16_t regAddress, uint16_t value);
+    bool writeMultipleRegisters(uint16_t startAddress, uint16_t quantity, const uint16_t* values);
+    uint16_t calculateCRC(const uint8_t* buf, int len);
 };
 
 #endif // PH_SENSOR_H

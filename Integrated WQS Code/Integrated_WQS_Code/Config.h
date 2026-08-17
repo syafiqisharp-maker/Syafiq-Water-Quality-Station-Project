@@ -4,31 +4,39 @@
 // ==========================================
 // PIN CONFIGURATIONS (ESP32-S3 44-Pin)
 // ==========================================
-#define PH_PIN 4        // Analog input for pH sensor (ADC1_CH3 on ESP32-S3)
-#define TURBIDITY_PIN 5 // Analog input for Turbidity sensor (ADC1_CH4 on ESP32-S3)
-#define DO_RX_PIN 16    // RS485 RO (RX2 pin on ESP32-S3)
-#define DO_TX_PIN 17    // RS485 DI (TX2 pin on ESP32-S3)
+#define TURBIDITY_PIN 5     // Analog input for Turbidity sensor (ADC1_CH4 on ESP32-S3)
+#define RS485_RX_PIN 16     // RS485 RO (RX2 pin on ESP32-S3)
+#define RS485_TX_PIN 17     // RS485 DI (TX2 pin on ESP32-S3)
+#define DO_RX_PIN RS485_RX_PIN // Backwards-compatible alias
+#define DO_TX_PIN RS485_TX_PIN // Backwards-compatible alias
 
-#define BUTTON_DO_PIN 12 // DO / Turbidity calibration button
-#define BUTTON_PH_PIN 13 // pH calibration button
+#define BUTTON_DO_PIN 12    // DO / Turbidity calibration button
+#define BUTTON_PH_PIN 13    // pH calibration button
 
 // Set to the control pin if using RE/DE flow control (e.g. GPIO 4)
 // Set to -1 if using an RS485 converter with automatic flow direction
 #define RS485_RE_DE_PIN -1
 
 // ==========================================
-// DISSOLVED OXYGEN MODBUS SETTINGS
+// MODBUS RTU RS-485 SETTINGS (Shared Bus)
 // ==========================================
-#define DO_SLAVE_ID 0x01       // Sensor Modbus Slave ID
-#define DO_BAUD_RATE 4800      // Modbus baud rate (8N1)
+#define RS485_BAUD_RATE 4800   // Modbus baud rate (8N1)
+#define DO_BAUD_RATE RS485_BAUD_RATE // Backwards-compatible alias
 #define MODBUS_TIMEOUT_MS 1000 // Modbus serial response timeout
 
-// Modbus Register Addresses for SEN0681
+// --- DISSOLVED OXYGEN SENSOR (SEN0681) ---
+#define DO_SLAVE_ID 0x01            // Sensor Modbus Slave ID
 #define REG_DO_SATURATION 0x0000    // Saturation registers (Float)
 #define REG_DO_CONCENTRATION 0x0002 // Concentration registers (Float)
 #define REG_TEMPERATURE 0x0004      // Temperature registers (Float)
 #define CALIBRATION_REG 0x1010      // Calibration command register
 #define CALIBRATION_VAL_100 0x0002  // Value for 100% saturation calibration
+
+// --- pH SENSOR (SEN0708) ---
+#define PH_SLAVE_ID 0x02            // pH Sensor Modbus Slave ID (changed from default 0x01)
+#define REG_PH_DATA 0x0000          // pH & Temperature reading (2 registers: pH x100, Temp x10)
+#define REG_PH_CAL_POINT 0x0120     // 2-point electrode calibration register (FC 0x10)
+#define REG_PH_DEVIATION 0x0050     // pH deviation/offset register (FC 0x06 / 0x10)
 
 // ==========================================
 // I2C LCD SETTINGS (Model 2004A-V1.3)

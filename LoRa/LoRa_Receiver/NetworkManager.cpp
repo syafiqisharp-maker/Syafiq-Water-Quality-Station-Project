@@ -1,7 +1,6 @@
 #include "NetworkManager.h"
 
-NetworkManager::NetworkManager()
-    : _lastWiFiCheck(0), _flushingQueue(false) {}
+NetworkManager::NetworkManager() : _lastWiFiCheck(0), _flushingQueue(false) {}
 
 void NetworkManager::begin() {
   Serial.print(F("[WIFI] Connecting to Wi-Fi SSID: "));
@@ -28,12 +27,14 @@ bool NetworkManager::isConnected() const {
 bool NetworkManager::postToGoogle(float doVal, float phVal, float turbVal,
                                   float tempVal, const String &timestampStr) {
   if (!isConnected()) {
-    Serial.println(F("[HTTP] Error: Wi-Fi offline. Cannot post to Google Sheets."));
+    Serial.println(
+        F("[HTTP] Error: Wi-Fi offline. Cannot post to Google Sheets."));
     return false;
   }
 
   WiFiClientSecure client;
-  client.setInsecure(); // Skip TLS certificate validation for Google Script endpoint
+  client.setInsecure(); // Skip TLS certificate validation for Google Script
+                        // endpoint
   HTTPClient http;
 
   if (!http.begin(client, GOOGLE_SCRIPT_URL)) {
@@ -45,11 +46,11 @@ bool NetworkManager::postToGoogle(float doVal, float phVal, float turbVal,
   http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
   http.setTimeout(15000);
 
-  String jsonPayload = "{\"do\":\"" + String(doVal, 2) +
-                       "\",\"ph\":\"" + String(phVal, 2) +
-                       "\",\"turbidity\":\"" + String(turbVal, 2) +
-                       "\",\"temperature\":\"" + String(tempVal, 2) + "\"";
-  
+  String jsonPayload = "{\"do\":\"" + String(doVal, 2) + "\",\"ph\":\"" +
+                       String(phVal, 2) + "\",\"turbidity\":\"" +
+                       String(turbVal, 2) + "\",\"temperature\":\"" +
+                       String(tempVal, 2) + "\"";
+
   if (timestampStr.length() > 0 && timestampStr != "N/A") {
     jsonPayload += ",\"timestamp\":\"" + timestampStr + "\"";
   }
@@ -81,7 +82,8 @@ bool NetworkManager::postToGoogle(float doVal, float phVal, float turbVal,
       Serial.println(F("[HTTP POST] Upload Success!"));
     }
   } else {
-    Serial.printf("[HTTP POST] Connection failed: %s\n", http.errorToString(httpCode).c_str());
+    Serial.printf("[HTTP POST] Connection failed: %s\n",
+                  http.errorToString(httpCode).c_str());
   }
 
   http.end();
@@ -89,23 +91,30 @@ bool NetworkManager::postToGoogle(float doVal, float phVal, float turbVal,
 }
 
 void NetworkManager::flushOfflineQueue(StorageManager &storage) {
-  if (!isConnected() || _flushingQueue) return;
+  if (!isConnected() || _flushingQueue)
+    return;
   size_t count = storage.getOfflineRecordCount();
-  if (count == 0) return;
+  if (count == 0)
+    return;
 
   _flushingQueue = true;
-  Serial.printf("[QUEUE FLUSH] Found %d backlogged records in LittleFS storage. Flushing...\n", (int)count);
+  Serial.printf("[QUEUE FLUSH] Found %d backlogged records in LittleFS "
+                "storage. Flushing...\n",
+                (int)count);
 
   OfflineRecord rec;
   while (storage.getOfflineRecordCount() > 0 && isConnected()) {
     if (storage.peekNextOfflineRecord(rec)) {
-      Serial.printf("[QUEUE FLUSH] Uploading record from %s ...\n", rec.timestamp.c_str());
-      bool ok = postToGoogle(rec.doConc, rec.ph, rec.turbidity, rec.temperature, rec.timestamp);
+      Serial.printf("[QUEUE FLUSH] Uploading record from %s ...\n",
+                    rec.timestamp.c_str());
+      bool ok = postToGoogle(rec.doConc, rec.ph, rec.turbidity, rec.temperature,
+                             rec.timestamp);
       if (ok) {
         storage.popNextOfflineRecord();
         delay(500); // Small delay between batch requests
       } else {
-        Serial.println(F("[QUEUE FLUSH] Upload failed during flush. Pausing flush."));
+        Serial.println(
+            F("[QUEUE FLUSH] Upload failed during flush. Pausing flush."));
         break;
       }
     } else {
@@ -115,6 +124,7 @@ void NetworkManager::flushOfflineQueue(StorageManager &storage) {
 
   _flushingQueue = false;
   if (storage.getOfflineRecordCount() == 0) {
-    Serial.println(F("[QUEUE FLUSH] All backlogged offline records successfully uploaded!"));
+    Serial.println(F(
+        "[QUEUE FLUSH] All backlogged offline records successfully uploaded!"));
   }
 }
