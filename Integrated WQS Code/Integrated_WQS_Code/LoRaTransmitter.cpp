@@ -60,7 +60,7 @@ bool LoRaTransmitter::sendData(const WQSData &data) {
     LoRa.print(data.doSat, 1);
 
   LoRa.print(F(",Temp:"));
-  if (isnan(data.temp) || !data.doValid)
+  if (isnan(data.temp) || (!data.doValid && !data.phValid))
     LoRa.print(F("N/A"));
   else
     LoRa.print(data.temp, 1);

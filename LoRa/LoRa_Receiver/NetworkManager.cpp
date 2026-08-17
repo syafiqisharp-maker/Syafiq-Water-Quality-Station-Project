@@ -1,8 +1,8 @@
 #include "NetworkManager.h"
 
-NetworkManager::NetworkManager() : _lastWiFiCheck(0), _flushingQueue(false) {}
+CloudSyncManager::CloudSyncManager() : _lastWiFiCheck(0), _flushingQueue(false) {}
 
-void NetworkManager::begin() {
+void CloudSyncManager::begin() {
   Serial.print(F("[WIFI] Connecting to Wi-Fi SSID: "));
   Serial.println(WIFI_SSID);
   WiFi.mode(WIFI_STA);
@@ -10,7 +10,7 @@ void NetworkManager::begin() {
   _lastWiFiCheck = millis();
 }
 
-void NetworkManager::update() {
+void CloudSyncManager::update() {
   if (millis() - _lastWiFiCheck > WIFI_CHECK_INTERVAL_MS) {
     _lastWiFiCheck = millis();
     if (WiFi.status() != WL_CONNECTED) {
@@ -20,11 +20,11 @@ void NetworkManager::update() {
   }
 }
 
-bool NetworkManager::isConnected() const {
+bool CloudSyncManager::isConnected() const {
   return (WiFi.status() == WL_CONNECTED);
 }
 
-bool NetworkManager::postToGoogle(float doVal, float phVal, float turbVal,
+bool CloudSyncManager::postToGoogle(float doVal, float phVal, float turbVal,
                                   float tempVal, const String &timestampStr) {
   if (!isConnected()) {
     Serial.println(
@@ -90,7 +90,7 @@ bool NetworkManager::postToGoogle(float doVal, float phVal, float turbVal,
   return success;
 }
 
-void NetworkManager::flushOfflineQueue(StorageManager &storage) {
+void CloudSyncManager::flushOfflineQueue(StorageManager &storage) {
   if (!isConnected() || _flushingQueue)
     return;
   size_t count = storage.getOfflineRecordCount();

@@ -1,5 +1,5 @@
-#ifndef NETWORK_MANAGER_H
-#define NETWORK_MANAGER_H
+#ifndef CLOUD_SYNC_MANAGER_H
+#define CLOUD_SYNC_MANAGER_H
 
 #include "Config.h"
 #include "StorageManager.h"
@@ -9,9 +9,9 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-class NetworkManager {
+class CloudSyncManager {
 public:
-  NetworkManager();
+  CloudSyncManager();
 
   // Initializes Wi-Fi connection (non-blocking)
   void begin();
@@ -34,4 +34,4 @@ private:
   bool _flushingQueue;
 };
 
-#endif // NETWORK_MANAGER_H
+#endif // CLOUD_SYNC_MANAGER_H

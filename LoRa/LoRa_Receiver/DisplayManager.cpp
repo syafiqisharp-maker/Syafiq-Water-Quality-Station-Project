@@ -7,6 +7,7 @@ DisplayManager::DisplayManager() : _lcd(LCD_I2C_ADDR, LCD_COLUMNS, LCD_ROWS) {
 
 void DisplayManager::begin() {
   Wire.begin(LCD_SDA_PIN, LCD_SCL_PIN);
+  Wire.setTimeOut(250);
   _lcd.init();
   _lcd.backlight();
   _lcd.clear();
