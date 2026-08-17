@@ -14,6 +14,8 @@ public:
     float getTurbidityPct();
     void calibrateCleanWater();
     float getVClean() const;
+    bool isDataValid() const;
+
 
 private:
     int _pin;

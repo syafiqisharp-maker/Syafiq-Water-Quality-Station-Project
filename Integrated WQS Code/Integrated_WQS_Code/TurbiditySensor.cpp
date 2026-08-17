@@ -30,6 +30,12 @@ void TurbiditySensor::saveBaseline() {
 
 float TurbiditySensor::getVClean() const { return _vClean; }
 
+bool TurbiditySensor::isDataValid() const {
+  float v = (float)analogReadMilliVolts(_pin) / 1000.0f;
+  return (v >= 0.05f && v <= 3.2f);
+}
+
+
 void TurbiditySensor::calibrateCleanWater() {
   float measuredV = readOversampledVoltage();
   // Scale back to pre-divider voltage using actual divider ratio (3.98V / 2.00V

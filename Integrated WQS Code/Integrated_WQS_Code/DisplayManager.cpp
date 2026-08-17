@@ -25,8 +25,18 @@ void DisplayManager::clear() {
     }
 }
 
+void DisplayManager::showNormalScreen(const WQSData& data, bool loraActive) {
+    showNormalScreen(data.doValid ? data.doSat : NAN,
+                     data.doValid ? data.doConc : NAN,
+                     data.doValid ? data.temp : NAN,
+                     data.phValid ? data.ph : NAN,
+                     data.turbidityValid ? data.turbidity : NAN,
+                     loraActive);
+}
+
 // Render the normal monitoring screen
 void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, bool loraActive) {
+
     // Line 0: Dissolved Oxygen Saturation & Concentration
     if (doSat < 0.0 || isnan(doSat) || doConc < 0.0 || isnan(doConc)) {
         updateLine(0, "DO: --.-%% --.--mg/L");

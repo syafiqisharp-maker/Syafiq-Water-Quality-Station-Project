@@ -58,4 +58,20 @@
 #define POLL_INTERVAL_MS 5000U   // Poll sensors every 5 seconds (standardized)
 #define DISPLAY_REFRESH_MS 1000U // Refresh LCD display output every 1 second
 
+// ==========================================
+// UNIFIED SENSOR DATA STRUCTURE
+// ==========================================
+struct WQSData {
+  float doSat = NAN;
+  float doConc = NAN;
+  float temp = NAN;
+  float ph = NAN;
+  float turbidity = NAN;
+
+  bool doValid = false;
+  bool phValid = false;
+  bool turbidityValid = false;
+};
+
 #endif // CONFIG_H
+

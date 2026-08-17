@@ -22,6 +22,8 @@ public:
     // Getters
     float getPH() const { return _phValue; }
     float getVoltage() const { return _voltage; }
+    bool isDataValid() const { return (_voltage >= 100.0f && _voltage <= 3100.0f && _phValue >= 0.0f && _phValue <= 14.0f); }
+
 
 private:
     // Oversampling configuration

@@ -6,52 +6,28 @@
   2. Gravity Analog pH Sensor V2
   3. Analog Turbidity Sensor
   It outputs data to an LCD Model 2004A-V1.3 (20x4 Character I2C LCD) and
-  supports Over-The-Air (OTA) updates via Wi-Fi.
+  supports LoRa Ra-02 (433MHz) telemetry transmission.
 
   Architecture:
-  - Config.h             : General definitions, pin mappings, timing.
+  - Config.h             : General definitions, pin mappings, WQSData struct, timing.
   - DOSensor.h/.cpp      : RS485 Modbus RTU communication wrapper for DO sensor.
-  - PHSensor.h/.cpp      : Gravity Analog pH sensor wrapper with temp comp.
-  - TurbiditySensor.h/.cpp: Analog turbidity sensor wrapper with NVS
-  calibration.
+  - PHSensor.h/.cpp      : Gravity Analog pH sensor wrapper with temp comp & validation.
+  - TurbiditySensor.h/.cpp: Analog turbidity sensor wrapper with NVS calibration & validation.
   - DisplayManager.h/.cpp: Anti-flicker character LCD layout & refresh manager.
   - ButtonHandler.h/.cpp : Debouncing and short/long press detection wrapper.
-
-  Wiring Connection for ESP32-S3 (44-pin Board):
-  - RS485-to-TTL Converter (for DO Sensor):
-      * TXD / RO (Receive Out) -> ESP32-S3 RX2 (GPIO 16)
-      * RXD / DI (Driver In)   -> ESP32-S3 TX2 (GPIO 17)
-  - Analog pH Sensor:
-      * Analog Signal (A)      -> ESP32-S3 GPIO 4 (ADC1_CH3)
-  - Analog Turbidity Sensor:
-      * Signal OUT             -> ESP32-S3 GPIO 5 (ADC1_CH4, Requires 1/2
-  Voltage Divider)
-  - I2C LCD Display (2004A with PCF8574 Backpack):
-      * SDA                    -> ESP32-S3 GPIO 8 or GPIO 21
-      * SCL                    -> ESP32-S3 GPIO 9 or GPIO 22
-  - Physical Buttons:
-      * DO/Turbidity Button    -> ESP32-S3 GPIO 12 (to GND)
-      * pH Button              -> ESP32-S3 GPIO 13 (to GND)
-
-  Serial Commands:
-  - CAL100  -> Enters DO atmospheric 100% calibration countdown (5s countdown).
-  - enterph -> Enters pH calibration mode (temp automatically compensated).
-  - calph   -> Calibrates current pH buffer solution (auto-detects pH 4.0
-  or 7.0).
-  - exitph  -> Saves pH calibration parameters to NVS flash and returns to
-  normal.
+  - LoRaTransmitter.h/.cpp: SX1278 SPI LoRa transmitter with auto-reconnect.
 */
 
 #include "ButtonHandler.h"
 #include "Config.h"
 #include "DOSensor.h"
 #include "DisplayManager.h"
+#include "LoRaTransmitter.h"
 #include "PHSensor.h"
 #include "TurbiditySensor.h"
 #include <Arduino.h>
-#include <LoRa.h>
-#include <SPI.h>
 #include <Wire.h>
+
 // ==========================================
 // SYSTEM STATE ENUMS & VARIABLES
 // ==========================================
@@ -63,11 +39,7 @@ enum SystemMode {
 };
 
 SystemMode currentMode = MODE_NORMAL;
-float currentTurbidity = 0.0;
-
-// --- LoRa State ---
-bool loraInitialized = false;
-unsigned long lastLoRaRetryTime = 0;
+WQSData currentData;
 
 // --- Buttons ---
 ButtonHandler doButton(BUTTON_DO_PIN);
@@ -77,9 +49,15 @@ ButtonHandler phButton(BUTTON_PH_PIN);
 unsigned long lastPollTime = 0;
 unsigned long lastDisplayRefreshTime = 0;
 
-// DO Calibration Countdown Variables
+// DO Calibration Countdown & Hold Timer
 unsigned long lastCountdownMillis = 0;
 int doCalCountdown = 5;
+bool doCalExecuted = false;
+unsigned long doCalFinishTime = 0;
+
+// Turbidity Calibration Hold Timer
+bool turbCalExecuted = false;
+unsigned long turbCalFinishTime = 0;
 
 // pH Calibration Status Message
 String phCalStatusMsg = "Btn:Cal | Hold:Exit";
@@ -88,21 +66,17 @@ unsigned long phCalStatusMsgTimer = 0;
 // ==========================================
 // OBJECT INSTANTIATIONS
 // ==========================================
-// Using ESP32 HardwareSerial Serial2
 DOSensor doSensor(Serial2, DO_RX_PIN, DO_TX_PIN, RS485_RE_DE_PIN);
 PHSensor phSensor(PH_PIN);
 TurbiditySensor turbiditySensor(TURBIDITY_PIN);
 DisplayManager displayManager;
+LoRaTransmitter loraTransmitter;
 
 // ==========================================
 // FUNCTION PROTOTYPES
 // ==========================================
 void checkSerialCommands();
 void checkButtons();
-bool initLoRa();
-void maintainLoRa(unsigned long currentMillis);
-void sendLoRaData(float satVal, float concVal, float tempVal, float phVal,
-                  float turbVal);
 
 // Event Handlers
 void startDOCalibration();
@@ -115,16 +89,14 @@ void forwardPHCommand(const String &cmd);
 // State Handlers
 void handleNormalMode(unsigned long currentMillis);
 void handleDOCalibrationMode(unsigned long currentMillis);
-void handleTurbidityCalibrationMode();
+void handleTurbidityCalibrationMode(unsigned long currentMillis);
 void handlePHCalibrationMode(unsigned long currentMillis);
 
 // ==========================================
 // SETUP
 // ==========================================
 void setup() {
-  // Start standard Serial for PC interface
   Serial.begin(115200);
-  // Wait up to 2 seconds for USB CDC Serial connection
   unsigned long serialStart = millis();
   while (!Serial && (millis() - serialStart < 2000)) {
     delay(10);
@@ -144,12 +116,12 @@ void setup() {
   doButton.begin();
   phButton.begin();
 
-  // Initialize sensor modules & LoRa
+  // Initialize sensor modules & LoRa Transmitter
   doSensor.begin();
   phSensor.begin();
   displayManager.begin();
   turbiditySensor.begin();
-  initLoRa();
+  loraTransmitter.begin();
 
   Serial.println(F("-> I2C LCD Display: Initialized OK"));
   Serial.println(F("-> DO Sensor (RS485 Serial2): Initialized OK"));
@@ -165,16 +137,20 @@ void setup() {
 
   // Perform initial readings immediately
   doSensor.query();
-  float initTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
-  phSensor.update(initTemp);
+  currentData.doValid = doSensor.isDataValid();
+  currentData.doSat = currentData.doValid ? doSensor.getSaturation() : NAN;
+  currentData.doConc = currentData.doValid ? doSensor.getConcentration() : NAN;
+  currentData.temp = currentData.doValid ? doSensor.getTemperature() : 29.0f;
+
+  phSensor.update(currentData.temp);
+  currentData.phValid = phSensor.isDataValid();
+  currentData.ph = phSensor.getPH();
+
+  currentData.turbidityValid = turbiditySensor.isDataValid();
+  currentData.turbidity = turbiditySensor.getTurbidityPct();
 
   // Initial display refresh
-  currentTurbidity = turbiditySensor.getTurbidityPct();
-  displayManager.showNormalScreen(
-      doSensor.isDataValid() ? doSensor.getSaturation() : NAN,
-      doSensor.isDataValid() ? doSensor.getConcentration() : NAN,
-      doSensor.isDataValid() ? doSensor.getTemperature() : NAN,
-      phSensor.getPH(), currentTurbidity, loraInitialized);
+  displayManager.showNormalScreen(currentData, loraTransmitter.isInitialized());
 
   lastPollTime = millis();
   lastDisplayRefreshTime = millis();
@@ -184,13 +160,12 @@ void setup() {
 // MAIN LOOP
 // ==========================================
 void loop() {
-  maintainLoRa(millis());
+  unsigned long currentMillis = millis();
 
-  // 1. Process incoming commands and buttons
+  // 1. Maintain background tasks
+  loraTransmitter.maintain(currentMillis);
   checkSerialCommands();
   checkButtons();
-
-  unsigned long currentMillis = millis();
 
   // 2. State Machine Router
   switch (currentMode) {
@@ -201,7 +176,7 @@ void loop() {
     handleDOCalibrationMode(currentMillis);
     break;
   case MODE_TURBIDITY_CAL:
-    handleTurbidityCalibrationMode();
+    handleTurbidityCalibrationMode(currentMillis);
     break;
   case MODE_PH_CALIBRATION:
     handlePHCalibrationMode(currentMillis);
@@ -218,64 +193,69 @@ void handleNormalMode(unsigned long currentMillis) {
     lastPollTime = currentMillis;
 
     doSensor.query();
+    currentData.doValid = doSensor.isDataValid();
+    currentData.doSat = currentData.doValid ? doSensor.getSaturation() : NAN;
+    currentData.doConc = currentData.doValid ? doSensor.getConcentration() : NAN;
+    currentData.temp = currentData.doValid ? doSensor.getTemperature() : 29.0f;
 
-    float currentTemp =
-        doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
-    phSensor.update(currentTemp);
+    phSensor.update(currentData.temp);
+    currentData.phValid = phSensor.isDataValid();
+    currentData.ph = phSensor.getPH();
 
-    currentTurbidity = turbiditySensor.getTurbidityPct();
+    currentData.turbidityValid = turbiditySensor.isDataValid();
+    currentData.turbidity = turbiditySensor.getTurbidityPct();
+
     Serial.print(F("Turbidity: "));
-    Serial.print(currentTurbidity, 1);
+    Serial.print(currentData.turbidity, 1);
     Serial.println(F(" %"));
 
     // Send sensor values via LoRa Ra-02 (non-blocking)
-    float satVal = doSensor.isDataValid() ? doSensor.getSaturation() : NAN;
-    float concVal = doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
-    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : NAN;
-    sendLoRaData(satVal, concVal, tempVal, phSensor.getPH(), currentTurbidity);
+    loraTransmitter.sendData(currentData);
   }
 
   // 2. Refresh Display
   if (currentMillis - lastDisplayRefreshTime >= DISPLAY_REFRESH_MS) {
     lastDisplayRefreshTime = currentMillis;
-
-    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : NAN;
-    float satVal = doSensor.isDataValid() ? doSensor.getSaturation() : NAN;
-    float concVal = doSensor.isDataValid() ? doSensor.getConcentration() : NAN;
-    displayManager.showNormalScreen(satVal, concVal, tempVal, phSensor.getPH(),
-                                    currentTurbidity, loraInitialized);
+    displayManager.showNormalScreen(currentData, loraTransmitter.isInitialized());
   }
 }
 
 void handleDOCalibrationMode(unsigned long currentMillis) {
-  if (currentMillis - lastCountdownMillis >= 1000U) {
-    lastCountdownMillis = currentMillis;
+  if (!doCalExecuted) {
+    if (currentMillis - lastCountdownMillis >= 1000U) {
+      lastCountdownMillis = currentMillis;
 
-    if (doCalCountdown > 0) {
-      Serial.print(F("DO Calibration starting in "));
-      Serial.print(doCalCountdown);
-      Serial.println(F(" seconds..."));
-      displayManager.showDOCalibrationScreen(doCalCountdown);
-      doCalCountdown--;
-    } else {
-      Serial.println(
-          F("Sending 100% calibration command to DO sensor via Modbus..."));
-      displayManager.showDOCalibrationScreen(0);
-
-      bool success = doSensor.sendCalibrationCommand();
-      if (success) {
-        Serial.println(F(
-            "\n>>> SUCCESS: 100% Calibration Command SENT successfully! <<<"));
-        Serial.println(
-            F("Sensor is storing parameters. Returning to normal mode."));
+      if (doCalCountdown > 0) {
+        Serial.print(F("DO Calibration starting in "));
+        Serial.print(doCalCountdown);
+        Serial.println(F(" seconds..."));
+        displayManager.showDOCalibrationScreen(doCalCountdown);
+        doCalCountdown--;
       } else {
-        Serial.println(F(
-            "\n>>> ERROR: Calibration Command FAILED! Check connections. <<<"));
-      }
-      Serial.println(
-          F("========================================================\n"));
+        Serial.println(
+            F("Sending 100% calibration command to DO sensor via Modbus..."));
+        displayManager.showDOCalibrationScreen(0);
 
-      delay(3000);
+        bool success = doSensor.sendCalibrationCommand();
+        if (success) {
+          Serial.println(F(
+              "\n>>> SUCCESS: 100% Calibration Command SENT successfully! <<<"));
+          Serial.println(
+              F("Sensor is storing parameters. Returning to normal mode."));
+        } else {
+          Serial.println(F(
+              "\n>>> ERROR: Calibration Command FAILED! Check connections. <<<"));
+        }
+        Serial.println(
+            F("========================================================\n"));
+
+        doCalExecuted = true;
+        doCalFinishTime = currentMillis;
+      }
+    }
+  } else {
+    // Non-blocking 3-second result display hold
+    if (currentMillis - doCalFinishTime >= 3000U) {
       displayManager.clear();
       currentMode = MODE_NORMAL;
       lastPollTime = millis();
@@ -283,23 +263,30 @@ void handleDOCalibrationMode(unsigned long currentMillis) {
   }
 }
 
-void handleTurbidityCalibrationMode() {
-  displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(),
-                                                false);
-  Serial.println(F("Turbidity Calibration: Reading sensor..."));
+void handleTurbidityCalibrationMode(unsigned long currentMillis) {
+  if (!turbCalExecuted) {
+    displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(),
+                                                  false);
+    Serial.println(F("Turbidity Calibration: Reading sensor..."));
 
-  turbiditySensor.calibrateCleanWater();
+    turbiditySensor.calibrateCleanWater();
 
-  Serial.print(F("New Turbidity Ref (vClean) Set to: "));
-  Serial.print(turbiditySensor.getVClean());
-  Serial.println(F(" V"));
+    Serial.print(F("New Turbidity Ref (vClean) Set to: "));
+    Serial.print(turbiditySensor.getVClean());
+    Serial.println(F(" V"));
 
-  displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(),
-                                                true);
-  delay(3000); // 3-second hold to present success payload as approved
-  displayManager.clear();
-  currentMode = MODE_NORMAL;
-  lastPollTime = millis();
+    displayManager.showTurbidityCalibrationScreen(turbiditySensor.getVClean(),
+                                                  true);
+    turbCalExecuted = true;
+    turbCalFinishTime = currentMillis;
+  } else {
+    // Non-blocking 3-second result display hold
+    if (currentMillis - turbCalFinishTime >= 3000U) {
+      displayManager.clear();
+      currentMode = MODE_NORMAL;
+      lastPollTime = millis();
+    }
+  }
 }
 
 void handlePHCalibrationMode(unsigned long currentMillis) {
@@ -308,7 +295,7 @@ void handlePHCalibrationMode(unsigned long currentMillis) {
     lastPollTime = currentMillis;
 
     float currentTemp =
-        doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
+        doSensor.isDataValid() ? doSensor.getTemperature() : 29.0f;
     phSensor.update(currentTemp);
   }
 
@@ -319,7 +306,7 @@ void handlePHCalibrationMode(unsigned long currentMillis) {
     if (millis() - phCalStatusMsgTimer > 3000) {
       phCalStatusMsg = "Btn:Cal | Hold:Exit";
     }
-    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
+    float tempVal = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0f;
     displayManager.showPHCalibrationScreen(phSensor.getVoltage(), tempVal,
                                            phSensor.getPH(),
                                            phCalStatusMsg.c_str());
@@ -402,6 +389,7 @@ void checkSerialCommands() {
 void startDOCalibration() {
   currentMode = MODE_DO_CALIBRATION;
   doCalCountdown = 5;
+  doCalExecuted = false;
   lastCountdownMillis = millis();
   Serial.println(
       F("\n========================================================"));
@@ -412,11 +400,14 @@ void startDOCalibration() {
   displayManager.showDOCalibrationScreen(doCalCountdown);
 }
 
-void startTurbidityCalibration() { currentMode = MODE_TURBIDITY_CAL; }
+void startTurbidityCalibration() {
+  currentMode = MODE_TURBIDITY_CAL;
+  turbCalExecuted = false;
+}
 
 void enterPHCalibration() {
   currentMode = MODE_PH_CALIBRATION;
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0f;
   phSensor.sendCalibrationCommand(currentTemp, "enterph");
   phCalStatusMsg = "Btn:Cal | Hold:Exit";
   phCalStatusMsgTimer = 0;
@@ -425,7 +416,7 @@ void enterPHCalibration() {
 }
 
 void executePHCalibration() {
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0f;
   phSensor.sendCalibrationCommand(currentTemp, "calph");
   phCalStatusMsg = ">>> Calibrated! <<<";
   phCalStatusMsgTimer = millis();
@@ -433,7 +424,7 @@ void executePHCalibration() {
 }
 
 void exitPHCalibration() {
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0f;
   phSensor.sendCalibrationCommand(currentTemp, "exitph");
   currentMode = MODE_NORMAL;
   displayManager.clear();
@@ -442,93 +433,8 @@ void exitPHCalibration() {
 }
 
 void forwardPHCommand(const String &cmd) {
-  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0;
+  float currentTemp = doSensor.isDataValid() ? doSensor.getTemperature() : 29.0f;
   Serial.print(F("Forwarding custom calibration command to pH: "));
   Serial.println(cmd);
   phSensor.sendCalibrationCommand(currentTemp, cmd.c_str());
-}
-
-
-
-// ==========================================
-// LORA RA-02 HELPER FUNCTIONS
-// ==========================================
-bool initLoRa() {
-  SPI.begin(LORA_SCK_PIN, LORA_MISO_PIN, LORA_MOSI_PIN, LORA_NSS_PIN);
-  LoRa.setPins(LORA_NSS_PIN, LORA_RST_PIN, LORA_DIO0_PIN);
-
-  if (LoRa.begin(LORA_BAND)) {
-    LoRa.setSyncWord(LORA_SYNC_WORD);
-    loraInitialized = true;
-    Serial.println(F("-> LoRa Ra-02 (433 MHz): Initialized OK"));
-    return true;
-  } else {
-    loraInitialized = false;
-    Serial.println(F(
-        "-> LoRa Ra-02 (433 MHz): Initialization Failed! Auto-retry enabled."));
-    return false;
-  }
-}
-
-void maintainLoRa(unsigned long currentMillis) {
-  if (!loraInitialized) {
-    if (currentMillis - lastLoRaRetryTime >= LORA_RETRY_INTERVAL_MS) {
-      lastLoRaRetryTime = currentMillis;
-      Serial.println(
-          F("[LORA] Attempting non-blocking auto-reconnect initialization..."));
-      initLoRa();
-    }
-  }
-}
-
-void sendLoRaData(float satVal, float concVal, float tempVal, float phVal,
-                  float turbVal) {
-  if (!loraInitialized)
-    return;
-
-  LoRa.beginPacket();
-  LoRa.print(F("pH:"));
-  if (isnan(phVal))
-    LoRa.print(F("N/A"));
-  else
-    LoRa.print(phVal, 2);
-
-  LoRa.print(F(",Turb:"));
-  if (isnan(turbVal))
-    LoRa.print(F("N/A"));
-  else
-    LoRa.print(turbVal, 1);
-
-  LoRa.print(F(",DO:"));
-  if (isnan(concVal))
-    LoRa.print(F("N/A"));
-  else
-    LoRa.print(concVal, 2);
-
-  LoRa.print(F(",Sat:"));
-  if (isnan(satVal))
-    LoRa.print(F("N/A"));
-  else
-    LoRa.print(satVal, 1);
-
-  LoRa.print(F(",Temp:"));
-  if (isnan(tempVal))
-    LoRa.print(F("N/A"));
-  else
-    LoRa.print(tempVal, 1);
-
-  bool success = LoRa.endPacket();
-  if (success) {
-    Serial.print(F("[LORA TX] Data sent -> pH:"));
-    Serial.print(isnan(phVal) ? 0.0 : phVal, 2);
-    Serial.print(F(", Turb:"));
-    Serial.print(isnan(turbVal) ? 0.0 : turbVal, 1);
-    Serial.print(F("%, DO:"));
-    Serial.print(isnan(concVal) ? 0.0 : concVal, 2);
-    Serial.print(F("mg/L, Temp:"));
-    Serial.print(isnan(tempVal) ? 0.0 : tempVal, 1);
-    Serial.println(F("C"));
-  } else {
-    Serial.println(F("[LORA TX] Error: LoRa transmission failed!"));
-  }
 }

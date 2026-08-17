@@ -1,156 +1,261 @@
-# Integrated Water Quality Station (WQS) Walkthrough
+# Integrated Water Quality Station (WQS) - Complete Documentation & Walkthrough
 
-This document outlines the architecture, hardware connections, IDE build configurations (including Partition Scheme for OTA), calibration instructions, and timing details for the integrated Water Quality Station codebase.
-
----
-
-## 📂 Project Structure
-
-All source files are located inside the directory:
-`Integrated WQS Code/`
-
-*   **`Integrated_WQS_Code.ino`**: The main Arduino sketch. Coordinates the non-blocking execution schedules of sensor polling, LCD updates, Serial command processing, and Over-The-Air (OTA) Wi-Fi updates.
-*   **`Config.h`**: Centralized configuration file containing pin definitions for ESP32-S3, Modbus registers, LCD specifications, and timing intervals.
-*   **`DOSensor.h` & `DOSensor.cpp`**: Implements the `DOSensor` class which encapsulates the Modbus RTU communication protocol for the DFRobot RS485 Dissolved Oxygen sensor (SKU: SEN0681).
-*   **`PHSensor.h` & `PHSensor.cpp`**: Implements the `PHSensor` class, wrapping the `DFRobot_PH` library, reading voltages via ESP32's optimized `analogReadMilliVolts()`, and performing temperature compensation.
-*   **`TurbiditySensor.h` & `TurbiditySensor.cpp`**: Implements the `TurbiditySensor` class which handles ADC reading, Beer-Lambert Law interpolation for mapping voltage to Turbidity Percentage, and NVS persistence for clear-water baseline calibration.
-*   **`DisplayManager.h` & `DisplayManager.cpp`**: Controls the LCD Model 2004A-V1.3 using the `LiquidCrystal_I2C` library. Uses an anti-flicker differential frame buffer to only update characters that change on screen.
-*   **`ButtonHandler.h` & `ButtonHandler.cpp`**: A clean, reusable wrapper class for physical tactile buttons. It handles non-blocking debouncing and short vs. long press detection.
+Welcome to the **Integrated Water Quality Station (WQS)** project! This comprehensive guide provides everything a developer, engineer, or technician needs to understand the system architecture, code functions, file structure, physical GPIO wiring, calibration procedures, and operational workflows.
 
 ---
 
-## ⚙️ Arduino IDE Configuration & Partition Scheme (Crucial for OTA & ESP32-S3 N16R8)
+## 🌊 1. System Overview & Core Capabilities
 
-When compiling and uploading code to the **ESP32-S3 N16R8** (16MB Flash / 8MB PSRAM), navigate to **Tools** in the Arduino IDE and configure these exact settings:
+The **Integrated Water Quality Station (WQS)** is an industrial-grade environmental telemetry station powered by an **ESP32-S3 (N16R8)** microcontroller (16MB Flash, 8MB PSRAM). It continuously acquires, processes, displays, and transmits multi-parameter water quality data in real time.
 
-### 1. Board Settings
-| Menu Option | Recommended Setting |
-| :--- | :--- |
-| **Board** | `ESP32S3 Dev Module` |
-| **Flash Size** | `16MB (128Mb)` |
-| **PSRAM** | `OPI PSRAM` (or `Enabled`) |
-| **USB Mode** | `Hardware CDC and JTAG` |
-| **USB CDC On Boot** | `Enabled` *(Required for `Serial.print` over native USB)* |
-| **Partition Scheme** | **`16M Flash (3MB APP / 9.9MB FATFS)`** OR **`16M Flash (2MB APP / 12.5MB SPIFFS)`** |
+### Monitored Parameters:
+1. **Dissolved Oxygen (DO):**
+   * **Sensor:** DFRobot RS485 Fluorescence Dissolved Oxygen Sensor (SKU: `SEN0681`).
+   * **Protocol:** RS485 Modbus RTU (Serial2, 4800 baud).
+   * **Metrics:** Saturation Percentage (`%`), Concentration (`mg/L`), and Water Temperature (`°C`).
+2. **pH Level:**
+   * **Sensor:** Gravity Analog pH Sensor V2.
+   * **Protocol:** Analog ADC with 20-sample trimmed-mean oversampling and automatic temperature compensation.
+   * **Range:** $0.00 - 14.00\text{ pH}$.
+3. **Turbidity:**
+   * **Sensor:** Analog Turbidity Optical Sensor.
+   * **Protocol:** Analog ADC with 1/2 voltage divider and Beer-Lambert non-linear curve fitting.
+   * **Range:** $0.0\% - 100.0\%$ (Relative Cleanliness Scale).
 
----
-
-### 🔍 Deep-Dive: What is the Partition Scheme & Why is it Crucial?
-
-#### What is a Partition Scheme?
-The ESP32's internal 16MB flash storage is partitioned like a hard drive. It splits space between:
-1. **Application Code space (`app0` / `app1`)**
-2. **File System space (SPIFFS / FATFS / LittleFS)**
-3. **Non-Volatile Storage (NVS)** for persistent settings and calibration data.
-
-#### Why is Partition Selection Crucial for Over-The-Air (OTA) Updates?
-During an **OTA Wireless Update**, the ESP32 must continue running the current firmware while simultaneously receiving the new binary over Wi-Fi. To achieve this safely:
-* The chip requires **DUAL App Partitions** (`app0` and `app1`).
-* **How it works**:
-  1. The ESP32 runs code out of `app0`.
-  2. Over Wi-Fi, it downloads the incoming code line-by-line directly into `app1`.
-  3. Once verified, it switches the bootloader pointer to `app1` and reboots.
-
-> [!WARNING]
-> **Partition Scheme Pitfall**
-> If you select a scheme with **No OTA** (such as *"Huge APP with no OTA"* or *"16MB (15MB APP / No OTA)"*), the ESP32 only has one single app partition. **OTA update requests will fail instantly** because there is no secondary partition to store the incoming binary!
-
-#### How to Check & Set it in Arduino IDE:
-1. Open Arduino IDE.
-2. Go to top menu: **Tools > Partition Scheme**.
-3. Select **`16M Flash (3MB APP / 9.9MB FATFS)`** (or any 16M scheme containing OTA app partitions).
+### Output & Telemetry:
+* **Local Visual Display:** 20x4 Character I2C LCD (Model 2004A) with differential line-buffer caching (zero display flicker).
+* **Wireless Telemetry:** SX1278 LoRa Ra-02 (433 MHz) long-range transceiver broadcasting sensor telemetry packets to a central receiver gateway.
+* **Non-Blocking Architecture:** 100% `millis()` time-sliced state machine with zero blocking `delay()` calls during operation or calibration.
 
 ---
 
-## 📡 Over-The-Air (OTA) Wireless Upload Guide
+## 📂 2. File Organization & Code Map
 
-Once your ESP32-S3 is running this code:
+All source code is located in the directory: `Integrated WQS Code/Integrated_WQS_Code/`.
 
-1. **First Upload**: Upload the code via USB cable once so the ESP32 boots with Wi-Fi and OTA initialized.
-2. **Verify Wi-Fi Connection**: Ensure your PC is connected to the same network specified in `Config.h`.
-3. **Select Wireless Port**:
-   - Go to **Tools > Port**.
-   - Under **Network Ports**, select `ESP32-S3-WQS at 192.168.x.x`.
-4. **Upload Wirelessly**: Click **Upload**. Arduino IDE will compile and transfer the new firmware wirelessly over Wi-Fi without needing a USB cable.
+```
+Integrated_WQS_Code/
+├── Integrated_WQS_Code.ino   # Main application orchestration & non-blocking state machine
+├── Config.h                  # Central pinout definitions, timings, and WQSData struct
+├── DOSensor.h / .cpp         # RS485 Modbus RTU driver for DFRobot DO Sensor (SEN0681)
+├── PHSensor.h / .cpp         # Analog pH sensor driver with oversampling & calibration
+├── TurbiditySensor.h / .cpp  # Analog Turbidity driver with NVS baseline persistence
+├── DisplayManager.h / .cpp   # Anti-flicker 20x4 I2C LCD layout manager
+├── ButtonHandler.h / .cpp    # Debounced short/long press physical button handler
+├── LoRaTransmitter.h / .cpp  # SX1278 SPI LoRa transmitter with auto-reconnect
+└── Integrated WQS Walkthrough.md # This complete technical documentation
+```
 
----
+### Module Responsibilities:
 
-## 🔌 Hardware Connections (ESP32-S3 44-pin Board)
-
-Please configure your physical wiring as defined below:
-
-| Device | Device Pin | ESP32-S3 Pin | Notes |
-| :--- | :--- | :--- | :--- |
-| **I2C LCD 2004** | SDA | **GPIO 8** or **GPIO 21** | ESP32-S3 hardware I2C SDA |
-| | SCL | **GPIO 9** or **GPIO 22** | ESP32-S3 hardware I2C SCL |
-| | VCC | 5V | LCD 2004 requires 5V to run |
-| | GND | GND | Common Ground |
-| **RS485-to-TTL** | RO (RXD) | **GPIO 16 (RX2)** | Hardware Serial2 RX |
-| (for DO Sensor) | DI (TXD) | **GPIO 17 (TX2)** | Hardware Serial2 TX |
-| | VCC | 5V / 3.3V | Check adapter requirements |
-| | GND | GND | Common Ground |
-| **Analog pH** | Signal (A) | **GPIO 4 (ADC1_CH3)**| Dedicated ADC1 pin for ESP32-S3 |
-| | VCC (V) | 5V / 3.3V | Check sensor edition |
-| | GND (G) | GND | Common Ground |
-| **Turbidity Sensor** | Signal OUT | **GPIO 5 (ADC1_CH4)**| Dedicated ADC1 pin (Requires 1/2 Voltage Divider before entering pin) |
-| | VCC | 5V | Runs on 5V from VIN/USB |
-| | GND | GND | Common Ground |
-| **Physical Buttons** | DO/Turbidity | **GPIO 12** | Connect to GND (Uses internal pull-up) |
-| | pH Button | **GPIO 13** | Connect to GND (Uses internal pull-up) |
+| File | Purpose | Key Functions / Methods |
+| :--- | :--- | :--- |
+| [`Integrated_WQS_Code.ino`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/Integrated_WQS_Code.ino) | Top-level state router, scheduling loop, serial command processor, button event dispatcher. | `setup()`, `loop()`, `handleNormalMode()`, `handleDOCalibrationMode()`, `handlePHCalibrationMode()`, `handleTurbidityCalibrationMode()` |
+| [`Config.h`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/Config.h) | Central hardware pin mapping, Modbus register IDs, LoRa parameters, timing constants, and `WQSData` struct definition. | Struct `WQSData`, GPIO definitions (`PH_PIN`, `TURBIDITY_PIN`, `DO_RX_PIN`, `LORA_...`) |
+| [`DOSensor.h`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/DOSensor.h) / [`.cpp`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/DOSensor.cpp) | Encapsulates RS485 Modbus RTU communication over `Serial2`, CRC16 validation, registers-to-float IEEE-754 parsing, and 100% saturation write commands. | `begin()`, `query()`, `sendCalibrationCommand()`, `getSaturation()`, `getConcentration()`, `getTemperature()`, `isDataValid()` |
+| [`PHSensor.h`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/PHSensor.h) / [`.cpp`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/PHSensor.cpp) | Handles ESP32 SAR ADC oversampling (20 samples, trim-mean), temperature-compensated pH conversion via `DFRobot_PH`, and NVS flash calibration saving. | `begin()`, `update(temp)`, `sendCalibrationCommand(temp, cmd)`, `getPH()`, `getVoltage()`, `isDataValid()` |
+| [`TurbiditySensor.h`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/TurbiditySensor.h) / [`.cpp`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/TurbiditySensor.cpp) | Samples analog voltage through a voltage divider, maps voltage to percentage turbidity, saves `vClean` calibration reference to NVS Preferences. | `begin()`, `getTurbidityPct()`, `calibrateCleanWater()`, `getVClean()`, `isDataValid()` |
+| [`DisplayManager.h`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/DisplayManager.h) / [`.cpp`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/DisplayManager.cpp) | Controls 20x4 I2C LCD with differential line-buffer caching (only writes characters that changed, preventing flicker). | `begin()`, `showNormalScreen(WQSData, loraActive)`, `showDOCalibrationScreen()`, `showPHCalibrationScreen()`, `showTurbidityCalibrationScreen()` |
+| [`ButtonHandler.h`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/ButtonHandler.h) / [`.cpp`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/ButtonHandler.cpp) | Non-blocking debounce filter detecting short press (< 2s) and long press (≥ 2s). | `begin()`, `update()`, `isShortPressed()`, `isLongPressed()`, `isPressed()` |
+| [`LoRaTransmitter.h`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/LoRaTransmitter.h) / [`.cpp`](file:///c:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/Integrated%20WQS%20Code/Integrated_WQS_Code/LoRaTransmitter.cpp) | Manages SX1278 SPI LoRa module initialization, non-blocking auto-reconnect every 30s, and packet formatting. | `begin()`, `maintain(millis)`, `sendData(WQSData)`, `isInitialized()` |
 
 ---
 
-## 🎛️ Physical Button Controls
+## 🔌 3. Hardware Connections & GPIO Pinout Table
 
-The system features two physical tactile buttons (connected to GPIO 12 and 13) using internal pull-up resistors to perform non-blocking actions without needing a serial monitor:
+Wiring connections for the **ESP32-S3 44-Pin Board**:
 
-### Button 1 (DO & Turbidity Calibration - GPIO 12)
-*   **Short Press (< 2 seconds)**: Triggers the **100% Atmospheric DO Calibration** (Same as `CAL100`).
-*   **Long Press (> 2 seconds)**: Triggers the **Turbidity Clean Water Calibration**. Places the system into a calibration mode, samples the clean water voltage 10 times, saves it to non-volatile storage, and displays a success message.
+```
+                                  +-----------------------+
+                                  |   ESP32-S3 (44-Pin)   |
+                                  +-----------------------+
+    [pH Sensor (A)] ------------> | GPIO 4  (ADC1_CH3)    |
+    [Turbidity OUT] -> Divider -> | GPIO 5  (ADC1_CH4)    |
+    [LoRa RST] -----------------> | GPIO 6                |
+    [LoRa DIO0] ----------------> | GPIO 7                |
+    [I2C LCD SDA] --------------> | GPIO 8                |
+    [I2C LCD SCL] --------------> | GPIO 9                |
+    [LoRa NSS / CS] ------------> | GPIO 10               |
+    [LoRa SCK] -----------------> | GPIO 11               |
+    [Button 1: DO/Turb] --------> | GPIO 12 (to GND)      |
+    [Button 2: pH] -------------> | GPIO 13 (to GND)      |
+    [LoRa MOSI] ----------------> | GPIO 14               |
+    [LoRa MISO] ----------------> | GPIO 15               |
+    [RS485 RO / RXD] -----------> | GPIO 16 (RX2)         |
+    [RS485 DI / TXD] -----------> | GPIO 17 (TX2)         |
+                                  +-----------------------+
+```
 
-### Button 2 (pH Calibration - GPIO 13)
-*   **Short Press**: Toggles between entering pH calibration (`enterph`) and calibrating the current buffer (`calph`).
-*   **Long Press (> 2 seconds)**: Exits pH calibration (`exitph`) and saves the values to non-volatile storage.
+### Complete Pinout Specification:
+
+| Peripheral / Module | Module Pin | ESP32-S3 Pin | Voltage Level | Notes / Wiring Guidance |
+| :--- | :--- | :--- | :--- | :--- |
+| **I2C LCD 2004A** | `SDA` | **GPIO 8** | 3.3V / 5V Bus | I2C Data line |
+| *(PCF8574 Backpack)* | `SCL` | **GPIO 9** | 3.3V / 5V Bus | I2C Clock line |
+| | `VCC` | **5V (VIN / VBUS)** | 5.0V | LCD 2004A requires 5V for optimal backlight/contrast |
+| | `GND` | **GND** | 0V | Common ground |
+| **RS485-to-TTL Adapter** | `RO` (RXD) | **GPIO 16 (RX2)**| 3.3V logic | RS485 Receiver Output to ESP32 RX |
+| *(DO Sensor SEN0681)* | `DI` (TXD) | **GPIO 17 (TX2)**| 3.3V logic | ESP32 TX to RS485 Driver Input |
+| | `VCC` | **5V / 3.3V** | 3.3V - 5V | Match RS485 module specs |
+| | `GND` | **GND** | 0V | Common ground |
+| **DFRobot DO Sensor** | `Brown (VCC)` | **External 12V/24V**| 9V - 24V DC | Sensor power input |
+| | `Black (GND)` | **Common GND** | 0V | Tie RS485 GND and 12V PSU GND together |
+| | `Blue (A+)` | **RS485 Module A** | Differential | Modbus Differential A+ |
+| | `White (B-)` | **RS485 Module B** | Differential | Modbus Differential B- |
+| **Analog pH Sensor V2** | `Signal (A)` | **GPIO 4 (ADC1_CH3)**| Analog (0-3V)| Dedicated low-noise ADC1 channel |
+| | `VCC (+)` | **5V / 3.3V** | 3.3V - 5V | Gravity interface power |
+| | `GND (-)` | **GND** | 0V | Common ground |
+| **Analog Turbidity Sensor**| `Signal OUT`| **GPIO 5 (ADC1_CH4)**| Analog (0-3V)| **Requires 1/2 Voltage Divider** (e.g., $10\text{k}\Omega / 10\text{k}\Omega$) before ESP32 pin! |
+| | `VCC` | **5V** | 5.0V | Turbidity LED/Photodiode requires 5V |
+| | `GND` | **GND** | 0V | Common ground |
+| **LoRa Ra-02 (SX1278)** | `NSS / CS` | **GPIO 10** | 3.3V SPI | SPI Chip Select |
+| *(433 MHz SPI Module)* | `SCK` | **GPIO 11** | 3.3V SPI | SPI Master Clock |
+| | `MOSI` | **GPIO 14** | 3.3V SPI | SPI Master Out Slave In |
+| | `MISO` | **GPIO 15** | 3.3V SPI | SPI Master In Slave Out |
+| | `RST` | **GPIO 6** | 3.3V logic | Hardware Reset Pin |
+| | `DIO0` | **GPIO 7** | 3.3V logic | Packet RX/TX Interrupt pin |
+| | `VCC` | **3.3V ONLY** | **3.3V MAX** | ⚠️ **DO NOT CONNECT TO 5V!** (Will damage SX1278) |
+| | `GND` | **GND** | 0V | Common ground |
+| **Physical Button 1** | Terminal 1 | **GPIO 12** | Pull-up (3.3V) | Active LOW (Internal pull-up enabled) |
+| *(DO / Turbidity)* | Terminal 2 | **GND** | 0V | Connect directly to Ground |
+| **Physical Button 2** | Terminal 1 | **GPIO 13** | Pull-up (3.3V) | Active LOW (Internal pull-up enabled) |
+| *(pH Calibration)* | Terminal 2 | **GND** | 0V | Connect directly to Ground |
 
 ---
 
-## 🛠️ Calibration Commands
+## 🎛️ 4. Physical Button Controls & Calibration Guide
 
-Open the Arduino Serial Monitor at **115200 baud** with line endings set to **Newline (NL) or Carriage Return (CR)**.
+The station features two multi-function physical tactile buttons using non-blocking debounce logic:
 
-### 1. Dissolved Oxygen (DO) 100% Saturation Calibration
-1. Hold the DO probe suspended in water-saturated air (e.g., just above the surface of the water).
-2. Type `CAL100` and press Enter.
-3. The LCD and Serial Monitor will show a 5-second countdown.
-4. When the countdown hits 0, it sends the Modbus calibration write command, displays the results, and returns to normal operation.
-
-### 2. pH Sensor Calibration
-1. Place the pH probe in a standard calibration buffer solution (such as pH 4.0 or pH 7.0).
-2. Type `enterph` and press Enter to start calibration mode. The LCD screen changes to show raw millivolts and temperature.
-3. Wait for the voltage to stabilize.
-4. Type `calph` and press Enter. The `DFRobot_PH` library automatically detects whether the solution is pH 4.0 or 7.0 and adjusts calibration.
-5. Type `exitph` and press Enter. The library saves the calibration settings into the ESP32's native non-volatile storage (Preferences / NVS) and normal monitoring mode resumes.
-
-### 3. Turbidity Sensor Calibration (Clean Water Baseline)
-1. Clean the turbidity probe thoroughly with distilled water and a soft cloth.
-2. Place the probe into a container of perfectly clean, clear water (e.g., distilled water).
-3. **Important**: The sensor is highly sensitive to ambient light. Ensure the container is opaque or shield the setup from direct sunlight and bright fluorescent lights during calibration to prevent inaccurate voltage readings.
-4. Wait a moment for the water to settle and the sensor to stabilize.
-5. Press and **hold Button 1 (GPIO 12) for more than 2 seconds**.
-6. The LCD will flash `* TURB CALIBRATION *`, rapidly read the sensor 10 times to compute an average clean water voltage baseline, and save this new reference to the ESP32's non-volatile storage.
-7. The LCD will display `>>> CAL SUCCESS <<<<` with the new reference voltage for 3 seconds before automatically returning to normal monitoring mode.
-
-> [!NOTE]
-> **Hardware Voltage Divider Tuning**
-> If you notice a difference between the "calibrated voltage" displayed on the screen and the actual voltage measured with a physical voltmeter at the sensor output, it is due to a combination of **resistor tolerances** in your voltage divider and **ESP32 ADC offset**.
-> You can manually fix this by updating the hardware multiplier in `TurbiditySensor.cpp`. 
-> Navigate to `TurbiditySensor::calibrateCleanWater()` and `TurbiditySensor::getTurbidityPct()` and adjust the multiplier.
-> The easiest way to calculate your exact multiplier is:
-> `New Multiplier = (Actual Target Voltage / Voltage Displayed on Screen) * Current Multiplier`
+```
++-------------------------------------------------------------+
+|                     BUTTON CONTROL MATRIX                   |
++--------------------------+----------------------------------+
+| Button 1 (GPIO 12)       | Short Press (< 2s) -> DO 100% Cal|
+|                          | Long Press (≥ 2s)  -> Turbidity  |
++--------------------------+----------------------------------+
+| Button 2 (GPIO 13)       | Short Press -> Enter / Cal pH    |
+|                          | Long Press (≥ 2s)  -> Exit & Save|
++--------------------------+----------------------------------+
+```
 
 ---
 
-## 📦 Required Libraries
-Ensure you install these library dependencies in your Arduino IDE:
-1. **LiquidCrystal_I2C** by Frank de Brabander
-2. **DFRobot_PH** by DFRobot
+### Calibration Procedure 1: Dissolved Oxygen (DO) 100% Saturation Calibration
+1. **Probe Preparation:** Rinse the DO probe membrane with clean water, gently dab dry with lint-free tissue, and hold the probe suspended in water-saturated air (e.g., inside an open bottle above water surface, without submerging the membrane).
+2. **Trigger:**
+   * **Via Button:** **Short Press Button 1 (GPIO 12)** (< 2 seconds), OR
+   * **Via Serial Monitor:** Type `CAL100` and press **Enter**.
+3. **Execution:**
+   * The LCD and Serial Monitor show a **5-second countdown** (`Starting in 5s...`).
+   * When countdown hits 0, the ESP32 issues Modbus command `0x1010` with value `0x0002` to the sensor.
+   * The screen displays `>>> SUCCESS: 100% Calibration Command SENT <<<` for 3 seconds and automatically returns to normal monitoring mode.
+
+---
+
+### Calibration Procedure 2: pH Sensor 2-Point Calibration (pH 4.0 & pH 7.0)
+1. **Standard Solutions:** Prepare standard calibration buffer solutions (pH 7.00 neutral buffer and pH 4.00 acidic buffer).
+2. **Step 1 - Enter Calibration Mode:**
+   * **Via Button:** **Short Press Button 2 (GPIO 13)** once.
+   * **Via Serial Monitor:** Type `enterph` and press **Enter**.
+   * The LCD transitions to the `* pH CALIBRATION *` screen showing live probe millivolts, current pH, and auto-detected buffer (`Buffer: 7.0 (1500mV)`).
+3. **Step 2 - Calibrate pH 7.00 Solution:**
+   * Immerse the probe in **pH 7.00 buffer**, swirl gently, and wait for the millivolt reading on the screen to stabilize.
+   * **Short Press Button 2 (GPIO 13)** (or type `calph` in Serial Monitor).
+   * The LCD shows `>>> Calibrated! <<<`.
+4. **Step 3 - Calibrate pH 4.00 Solution:**
+   * Rinse the probe with distilled water, dab dry, and place into **pH 4.00 buffer**.
+   * Wait for the voltage to stabilize.
+   * **Short Press Button 2 (GPIO 13)** (or type `calph` in Serial Monitor).
+   * The LCD confirms calibration for the acidic point.
+5. **Step 4 - Save and Exit:**
+   * **Press and HOLD Button 2 (GPIO 13) for ≥ 2 seconds** (or type `exitph` in Serial Monitor).
+   * The calibration slopes and zero-point offsets are saved to non-volatile flash storage (`EEPROM.commit()`).
+   * The LCD clears and returns to normal monitoring mode.
+
+---
+
+### Calibration Procedure 3: Turbidity Clean Water Reference (`vClean`)
+1. **Probe Preparation:** Thoroughly clean the optical turbidity sensor head with distilled water and a soft microfiber cloth.
+2. **Clean Water Setup:** Place the sensor into a container of perfectly clean, clear water (distilled or purified water).
+   > [!IMPORTANT]
+   > Optical turbidity sensors are highly sensitive to ambient light. Shield the container from direct sunlight or bright fluorescent overhead lights during calibration.
+3. **Trigger:**
+   * **Press and HOLD Button 1 (GPIO 12) for ≥ 2 seconds**.
+4. **Execution:**
+   * The LCD displays `* TURB CALIBRATION * | Reading sensor...`.
+   * The system samples the sensor 10 times with trim-mean averaging to calculate the baseline clean water voltage (`vClean`).
+   * The new reference voltage is written to ESP32 NVS flash via the `Preferences` library (`_preferences.putFloat("vClean", _vClean)`).
+   * The LCD displays `Ref: X.XX V Set! | >>> CAL SUCCESS <<<` for 3 seconds before smoothly returning to normal operation.
+
+---
+
+## 🛠️ 5. Serial Monitor Command Reference
+
+Open the Arduino IDE Serial Monitor at **115200 baud** with line endings set to **Newline (NL)** or **Both NL & CR**:
+
+| Command | Allowed Modes | Action Performed |
+| :--- | :--- | :--- |
+| `CAL100` | Normal Mode | Triggers 5-second countdown and sends 100% DO saturation calibration command to Modbus sensor. |
+| `enterph` | Normal Mode | Switches station to pH Calibration Mode with real-time temperature compensation. |
+| `calph` | pH Calibration Mode | Analyzes current buffer voltage, computes slope/offset for pH 4.0 or 7.0, and stages parameters. |
+| `exitph` | pH Calibration Mode | Commits pH calibration parameters to NVS flash memory and returns to Normal Mode. |
+| Custom string | pH Calibration Mode | Forwards raw diagnostic command to the `DFRobot_PH` underlying library. |
+
+---
+
+## 📡 6. LoRa Telemetry Packet Format
+
+Every 5 seconds (`POLL_INTERVAL_MS = 5000`), the station transmits a formatted ASCII telemetry packet on **433.0 MHz** (Sync Word `0xF3`):
+
+### Packet Structure:
+```
+pH:<phVal>,Turb:<turbVal>,DO:<concVal>,Sat:<satVal>,Temp:<tempVal>
+```
+
+### Example Packet:
+```
+pH:7.42,Turb:3.5,DO:6.85,Sat:92.4,Temp:28.6
+```
+
+* **Fault-Tolerant Fallback:** If any sensor reading is invalid or disconnected, the value is transmitted as `N/A` (e.g. `DO:N/A,Sat:N/A`), preventing corrupt data from poisoning downstream dashboards.
+* **Auto-Reconnect:** If the LoRa transceiver disconnects or fails SPI initialization on boot, `LoRaTransmitter::maintain()` automatically retries non-blocking re-initialization every 30 seconds without freezing the sensor loops.
+
+---
+
+## ⚙️ 7. Arduino IDE Board & Build Configuration
+
+When uploading firmware to the **ESP32-S3 N16R8**:
+
+### 1. Board Settings in Arduino IDE:
+* **Board:** `ESP32S3 Dev Module`
+* **Flash Size:** `16MB (128Mb)`
+* **PSRAM:** `OPI PSRAM` (or `Enabled`)
+* **USB Mode:** `Hardware CDC and JTAG`
+* **USB CDC On Boot:** `Enabled` *(Crucial: allows `Serial.print` over native USB CDC)*
+* **Partition Scheme:** `16M Flash (3MB APP / 9.9MB FATFS)` or `16M Flash (2MB APP / 12.5MB SPIFFS)`
+* **Upload Speed:** `921600`
+
+### 2. Required Arduino Libraries:
+Install the following libraries via the Arduino IDE Library Manager (**Tools > Manage Libraries...**):
+1. **`LiquidCrystal_I2C`** by Frank de Brabander (for 2004A LCD).
+2. **`DFRobot_PH`** by DFRobot (for pH calibration & temperature compensation).
+3. **`LoRa`** by Sandeep Mistry (for SX1278 SPI LoRa transceiver).
+
+---
+
+## 🏗️ 8. Software Architecture & Design Principles
+
+1. **Non-Blocking Finite State Machine (FSM):**
+   * Uses `millis()` time-slicing across all operational loops.
+   * Eliminates system freezes during multi-second screen displays or sensor timeouts.
+2. **Unified Data Container (`WQSData`):**
+   * All sensor readings and boolean health flags (`doValid`, `phValid`, `turbidityValid`) are encapsulated into a single unified `struct WQSData`.
+   * Ensures identical data snapshots are shared across the LCD renderer, serial debug logger, and LoRa packet dispatcher.
+3. **Signal Conditioning & Noise Rejection:**
+   * ESP32 SAR ADC readings for pH and Turbidity use a **20-sample trimmed-mean filter** (discards top & bottom outlier samples, then averages the remaining samples) to suppress electrical and RF switching noise.
+4. **Anti-Flicker LCD Rendering:**
+   * `DisplayManager` maintains an internal 4-line character cache (`_lineBuffers`).
+   * Only individual lines with modified characters are written to the I2C bus, completely eliminating character flicker.
+5. **Non-Volatile Storage (NVS):**
+   * Zero-loss persistence for sensor calibration offsets across power cuts and hardware reboots.
