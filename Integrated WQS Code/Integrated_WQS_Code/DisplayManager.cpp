@@ -25,17 +25,19 @@ void DisplayManager::clear() {
     }
 }
 
-void DisplayManager::showNormalScreen(const WQSData& data, bool loraActive) {
+void DisplayManager::showNormalScreen(const WQSData& data, const char* pumpStateStr, const char* pumpCountdown, bool loraActive) {
     showNormalScreen(data.doValid ? data.doSat : NAN,
                      data.doValid ? data.doConc : NAN,
                      data.doValid ? data.temp : NAN,
                      data.phValid ? data.ph : NAN,
                      data.turbidityValid ? data.turbidity : NAN,
+                     pumpStateStr,
+                     pumpCountdown,
                      loraActive);
 }
 
 // Render the normal monitoring screen
-void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, bool loraActive) {
+void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, const char* pumpStateStr, const char* pumpCountdown, bool loraActive) {
 
     // Line 0: Dissolved Oxygen Saturation & Concentration
     if (doSat < 0.0 || isnan(doSat) || doConc < 0.0 || isnan(doConc)) {
@@ -44,26 +46,42 @@ void DisplayManager::showNormalScreen(float doSat, float doConc, float temp, flo
         updateLine(0, "DO: %.1f%% %.2fmg/L", doSat, doConc);
     }
 
-    // Line 1: Temperature
-    if (temp < -5.0 || temp > 50.0 || isnan(temp)) {
-        updateLine(1, "Temp: --.- \xDF" "C");
-    } else {
-        updateLine(1, "Temp: %.1f \xDF" "C", temp);
-    }
-
-    // Line 2: pH value
+    // Line 1: pH & Temperature combined
+    char phStr[10];
     if (ph < 0.0 || ph > 14.0 || isnan(ph)) {
-        updateLine(2, "pH:   --.--");
+        snprintf(phStr, sizeof(phStr), "--.--");
     } else {
-        updateLine(2, "pH:   %.2f", ph);
+        snprintf(phStr, sizeof(phStr), "%.2f", ph);
     }
 
-    // Line 3: Turbidity & LoRa status indicator
-    char loraIcon = loraActive ? 'L' : ' ';
-    if (turbidityPct < 0.0 || isnan(turbidityPct)) {
-        updateLine(3, "Turb: --.- %%      %c", loraIcon);
+    char tempStr[10];
+    if (temp < -5.0 || temp > 50.0 || isnan(temp)) {
+        snprintf(tempStr, sizeof(tempStr), "--.-");
     } else {
-        updateLine(3, "Turb: %.1f %%      %c", turbidityPct, loraIcon);
+        snprintf(tempStr, sizeof(tempStr), "%.1f", temp);
+    }
+    updateLine(1, "pH:%-5s  T:%s\xDF" "C", phStr, tempStr);
+
+    // Line 2: Turbidity
+    if (turbidityPct < 0.0 || isnan(turbidityPct)) {
+        updateLine(2, "Turb: --.- %%");
+    } else {
+        updateLine(2, "Turb: %4.1f %%", turbidityPct);
+    }
+
+    // Line 3: Pump State + Countdown + LoRa status indicator
+    char loraIcon = loraActive ? 'L' : ' ';
+    const char* pState = (pumpStateStr != nullptr) ? pumpStateStr : "ON";
+    const char* pCount = (pumpCountdown != nullptr) ? pumpCountdown : "";
+
+    if (strcmp(pState, "PAUSED") == 0) {
+        updateLine(3, "PUMP: PAUSED       %c", loraIcon);
+    } else if (strcmp(pState, "FILL") == 0) {
+        updateLine(3, "PUMP: FILL   [%-4s] %c", pCount, loraIcon);
+    } else if (strcmp(pState, "SETTLE") == 0) {
+        updateLine(3, "PUMP: SETTLE [%-4s] %c", pCount, loraIcon);
+    } else {
+        updateLine(3, "PUMP: %-4s [%-5s] %c", pState, pCount, loraIcon);
     }
 }
 

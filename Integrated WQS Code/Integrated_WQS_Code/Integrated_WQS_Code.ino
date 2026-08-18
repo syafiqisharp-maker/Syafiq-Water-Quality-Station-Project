@@ -2,17 +2,20 @@
   Integrated Water Quality Station (WQS)
 
   This sketch integrates three sensors on a 44-pin ESP32-S3 (N16R8):
-  1. DFRobot RS485 Fluorescence Dissolved Oxygen (DO) Sensor (SEN0681, Slave ID 0x01)
+  1. DFRobot RS485 Fluorescence Dissolved Oxygen (DO) Sensor (SEN0681, Slave ID
+  0x01)
   2. DFRobot RS485 Modbus pH Sensor (SEN0708, Slave ID 0x02)
   3. Analog Turbidity Sensor
   It outputs data to an LCD Model 2004A-V1.3 (20x4 Character I2C LCD) and
   supports LoRa Ra-02 (433MHz) telemetry transmission.
 
   Architecture:
-  - Config.h             : General definitions, pin mappings, WQSData struct, timing.
+  - Config.h             : General definitions, pin mappings, WQSData struct,
+  timing.
   - DOSensor.h/.cpp      : RS485 Modbus RTU communication wrapper for DO sensor.
   - PHSensor.h/.cpp      : RS485 Modbus RTU communication wrapper for pH sensor.
-  - TurbiditySensor.h/.cpp: Analog turbidity sensor wrapper with NVS calibration & validation.
+  - TurbiditySensor.h/.cpp: Analog turbidity sensor wrapper with NVS calibration
+  & validation.
   - DisplayManager.h/.cpp: Anti-flicker character LCD layout & refresh manager.
   - ButtonHandler.h/.cpp : Debouncing and short/long press detection wrapper.
   - LoRaTransmitter.h/.cpp: SX1278 SPI LoRa transmitter with auto-reconnect.
@@ -24,6 +27,7 @@
 #include "DisplayManager.h"
 #include "LoRaTransmitter.h"
 #include "PHSensor.h"
+#include "PumpController.h"
 #include "TurbiditySensor.h"
 #include <Arduino.h>
 #include <Wire.h>
@@ -67,10 +71,12 @@ unsigned long phCalStatusMsgTimer = 0;
 // OBJECT INSTANTIATIONS
 // ==========================================
 DOSensor doSensor(Serial2, RS485_RX_PIN, RS485_TX_PIN, RS485_RE_DE_PIN);
-PHSensor phSensor(Serial2, PH_SLAVE_ID, RS485_RX_PIN, RS485_TX_PIN, RS485_RE_DE_PIN);
+PHSensor phSensor(Serial2, PH_SLAVE_ID, RS485_RX_PIN, RS485_TX_PIN,
+                  RS485_RE_DE_PIN);
 TurbiditySensor turbiditySensor(TURBIDITY_PIN);
 DisplayManager displayManager;
 LoRaTransmitter loraTransmitter;
+PumpController pumpController(PUMP_RELAY_PIN, RELAY_ACTIVE_LEVEL);
 
 // ==========================================
 // FUNCTION PROTOTYPES
@@ -116,45 +122,35 @@ void setup() {
   doButton.begin();
   phButton.begin();
 
-  // Initialize sensor modules & LoRa Transmitter
+  // Initialize sensor modules, LoRa Transmitter, & Pump Controller
   doSensor.begin();
   phSensor.begin();
   displayManager.begin();
   turbiditySensor.begin();
   loraTransmitter.begin();
+  pumpController.begin();
 
   Serial.println(F("-> I2C LCD Display: Initialized OK"));
-  Serial.printf("-> DO Sensor (RS485 Addr 0x%02X): Initialized OK\n", DO_SLAVE_ID);
-  Serial.printf("-> pH Sensor (RS485 Addr 0x%02X): Initialized OK\n", PH_SLAVE_ID);
-  Serial.printf("-> Turbidity Sensor (GPIO %d): Initialized OK\n", TURBIDITY_PIN);
+  Serial.printf("-> DO Sensor (RS485 Addr 0x%02X): Initialized OK\n",
+                DO_SLAVE_ID);
+  Serial.printf("-> pH Sensor (RS485 Addr 0x%02X): Initialized OK\n",
+                PH_SLAVE_ID);
+  Serial.printf("-> Turbidity Sensor (GPIO %d): Initialized OK\n",
+                TURBIDITY_PIN);
   Serial.println(F("--------------------------------------------------------"));
-  Serial.println(F("System Ready. Polling sensors every 5 seconds."));
-  Serial.println(
-      F("Commands: 'CAL100' (DO cal), 'ENTERPH', 'CALPH', 'CAL4', 'CAL7', 'CAL9', 'EXITPH'."));
+  Serial.println(F("System Ready. Flow-Through cycle started (5m ON -> 5s "
+                   "Settle & LoRa -> 4m55s OFF)."));
+  Serial.println(F("Commands: 'CAL100' (DO cal), 'ENTERPH', 'CALPH', 'CAL4', "
+                   "'CAL7', 'CAL9', 'EXITPH'."));
   Serial.println(
       F("========================================================\n"));
 
-  // Perform initial readings immediately with RS485 inter-frame delay
-  doSensor.query();
-  currentData.doValid = doSensor.isDataValid();
-  currentData.doSat = currentData.doValid ? doSensor.getSaturation() : NAN;
-  currentData.doConc = currentData.doValid ? doSensor.getConcentration() : NAN;
-  currentData.temp = currentData.doValid ? doSensor.getTemperature() : 29.0f;
-
-  delay(50); // Line settling delay on RS485 bus
-
-  phSensor.query();
-  currentData.phValid = phSensor.isDataValid();
-  currentData.ph = currentData.phValid ? phSensor.getPH() : NAN;
-  if (!currentData.doValid && currentData.phValid) {
-    currentData.temp = phSensor.getTemperature();
-  }
-
-  currentData.turbidityValid = turbiditySensor.isDataValid();
-  currentData.turbidity = turbiditySensor.getTurbidityPct();
-
-  // Initial display refresh
-  displayManager.showNormalScreen(currentData, loraTransmitter.isInitialized());
+  // Initial display refresh (Pump starts in FILL stage for first 30 seconds)
+  char initCountdownStr[8];
+  pumpController.getCountdownString(initCountdownStr, sizeof(initCountdownStr));
+  displayManager.showNormalScreen(currentData, pumpController.getStateName(),
+                                  initCountdownStr,
+                                  loraTransmitter.isInitialized());
 
   lastPollTime = millis();
   lastDisplayRefreshTime = millis();
@@ -192,43 +188,90 @@ void loop() {
 // STATE HANDLERS
 // ==========================================
 void handleNormalMode(unsigned long currentMillis) {
-  // 1. Poll Sensors & Transmit LoRa
-  if (currentMillis - lastPollTime >= POLL_INTERVAL_MS) {
-    lastPollTime = currentMillis;
+  // 1. Maintain pump cycle state machine
+  pumpController.update(currentMillis);
 
-    // Read DO sensor (Slave 0x01)
+  // 2. Poll Sensors ONLY when pump is running AND after initial 30s fill period
+  if (pumpController.isSensorPollingAllowed()) {
+    if (currentMillis - lastPollTime >= POLL_INTERVAL_MS) {
+      lastPollTime = currentMillis;
+
+      // Read DO sensor (Slave 0x01)
+      doSensor.query();
+      currentData.doValid = doSensor.isDataValid();
+      currentData.doSat = currentData.doValid ? doSensor.getSaturation() : NAN;
+      currentData.doConc =
+          currentData.doValid ? doSensor.getConcentration() : NAN;
+      currentData.temp =
+          currentData.doValid ? doSensor.getTemperature() : 29.0f;
+
+      delay(50); // Inter-frame delay for RS485 bus settling between slaves
+
+      // Read pH sensor (Slave 0x02)
+      phSensor.query();
+      currentData.phValid = phSensor.isDataValid();
+      currentData.ph = currentData.phValid ? phSensor.getPH() : NAN;
+      if (!currentData.doValid && currentData.phValid) {
+        currentData.temp =
+            phSensor.getTemperature(); // Fallback temperature if DO unavailable
+      }
+
+      // Read Turbidity sensor
+      currentData.turbidityValid = turbiditySensor.isDataValid();
+      currentData.turbidity = turbiditySensor.getTurbidityPct();
+
+      Serial.print(F("Live Polling - Turbidity: "));
+      Serial.print(currentData.turbidity, 1);
+      Serial.printf(" %% | DO: %.2f mg/L | pH: %.2f | Temp: %.1f C\n",
+                    currentData.doConc, currentData.ph, currentData.temp);
+    }
+  }
+
+  // 3. Trigger 5m 05s Settled Sampling & LoRa Transmission
+  if (pumpController.isSampleReady()) {
+    Serial.println(
+        F("\n========================================================"));
+    Serial.println(
+        F("[SAMPLER] 5m 05s mark reached! Reading settled sample..."));
+
+    // Perform fresh, high-accuracy read of all probes
     doSensor.query();
     currentData.doValid = doSensor.isDataValid();
     currentData.doSat = currentData.doValid ? doSensor.getSaturation() : NAN;
-    currentData.doConc = currentData.doValid ? doSensor.getConcentration() : NAN;
+    currentData.doConc =
+        currentData.doValid ? doSensor.getConcentration() : NAN;
     currentData.temp = currentData.doValid ? doSensor.getTemperature() : 29.0f;
 
-    delay(50); // Inter-frame delay for RS485 bus settling between slaves
+    delay(50);
 
-    // Read pH sensor (Slave 0x02)
     phSensor.query();
     currentData.phValid = phSensor.isDataValid();
     currentData.ph = currentData.phValid ? phSensor.getPH() : NAN;
     if (!currentData.doValid && currentData.phValid) {
-      currentData.temp = phSensor.getTemperature(); // Fallback temperature if DO unavailable
+      currentData.temp = phSensor.getTemperature();
     }
 
-    // Read Turbidity sensor
     currentData.turbidityValid = turbiditySensor.isDataValid();
     currentData.turbidity = turbiditySensor.getTurbidityPct();
 
-    Serial.print(F("Turbidity: "));
-    Serial.print(currentData.turbidity, 1);
-    Serial.println(F(" %"));
-
-    // Send sensor values via LoRa Ra-02 (non-blocking)
+    // Transmit settled telemetry data packet via LoRa Ra-02
     loraTransmitter.sendData(currentData);
+    Serial.println(F(
+        "[LORA] Telemetry packet transmitted to receiver for Google Sheets."));
+    Serial.println(
+        F("========================================================\n"));
+
+    pumpController.clearSampleReady();
   }
 
-  // 2. Refresh Display
+  // 4. Refresh Display with live sensor data and pump countdown
   if (currentMillis - lastDisplayRefreshTime >= DISPLAY_REFRESH_MS) {
     lastDisplayRefreshTime = currentMillis;
-    displayManager.showNormalScreen(currentData, loraTransmitter.isInitialized());
+    char countdownStr[8];
+    pumpController.getCountdownString(countdownStr, sizeof(countdownStr));
+    displayManager.showNormalScreen(currentData, pumpController.getStateName(),
+                                    countdownStr,
+                                    loraTransmitter.isInitialized());
   }
 }
 
@@ -250,13 +293,13 @@ void handleDOCalibrationMode(unsigned long currentMillis) {
 
         bool success = doSensor.sendCalibrationCommand();
         if (success) {
-          Serial.println(F(
-              "\n>>> SUCCESS: 100% Calibration Command SENT successfully! <<<"));
+          Serial.println(F("\n>>> SUCCESS: 100% Calibration Command SENT "
+                           "successfully! <<<"));
           Serial.println(
               F("Sensor is storing parameters. Returning to normal mode."));
         } else {
-          Serial.println(F(
-              "\n>>> ERROR: Calibration Command FAILED! Check connections. <<<"));
+          Serial.println(F("\n>>> ERROR: Calibration Command FAILED! Check "
+                           "connections. <<<"));
         }
         Serial.println(
             F("========================================================\n"));
@@ -270,6 +313,7 @@ void handleDOCalibrationMode(unsigned long currentMillis) {
     if (currentMillis - doCalFinishTime >= 3000U) {
       displayManager.clear();
       currentMode = MODE_NORMAL;
+      pumpController.resume();
       lastPollTime = millis();
     }
   }
@@ -296,6 +340,7 @@ void handleTurbidityCalibrationMode(unsigned long currentMillis) {
     if (currentMillis - turbCalFinishTime >= 3000U) {
       displayManager.clear();
       currentMode = MODE_NORMAL;
+      pumpController.resume();
       lastPollTime = millis();
     }
   }
@@ -320,7 +365,7 @@ void handlePHCalibrationMode(unsigned long currentMillis) {
     float tempVal = phSensor.isDataValid() ? phSensor.getTemperature() : 25.0f;
 
     // Detect buffer solution
-    const char* detectedBuffer = "Auto";
+    const char *detectedBuffer = "Auto";
     if (phVal >= 3.0f && phVal <= 5.5f) {
       detectedBuffer = "4.01 (Acid)";
     } else if (phVal >= 5.51f && phVal <= 8.0f) {
@@ -379,7 +424,8 @@ void checkSerialCommands() {
             startDOCalibration();
           } else if (inputBuffer.equalsIgnoreCase("ENTERPH")) {
             enterPHCalibration();
-          } else if (inputBuffer.startsWith("OFFSET ") || inputBuffer.startsWith("offset ")) {
+          } else if (inputBuffer.startsWith("OFFSET ") ||
+                     inputBuffer.startsWith("offset ")) {
             float dev = inputBuffer.substring(7).toFloat();
             phSensor.setDeviation(dev);
           } else {
@@ -389,21 +435,27 @@ void checkSerialCommands() {
         } else if (currentMode == MODE_PH_CALIBRATION) {
           if (inputBuffer.equalsIgnoreCase("CALPH")) {
             executePHCalibration();
-          } else if (inputBuffer.equalsIgnoreCase("CAL4") || inputBuffer.equalsIgnoreCase("CAL4.01")) {
+          } else if (inputBuffer.equalsIgnoreCase("CAL4") ||
+                     inputBuffer.equalsIgnoreCase("CAL4.01")) {
             calibratePHSpecific(1, 4.01f);
-          } else if (inputBuffer.equalsIgnoreCase("CAL7") || inputBuffer.equalsIgnoreCase("CAL7.00")) {
+          } else if (inputBuffer.equalsIgnoreCase("CAL7") ||
+                     inputBuffer.equalsIgnoreCase("CAL7.00")) {
             calibratePHSpecific(1, 7.00f);
-          } else if (inputBuffer.equalsIgnoreCase("CAL9") || inputBuffer.equalsIgnoreCase("CAL9.18")) {
+          } else if (inputBuffer.equalsIgnoreCase("CAL9") ||
+                     inputBuffer.equalsIgnoreCase("CAL9.18")) {
             calibratePHSpecific(2, 9.18f);
-          } else if (inputBuffer.equalsIgnoreCase("CAL10") || inputBuffer.equalsIgnoreCase("CAL10.01")) {
+          } else if (inputBuffer.equalsIgnoreCase("CAL10") ||
+                     inputBuffer.equalsIgnoreCase("CAL10.01")) {
             calibratePHSpecific(2, 10.01f);
-          } else if (inputBuffer.startsWith("OFFSET ") || inputBuffer.startsWith("offset ")) {
+          } else if (inputBuffer.startsWith("OFFSET ") ||
+                     inputBuffer.startsWith("offset ")) {
             float dev = inputBuffer.substring(7).toFloat();
             phSensor.setDeviation(dev);
           } else if (inputBuffer.equalsIgnoreCase("EXITPH")) {
             exitPHCalibration();
           } else {
-            Serial.println(F("Available Cal Commands: 'CALPH', 'CAL4', 'CAL7', 'CAL9', 'CAL10', 'OFFSET <val>', 'EXITPH'"));
+            Serial.println(F("Available Cal Commands: 'CALPH', 'CAL4', 'CAL7', "
+                             "'CAL9', 'CAL10', 'OFFSET <val>', 'EXITPH'"));
           }
         } else if (currentMode == MODE_DO_CALIBRATION) {
           Serial.println(F("Please wait. DO calibration is in progress."));
@@ -424,6 +476,7 @@ void checkSerialCommands() {
 // ==========================================
 void startDOCalibration() {
   currentMode = MODE_DO_CALIBRATION;
+  pumpController.pause(); // Stop pump during calibration
   doCalCountdown = 5;
   doCalExecuted = false;
   lastCountdownMillis = millis();
@@ -438,19 +491,25 @@ void startDOCalibration() {
 
 void startTurbidityCalibration() {
   currentMode = MODE_TURBIDITY_CAL;
+  pumpController.pause(); // Stop pump during calibration
   turbCalExecuted = false;
 }
 
 void enterPHCalibration() {
   currentMode = MODE_PH_CALIBRATION;
+  pumpController.pause(); // Stop pump during calibration
   phCalStatusMsg = "Btn:Cal | Hold:Exit";
   phCalStatusMsgTimer = 0;
-  Serial.println(F("\n========================================================"));
+  Serial.println(
+      F("\n========================================================"));
   Serial.println(F("Entered pH Modbus Calibration Mode."));
-  Serial.println(F("Immerse probe in standard buffer solution (4.01, 7.00, 9.18, or 10.01)."));
-  Serial.println(F("Press Button (or send 'CALPH', 'CAL4', 'CAL7', 'CAL9', 'CAL10') to calibrate."));
+  Serial.println(F("Immerse probe in standard buffer solution (4.01, 7.00, "
+                   "9.18, or 10.01)."));
+  Serial.println(F("Press Button (or send 'CALPH', 'CAL4', 'CAL7', 'CAL9', "
+                   "'CAL10') to calibrate."));
   Serial.println(F("Hold Button (or send 'EXITPH') to exit."));
-  Serial.println(F("========================================================\n"));
+  Serial.println(
+      F("========================================================\n"));
 }
 
 void executePHCalibration() {
@@ -459,19 +518,24 @@ void executePHCalibration() {
 
   bool success = false;
   if (phVal >= 3.0f && phVal <= 5.5f) {
-    Serial.println(F("[CAL] Detected Acid Buffer -> Calibrating Point 1 @ pH 4.01..."));
+    Serial.println(
+        F("[CAL] Detected Acid Buffer -> Calibrating Point 1 @ pH 4.01..."));
     success = phSensor.calibratePoint(1, 4.01f);
     phCalStatusMsg = success ? "Point 1 (4.01) OK!" : "Cal Point 1 Fail!";
   } else if (phVal >= 5.51f && phVal <= 8.0f) {
-    Serial.println(F("[CAL] Detected Neutral Buffer -> Calibrating Point 1 @ pH 7.00..."));
+    Serial.println(
+        F("[CAL] Detected Neutral Buffer -> Calibrating Point 1 @ pH 7.00..."));
     success = phSensor.calibratePoint(1, 7.00f);
     phCalStatusMsg = success ? "Point 1 (7.00) OK!" : "Cal Point 1 Fail!";
   } else if (phVal > 8.0f && phVal <= 11.5f) {
-    Serial.println(F("[CAL] Detected Base Buffer -> Calibrating Point 2 @ pH 9.18..."));
+    Serial.println(
+        F("[CAL] Detected Base Buffer -> Calibrating Point 2 @ pH 9.18..."));
     success = phSensor.calibratePoint(2, 9.18f);
     phCalStatusMsg = success ? "Point 2 (9.18) OK!" : "Cal Point 2 Fail!";
   } else {
-    Serial.printf("[WARN] Reading pH %.2f not in standard buffer range (4.01, 7.00, 9.18).\n", phVal);
+    Serial.printf("[WARN] Reading pH %.2f not in standard buffer range (4.01, "
+                  "7.00, 9.18).\n",
+                  phVal);
     phCalStatusMsg = "Invalid Buffer!";
   }
 
@@ -490,6 +554,7 @@ void calibratePHSpecific(uint8_t pointIndex, float standardVal) {
 
 void exitPHCalibration() {
   currentMode = MODE_NORMAL;
+  pumpController.resume(); // Resume pump cycle
   displayManager.clear();
   Serial.println(F("Exited pH calibration mode."));
   lastPollTime = millis();

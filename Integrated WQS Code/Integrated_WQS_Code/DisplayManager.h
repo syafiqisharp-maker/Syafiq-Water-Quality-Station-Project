@@ -13,11 +13,11 @@ public:
     // Initialize the LCD display (begin I2C communication, turn on backlight, clear screen)
     void begin();
 
-    // Render the normal monitoring screen using WQSData struct
-    void showNormalScreen(const WQSData& data, bool loraActive = false);
+    // Render the normal monitoring screen using WQSData struct, pump state, countdown, and LoRa status
+    void showNormalScreen(const WQSData& data, const char* pumpStateStr = "ON", const char* pumpCountdown = "05:00", bool loraActive = false);
 
     // Render the normal monitoring screen (backwards compatible)
-    void showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, bool loraActive = false);
+    void showNormalScreen(float doSat, float doConc, float temp, float ph, float turbidityPct, const char* pumpStateStr = "ON", const char* pumpCountdown = "05:00", bool loraActive = false);
 
 
     // Render the DO calibration screen with countdown

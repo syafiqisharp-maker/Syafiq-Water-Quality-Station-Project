@@ -105,6 +105,7 @@ bool PHSensor::readRegisters(uint16_t startAddress, uint16_t quantity, uint16_t*
         if (_serial.available()) {
             response[bytesRead++] = _serial.read();
         }
+        yield();
     }
 
     if (bytesRead == expectedBytes) {
@@ -150,6 +151,7 @@ bool PHSensor::writeSingleRegister(uint16_t regAddress, uint16_t value) {
         if (_serial.available()) {
             response[bytesRead++] = _serial.read();
         }
+        yield();
     }
 
     if (bytesRead == 8) {
@@ -199,6 +201,7 @@ bool PHSensor::writeMultipleRegisters(uint16_t startAddress, uint16_t quantity, 
         if (_serial.available()) {
             response[bytesRead++] = _serial.read();
         }
+        yield();
     }
 
     if (bytesRead == 8) {

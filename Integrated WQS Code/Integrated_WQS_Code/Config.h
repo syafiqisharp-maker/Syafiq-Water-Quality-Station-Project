@@ -61,6 +61,25 @@
 #define LORA_RETRY_INTERVAL_MS 30000U // Non-blocking auto-reconnect retry every 30s
 
 // ==========================================
+// PUMP RELAY SETTINGS (HW-482 Module)
+// ==========================================
+#define PUMP_RELAY_PIN 21         // GPIO 21 on ESP32-S3 connected to IN pin of relay
+#define RELAY_ACTIVE_LEVEL HIGH   // Trigger level (HIGH = Active-HIGH, LOW = Active-LOW)
+
+// Timing parameters for sampling cycle (Total cycle = 10 minutes)
+#define PUMP_RUN_DURATION_MS    300000U // 5 minutes pump ON (pumping water to aquarium)
+#define PUMP_FILL_DELAY_MS      30000U  // 30 seconds initial delay after pump ON before reading sensors
+#define PUMP_SETTLE_DURATION_MS 5000U   // 5 seconds settle window (pump OFF, water calms)
+#define PUMP_REST_DURATION_MS   295000U // 4 minutes 55 seconds pump OFF rest
+
+enum PumpState {
+  PUMP_RUNNING,   // 5 minutes pumping
+  PUMP_SETTLING,  // 5 seconds settle pause before LoRa transmit
+  PUMP_RESTING,   // 4m 55s resting until next cycle
+  PUMP_PAUSED     // Paused during sensor calibration
+};
+
+// ==========================================
 // TIMING CONSTANTS (Milliseconds)
 // ==========================================
 #define POLL_INTERVAL_MS 5000U   // Poll sensors every 5 seconds (standardized)
