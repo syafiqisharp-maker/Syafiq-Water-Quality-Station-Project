@@ -33,34 +33,36 @@ void DisplayManager::renderLCD(const String &doVal, const String &tempVal,
   unsigned long secondsAgo = (currentMillis - lastPacketTime) / 1000U;
 
   // --- Line 1: DO Value + Live Seconds Ticker ---
-  // Format: "DO:6.50mg/L   0s"
-  String line1 = "DO:" + doVal + "mg/L";
+  // Target format (16 chars): "DO:6.85mg/L   0s" or "DO:6.85mg/L 305s"
+  String doUnit = (doVal.length() <= 4) ? "mg/L" : "mg";
+  String leftPart = "DO:" + doVal + doUnit;
 
   char tag[6];
-  if (secondsAgo > 999) {
+  if (secondsAgo > 9999) {
     snprintf(tag, sizeof(tag), " STAL");
+  } else if (secondsAgo > 999) {
+    snprintf(tag, sizeof(tag), "%4lum", secondsAgo / 60); // e.g. "  16m"
   } else {
-    snprintf(tag, sizeof(tag), "%4lus", secondsAgo); // e.g. "   0s", "  15s", " 120s"
+    snprintf(tag, sizeof(tag), "%4lus", secondsAgo); // e.g. "   0s", "  15s", " 305s"
   }
 
-  // Pad middle with spaces to fit 16 characters exactly
-  int spaceNeeded = LCD_COLUMNS - line1.length() - strlen(tag);
-  while (spaceNeeded > 0) {
-    line1 += " ";
-    spaceNeeded--;
+  int tagLen = strlen(tag);
+  int maxLeftLen = LCD_COLUMNS - tagLen;
+  if ((int)leftPart.length() > maxLeftLen) {
+    leftPart = leftPart.substring(0, maxLeftLen);
   }
-  line1 += String(tag);
-  if (line1.length() > LCD_COLUMNS) {
-    line1 = line1.substring(0, LCD_COLUMNS);
+  while ((int)leftPart.length() < maxLeftLen) {
+    leftPart += " ";
   }
+  String line1 = leftPart + String(tag);
 
   // --- Line 2: Temperature + pH ---
-  // Format: "T:28.4C pH:7.20 "
-  String line2 = "T:" + tempVal + "C pH:" + phVal;
-  while (line2.length() < LCD_COLUMNS) {
+  // Target format (16 chars): "T:28.5C  pH:7.45"
+  String line2 = "T:" + tempVal + "C  pH:" + phVal;
+  while ((int)line2.length() < LCD_COLUMNS) {
     line2 += " ";
   }
-  if (line2.length() > LCD_COLUMNS) {
+  if ((int)line2.length() > LCD_COLUMNS) {
     line2 = line2.substring(0, LCD_COLUMNS);
   }
 

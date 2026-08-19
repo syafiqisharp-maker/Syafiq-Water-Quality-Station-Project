@@ -14,11 +14,14 @@ public:
   bool begin();
 
   // Non-blocking loop call to handle incoming packets and auto-reconnect retry
-  void update();
+  // Returns true if a new packet was received on this call
+  bool update();
 
   // Status & Getters
   bool isInitialized() const { return _initialized; }
   bool hasReceivedData() const { return _hasReceivedData; }
+  bool hasNewPacket() const { return _hasNewPacket; }
+  void clearNewPacket() { _hasNewPacket = false; }
   unsigned long getLastPacketTime() const { return _lastPacketTime; }
   unsigned long getPacketCount() const { return _packetCount; }
 
@@ -43,6 +46,7 @@ private:
   unsigned long _packetCount;
   unsigned long _lastPacketTime;
   bool _hasReceivedData;
+  bool _hasNewPacket;
 
   int _rssi;
   float _snr;

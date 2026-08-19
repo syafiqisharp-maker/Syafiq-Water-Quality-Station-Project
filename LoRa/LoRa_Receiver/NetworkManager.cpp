@@ -25,7 +25,8 @@ bool CloudSyncManager::isConnected() const {
 }
 
 bool CloudSyncManager::postToGoogle(float doVal, float phVal, float turbVal,
-                                  float tempVal, const String &timestampStr) {
+                                   float tempVal, const String &timestampStr,
+                                   float satVal) {
   if (!isConnected()) {
     Serial.println(
         F("[HTTP] Error: Wi-Fi offline. Cannot post to Google Sheets."));
@@ -46,10 +47,14 @@ bool CloudSyncManager::postToGoogle(float doVal, float phVal, float turbVal,
   http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
   http.setTimeout(15000);
 
-  String jsonPayload = "{\"do\":\"" + String(doVal, 2) + "\",\"ph\":\"" +
-                       String(phVal, 2) + "\",\"turbidity\":\"" +
-                       String(turbVal, 2) + "\",\"temperature\":\"" +
-                       String(tempVal, 2) + "\"";
+  String jsonPayload = "{\"do\":\"" + (isnan(doVal) ? "N/A" : String(doVal, 2)) +
+                       "\",\"ph\":\"" + (isnan(phVal) ? "N/A" : String(phVal, 2)) +
+                       "\",\"turbidity\":\"" + (isnan(turbVal) ? "N/A" : String(turbVal, 2)) +
+                       "\",\"temperature\":\"" + (isnan(tempVal) ? "N/A" : String(tempVal, 2)) + "\"";
+
+  if (!isnan(satVal)) {
+    jsonPayload += ",\"saturation\":\"" + String(satVal, 1) + "\"";
+  }
 
   if (timestampStr.length() > 0 && timestampStr != "N/A") {
     jsonPayload += ",\"timestamp\":\"" + timestampStr + "\"";
@@ -108,7 +113,7 @@ void CloudSyncManager::flushOfflineQueue(StorageManager &storage) {
       Serial.printf("[QUEUE FLUSH] Uploading record from %s ...\n",
                     rec.timestamp.c_str());
       bool ok = postToGoogle(rec.doConc, rec.ph, rec.turbidity, rec.temperature,
-                             rec.timestamp);
+                             rec.timestamp, rec.doSat);
       if (ok) {
         storage.popNextOfflineRecord();
         delay(500); // Small delay between batch requests

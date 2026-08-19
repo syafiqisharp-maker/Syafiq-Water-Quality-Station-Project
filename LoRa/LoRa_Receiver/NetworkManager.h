@@ -24,7 +24,7 @@ public:
 
   // Uploads a single record payload to Google Sheets via HTTPS POST
   bool postToGoogle(float doVal, float phVal, float turbVal, float tempVal,
-                    const String &timestampStr = "");
+                    const String &timestampStr = "", float satVal = NAN);
 
   // Flushes any backlogged offline records stored in LittleFS to Google Sheets
   void flushOfflineQueue(StorageManager &storage);

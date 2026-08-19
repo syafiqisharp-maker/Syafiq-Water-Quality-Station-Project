@@ -2,7 +2,8 @@
 
 LoRaReceiver::LoRaReceiver()
     : _initialized(false), _lastLoRaRetryTime(0), _packetCount(0),
-      _lastPacketTime(0), _hasReceivedData(false), _rssi(0), _snr(0.0),
+      _lastPacketTime(0), _hasReceivedData(false), _hasNewPacket(false),
+      _rssi(0), _snr(0.0),
       _lastDO("N/A"), _lastTemp("N/A"), _lastPH("N/A"), _lastTurb("N/A"),
       _lastSat("N/A") {}
 
@@ -22,7 +23,7 @@ bool LoRaReceiver::begin() {
   }
 }
 
-void LoRaReceiver::update() {
+bool LoRaReceiver::update() {
   unsigned long currentMillis = millis();
 
   // Background auto-reconnect retry if radio failed to initialize on boot
@@ -32,7 +33,7 @@ void LoRaReceiver::update() {
       Serial.println(F("[LORA RX] Retrying LoRa initialization..."));
       begin();
     }
-    return;
+    return false;
   }
 
   // Parse incoming packet
@@ -41,6 +42,7 @@ void LoRaReceiver::update() {
     _packetCount++;
     _lastPacketTime = currentMillis;
     _hasReceivedData = true;
+    _hasNewPacket = true;
 
     String incoming = "";
     while (LoRa.available()) {
@@ -54,7 +56,9 @@ void LoRaReceiver::update() {
     Serial.printf("        -> RSSI: %d dBm | SNR: %.1f dB\n", _rssi, _snr);
 
     parsePacketPayload(incoming);
+    return true;
   }
+  return false;
 }
 
 String LoRaReceiver::extractValue(const String &data, const String &key) {

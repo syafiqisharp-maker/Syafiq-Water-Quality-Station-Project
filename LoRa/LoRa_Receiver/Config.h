@@ -38,7 +38,6 @@
 // ==========================================
 // TIMING & QUEUE CONSTANTS
 // ==========================================
-#define GOOGLE_SHEETS_UPLOAD_MS 900000U // 15 minutes (900,000 ms)
 #define WIFI_CHECK_INTERVAL_MS 30000U   // Check Wi-Fi connection every 30 seconds
 #define NTP_SYNC_INTERVAL_MS 3600000U   // Re-sync NTP time every 1 hour
 

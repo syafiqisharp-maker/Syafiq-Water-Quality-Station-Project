@@ -37,8 +37,48 @@ DisplayManager displayManager;
 // SCHEDULER TIMERS & FLAGS
 // ==========================================
 unsigned long lastLCDRefreshTime = 0;
-unsigned long lastSheetsUploadTime = 0;
-bool firstUploadDone = false;
+
+// ==========================================
+// HELPER: PROCESS IMMEDIATE PACKET DATA UPLOAD
+// ==========================================
+void processPacketUpload() {
+  String timestampStr = timeManager.getFormattedTime();
+  float doVal = loraReceiver.getDO();
+  float phVal = loraReceiver.getPH();
+  float turbVal = loraReceiver.getTurb();
+  float tempVal = loraReceiver.getTemp();
+  float satVal = loraReceiver.getSat();
+
+  Serial.println(F("\n========================================================"));
+  Serial.printf("[PACKET UPLOAD] Processing new WQS telemetry (%s)\n",
+                timestampStr.c_str());
+  Serial.printf("  -> DO: %.2f mg/L | pH: %.2f | Turb: %.1f %% | Temp: %.1f C | Sat: %.1f %%\n",
+                doVal, phVal, turbVal, tempVal, satVal);
+
+  if (networkManager.isConnected()) {
+    // 1. First flush any backlogged offline records from LittleFS
+    if (storageManager.getOfflineRecordCount() > 0) {
+      networkManager.flushOfflineQueue(storageManager);
+    }
+
+    // 2. Post fresh reading directly to Google Sheets
+    bool success = networkManager.postToGoogle(doVal, phVal, turbVal, tempVal,
+                                               timestampStr, satVal);
+    if (!success) {
+      Serial.println(F(
+          "[UPLOAD] Direct POST failed. Saving record to LittleFS offline storage."));
+      storageManager.saveOfflineRecord(timestampStr, doVal, phVal, turbVal,
+                                       tempVal, satVal);
+    }
+  } else {
+    // Wi-Fi Offline: Save to LittleFS Flash Queue
+    Serial.println(F(
+        "[UPLOAD] Wi-Fi offline. Saving record to LittleFS offline storage."));
+    storageManager.saveOfflineRecord(timestampStr, doVal, phVal, turbVal,
+                                     tempVal, satVal);
+  }
+  Serial.println(F("========================================================\n"));
+}
 
 // ==========================================
 // SETUP
@@ -71,54 +111,10 @@ void setup() {
   timeManager.begin();
 
   Serial.println(F("--------------------------------------------------------"));
-  Serial.println(F("Receiver Ready. Waiting for LoRa packets..."));
-  Serial.println(F("Google Sheets upload scheduled every 15 minutes."));
+  Serial.println(F("Receiver Ready. Waiting for LoRa packets (5m 05s cycle)..."));
+  Serial.println(F("Direct Google Sheets upload triggered upon packet reception."));
   Serial.println(
       F("========================================================\n"));
-}
-
-// ==========================================
-// HELPER: PROCESS 15-MINUTE DATA UPLOAD
-// ==========================================
-void processScheduledUpload(unsigned long currentMillis) {
-  if (!loraReceiver.hasReceivedData()) {
-    Serial.println(
-        F("[UPLOAD] Skipping 15-min upload: No LoRa data received yet."));
-    return;
-  }
-
-  String timestampStr = timeManager.getFormattedTime();
-  float doVal = loraReceiver.getDO();
-  float phVal = loraReceiver.getPH();
-  float turbVal = loraReceiver.getTurb();
-  float tempVal = loraReceiver.getTemp();
-  float satVal = loraReceiver.getSat();
-
-  Serial.printf("[UPLOAD TIMER] 15-minute mark reached (%s)\n",
-                timestampStr.c_str());
-
-  if (networkManager.isConnected()) {
-    // 1. First flush any backlogged offline records from LittleFS
-    if (storageManager.getOfflineRecordCount() > 0) {
-      networkManager.flushOfflineQueue(storageManager);
-    }
-
-    // 2. Post current reading to Google Sheets
-    bool success = networkManager.postToGoogle(doVal, phVal, turbVal, tempVal,
-                                               timestampStr);
-    if (!success) {
-      Serial.println(F(
-          "[UPLOAD] POST failed. Saving record to LittleFS offline storage."));
-      storageManager.saveOfflineRecord(timestampStr, doVal, phVal, turbVal,
-                                       tempVal, satVal);
-    }
-  } else {
-    // Wi-Fi Offline: Save to LittleFS Flash Queue
-    Serial.println(F(
-        "[UPLOAD] Wi-Fi offline. Saving record to LittleFS offline storage."));
-    storageManager.saveOfflineRecord(timestampStr, doVal, phVal, turbVal,
-                                     tempVal, satVal);
-  }
 }
 
 // ==========================================
@@ -127,12 +123,26 @@ void processScheduledUpload(unsigned long currentMillis) {
 void loop() {
   unsigned long currentMillis = millis();
 
-  // 1. Maintain background tasks
-  loraReceiver.update();
+  // 1. Maintain background tasks & check for incoming LoRa packet
+  bool newPacketReceived = loraReceiver.update();
   networkManager.update();
   timeManager.update();
 
-  // 2. Refresh 1602 LCD display (1-second timer)
+  // 2. Event-driven upload triggered immediately on packet reception
+  if (newPacketReceived) {
+    loraReceiver.clearNewPacket();
+
+    // Immediately refresh LCD with latest readings
+    displayManager.renderLCD(
+        loraReceiver.getDOString(), loraReceiver.getTempString(),
+        loraReceiver.getPHString(), loraReceiver.hasReceivedData(),
+        loraReceiver.getLastPacketTime());
+
+    // Upload directly to Google Sheets
+    processPacketUpload();
+  }
+
+  // 3. Periodic 1602 LCD display update (1-second timer for live seconds ticker)
   if (currentMillis - lastLCDRefreshTime >= 1000U) {
     lastLCDRefreshTime = currentMillis;
     displayManager.renderLCD(
@@ -141,7 +151,7 @@ void loop() {
         loraReceiver.getLastPacketTime());
   }
 
-  // 3. Auto-flush backlog if Wi-Fi newly reconnected
+  // 4. Auto-flush backlog if Wi-Fi newly reconnected
   static bool prevWiFiState = false;
   bool currentWiFiState = networkManager.isConnected();
   if (currentWiFiState && !prevWiFiState) {
@@ -150,17 +160,4 @@ void loop() {
     networkManager.flushOfflineQueue(storageManager);
   }
   prevWiFiState = currentWiFiState;
-
-  // 4. Scheduled 15-Minute Upload Task
-  if (!firstUploadDone && loraReceiver.hasReceivedData() &&
-      currentMillis > 15000U) {
-    firstUploadDone = true;
-    lastSheetsUploadTime = currentMillis;
-    Serial.println(F("[UPLOAD] Executing initial upload upon boot..."));
-    processScheduledUpload(currentMillis);
-  } else if (firstUploadDone && (currentMillis - lastSheetsUploadTime >=
-                                 GOOGLE_SHEETS_UPLOAD_MS)) {
-    lastSheetsUploadTime = currentMillis;
-    processScheduledUpload(currentMillis);
-  }
 }
