@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aquaculture Dashboard</title>
+    <!-- Use Google Fonts for modern typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="loading-overlay" class="overlay">
+        <div class="spinner"></div>
+        <p>Loading Pond Data...</p>
+    </div>
+
+    <div class="dashboard-container">
+        <header>
+            <h1>Shrimp Pond Aquaculture Dashboard</h1>
+        </header>
+        
+        <main>
+            <!-- Top Section: Water Quality Status -->
+            <section class="glass-card status-section">
+                <h2>Water Quality Status</h2>
+                <div class="status-grid" id="wq-status-grid">
+                    <!-- Populated via JS -->
+                </div>
+            </section>
+
+            <!-- Middle Section: Weather & Feeding -->
+            <section class="glass-card feed-weather-section">
+                <div class="weather-col">
+                    <h2>Weather Status</h2>
+                    <div id="weather-status-container">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+                <div class="feed-col">
+                    <h2>Feeding Action Plan</h2>
+                    <div id="feeding-action-container" class="action-highlight">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom Section: Raw Stat Cards -->
+            <section class="stats-section">
+                <h2>Recent Readings</h2>
+                <div class="stats-grid" id="raw-stats-grid">
+                    <!-- Populated via JS -->
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <a href="https://docs.google.com/spreadsheets/d/1zVXbhakvH8kFIcV_YL-YS89dsAF0eDNE-eeTxV-IWuY/export?format=csv" class="download-btn glass-btn" target="_blank">Download WQS CSV</a>
+        </footer>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>
