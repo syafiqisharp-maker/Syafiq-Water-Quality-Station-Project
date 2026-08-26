@@ -15,9 +15,9 @@ public:
   // Renders startup initialization screen
   void showInitScreen(const char *msg1, const char *msg2);
 
-  // Renders live screen with DO, Temperature, pH, and live seconds ticker
+  // Renders live screen with DO, pH, Temperature, and exact arrival timestamp
   void renderLCD(const String &doVal, const String &tempVal, const String &phVal,
-                 bool hasReceivedData, unsigned long lastPacketTime);
+                 const String &timeStr, bool hasReceivedData);
 
 private:
   LiquidCrystal_I2C _lcd;

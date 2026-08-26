@@ -16,8 +16,8 @@ public:
   // Initializes Wi-Fi connection (non-blocking)
   void begin();
 
-  // Periodic Wi-Fi connection maintainer
-  void update();
+  // Periodic Wi-Fi connection maintainer and background queue processor
+  void update(StorageManager &storage);
 
   // Status Check
   bool isConnected() const;
@@ -26,12 +26,12 @@ public:
   bool postToGoogle(float doVal, float phVal, float turbVal, float tempVal,
                     const String &timestampStr = "", float satVal = NAN);
 
-  // Flushes any backlogged offline records stored in LittleFS to Google Sheets
-  void flushOfflineQueue(StorageManager &storage);
-
 private:
   unsigned long _lastWiFiCheck;
-  bool _flushingQueue;
+  unsigned long _lastQueueFlushTime;
+  unsigned long _lastPostTime;
+
+  void processBackgroundQueue(StorageManager &storage);
 };
 
 #endif // CLOUD_SYNC_MANAGER_H

@@ -18,6 +18,9 @@ public:
   // Returns formatted timestamp string (YYYY-MM-DD HH:MM:SS) from ESP32 internal RTC
   String getFormattedTime();
 
+  // Returns time-only string (HH:MM:SS) for 1602 LCD display
+  String getTimeOnly();
+
   // Periodic update check to maintain NTP sync
   void update();
 

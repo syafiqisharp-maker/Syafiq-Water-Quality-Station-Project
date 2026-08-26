@@ -29,6 +29,16 @@ String TimeManager::getFormattedTime() {
   return String(timeStringBuff);
 }
 
+String TimeManager::getTimeOnly() {
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo, 10) || (timeinfo.tm_year + 1900 < 2024)) {
+    return "--:--:--";
+  }
+  char timeBuff[10];
+  strftime(timeBuff, sizeof(timeBuff), "%H:%M:%S", &timeinfo);
+  return String(timeBuff);
+}
+
 void TimeManager::update() {
   if (millis() - _lastNTPSyncCheck > NTP_SYNC_INTERVAL_MS) {
     _lastNTPSyncCheck = millis();

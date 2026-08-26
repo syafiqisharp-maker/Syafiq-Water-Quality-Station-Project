@@ -1,6 +1,7 @@
 #include "NetworkManager.h"
 
-CloudSyncManager::CloudSyncManager() : _lastWiFiCheck(0), _flushingQueue(false) {}
+CloudSyncManager::CloudSyncManager()
+    : _lastWiFiCheck(0), _lastQueueFlushTime(0), _lastPostTime(0) {}
 
 void CloudSyncManager::begin() {
   Serial.print(F("[WIFI] Connecting to Wi-Fi SSID: "));
@@ -10,13 +11,22 @@ void CloudSyncManager::begin() {
   _lastWiFiCheck = millis();
 }
 
-void CloudSyncManager::update() {
-  if (millis() - _lastWiFiCheck > WIFI_CHECK_INTERVAL_MS) {
-    _lastWiFiCheck = millis();
+void CloudSyncManager::update(StorageManager &storage) {
+  unsigned long currentMillis = millis();
+
+  // 1. Maintain Wi-Fi Connection
+  if (currentMillis - _lastWiFiCheck > WIFI_CHECK_INTERVAL_MS) {
+    _lastWiFiCheck = currentMillis;
     if (WiFi.status() != WL_CONNECTED) {
       Serial.println(F("[WIFI] Wi-Fi not connected. Retrying connection..."));
       WiFi.reconnect();
     }
+  }
+
+  // 2. Non-Blocking Background Queue Flusher (1 record per interval)
+  if (currentMillis - _lastQueueFlushTime >= QUEUE_FLUSH_INTERVAL_MS) {
+    _lastQueueFlushTime = currentMillis;
+    processBackgroundQueue(storage);
   }
 }
 
@@ -33,9 +43,10 @@ bool CloudSyncManager::postToGoogle(float doVal, float phVal, float turbVal,
     return false;
   }
 
+  _lastPostTime = millis();
+
   WiFiClientSecure client;
-  client.setInsecure(); // Skip TLS certificate validation for Google Script
-                        // endpoint
+  client.setInsecure(); // Skip TLS certificate validation for Google Script endpoint
   HTTPClient http;
 
   if (!http.begin(client, GOOGLE_SCRIPT_URL)) {
@@ -45,7 +56,7 @@ bool CloudSyncManager::postToGoogle(float doVal, float phVal, float turbVal,
 
   http.addHeader("Content-Type", "application/json");
   http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-  http.setTimeout(15000);
+  http.setTimeout(HTTP_TIMEOUT_MS);
 
   String jsonPayload = "{\"do\":\"" + (isnan(doVal) ? "N/A" : String(doVal, 2)) +
                        "\",\"ph\":\"" + (isnan(phVal) ? "N/A" : String(phVal, 2)) +
@@ -72,7 +83,7 @@ bool CloudSyncManager::postToGoogle(float doVal, float phVal, float turbVal,
     String newUrl = http.getLocation();
     http.end();
     if (http.begin(client, newUrl)) {
-      http.setTimeout(15000);
+      http.setTimeout(HTTP_TIMEOUT_MS);
       httpCode = http.GET();
       Serial.printf("[HTTP GET Redirect] Code: %d\n", httpCode);
     }
@@ -95,41 +106,31 @@ bool CloudSyncManager::postToGoogle(float doVal, float phVal, float turbVal,
   return success;
 }
 
-void CloudSyncManager::flushOfflineQueue(StorageManager &storage) {
-  if (!isConnected() || _flushingQueue)
-    return;
-  size_t count = storage.getOfflineRecordCount();
-  if (count == 0)
-    return;
+void CloudSyncManager::processBackgroundQueue(StorageManager &storage) {
+  if (!isConnected()) return;
 
-  _flushingQueue = true;
-  Serial.printf("[QUEUE FLUSH] Found %d backlogged records in LittleFS "
-                "storage. Flushing...\n",
-                (int)count);
+  // Avoid running immediately after a live packet upload
+  if (millis() - _lastPostTime < 3000U) return;
+
+  size_t count = storage.getOfflineRecordCount();
+  if (count == 0) return;
 
   OfflineRecord rec;
-  while (storage.getOfflineRecordCount() > 0 && isConnected()) {
-    if (storage.peekNextOfflineRecord(rec)) {
-      Serial.printf("[QUEUE FLUSH] Uploading record from %s ...\n",
-                    rec.timestamp.c_str());
-      bool ok = postToGoogle(rec.doConc, rec.ph, rec.turbidity, rec.temperature,
-                             rec.timestamp, rec.doSat);
-      if (ok) {
-        storage.popNextOfflineRecord();
-        delay(500); // Small delay between batch requests
-      } else {
-        Serial.println(
-            F("[QUEUE FLUSH] Upload failed during flush. Pausing flush."));
-        break;
-      }
+  if (storage.peekNextOfflineRecord(rec)) {
+    Serial.printf("[QUEUE FLUSH] Uploading 1 backlogged record from %s (Queue remaining: %d)...\n",
+                  rec.timestamp.c_str(), (int)count);
+    bool ok = postToGoogle(rec.doConc, rec.ph, rec.turbidity, rec.temperature,
+                           rec.timestamp, rec.doSat);
+    if (ok) {
+      storage.popNextOfflineRecord();
+      Serial.println(F("[QUEUE FLUSH] Backlogged record uploaded and popped successfully."));
     } else {
-      storage.popNextOfflineRecord(); // Pop corrupted record
+      // Temporary backoff on failure to prevent repeated fast retries
+      _lastQueueFlushTime = millis() + QUEUE_RETRY_BACKOFF_MS;
+      Serial.println(F("[QUEUE FLUSH] Upload failed. Backing off for 30 seconds."));
     }
-  }
-
-  _flushingQueue = false;
-  if (storage.getOfflineRecordCount() == 0) {
-    Serial.println(F(
-        "[QUEUE FLUSH] All backlogged offline records successfully uploaded!"));
+  } else {
+    // Record was unreadable/corrupted, discard it
+    storage.popNextOfflineRecord();
   }
 }

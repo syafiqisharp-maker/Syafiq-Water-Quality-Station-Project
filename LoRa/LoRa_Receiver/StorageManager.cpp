@@ -114,7 +114,17 @@ bool StorageManager::peekNextOfflineRecord(OfflineRecord &record) {
 
 bool StorageManager::popNextOfflineRecord() {
   if (!_initialized || _recordCount == 0) return false;
-  if (!LittleFS.exists(OFFLINE_STORAGE_FILE)) return false;
+  if (!LittleFS.exists(OFFLINE_STORAGE_FILE)) {
+    _recordCount = 0;
+    return false;
+  }
+
+  // Fast path: If only 1 record left, simply remove the file
+  if (_recordCount <= 1) {
+    LittleFS.remove(OFFLINE_STORAGE_FILE);
+    _recordCount = 0;
+    return true;
+  }
 
   File file = LittleFS.open(OFFLINE_STORAGE_FILE, "r");
   if (!file) return false;
@@ -135,6 +145,7 @@ bool StorageManager::popNextOfflineRecord() {
     if (line.length() > 0) {
       tempFile.println(line);
     }
+    yield(); // Allow ESP32 Wi-Fi and RTOS tasks to execute
   }
 
   file.close();
@@ -143,7 +154,10 @@ bool StorageManager::popNextOfflineRecord() {
   LittleFS.remove(OFFLINE_STORAGE_FILE);
   LittleFS.rename("/temp_queue.csv", OFFLINE_STORAGE_FILE);
 
-  updateRecordCount();
+  // Directly decrement counter instead of scanning entire file again
+  if (_recordCount > 0) {
+    _recordCount--;
+  }
   return true;
 }
 
