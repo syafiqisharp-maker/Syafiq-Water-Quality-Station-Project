@@ -1,0 +1,310 @@
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.92);
+    /* Highly opaque white for extreme contrast */
+    --glass-border: rgba(255, 255, 255, 1);
+    --text-color: #111111;
+    /* Near black */
+    --text-muted: #4a4a4a;
+    /* Dark gray for labels */
+    --highlight: #0056b3;
+    /* Strong blue */
+    --danger: #d32f2f;
+    /* Strong red */
+    --warning: #e65100;
+    /* Strong dark orange */
+    --good: #1b5e20;
+    /* Strong dark green */
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    /* Use the generated background image */
+    background: url('./background.jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: var(--text-color);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Loading Overlay */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: opacity 0.5s ease;
+    color: #111;
+    font-weight: 800;
+    font-size: 1.2rem;
+}
+
+.spinner {
+    width: 60px;
+    height: 60px;
+    border: 6px solid #e0e0e0;
+    border-top: 6px solid var(--highlight);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 1rem;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Layout */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+    /* Reduced padding to save screen space on mobile */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+}
+
+/* Put header in a glass card so text is perfectly readable over the image */
+header {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 1.2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--glass-border);
+}
+
+header h1 {
+    text-align: center;
+    font-weight: 900;
+    /* Extra bold */
+    font-size: 1.6rem;
+    /* Scaled down slightly for mobile */
+    color: #004d40;
+}
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 2.5rem;
+}
+
+/* Glassmorphism Common Styles */
+.glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+}
+
+.glass-btn {
+    background: #0056b3;
+    /* Solid highly visible button */
+    color: white;
+    padding: 1.2rem 2.5rem;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 800;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
+    display: inline-block;
+    box-shadow: 0 4px 15px rgba(0, 86, 179, 0.4);
+    border: none;
+}
+
+.glass-btn:hover {
+    background: #004494;
+    transform: translateY(-2px);
+}
+
+/* Headings */
+h2 {
+    font-size: 1.3rem;
+    margin-bottom: 1.2rem;
+    border-bottom: 2px solid #ccc;
+    /* Thicker, more visible border */
+    padding-bottom: 0.5rem;
+    font-weight: 800;
+    /* Very bold */
+    color: #111;
+}
+
+/* Status Grids */
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.status-item {
+    background: #ffffff;
+    /* Solid white inner cards */
+    padding: 1.2rem;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border: 2px solid #e0e0e0;
+    /* High contrast border */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.status-item h3 {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-item .value {
+    font-size: 1.5rem;
+    font-weight: 900;
+}
+
+/* Middle Section */
+.feed-weather-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.weather-col,
+.feed-col {
+    display: flex;
+    flex-direction: column;
+}
+
+.action-highlight {
+    font-size: 1.3rem;
+    font-weight: 900;
+    background: #e8f5e9;
+    /* Light green background by default */
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: var(--good);
+    border: 3px solid #c8e6c9;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.action-highlight.action-warning {
+    background: #fff3e0;
+    /* Light orange background */
+    color: var(--warning);
+    border-color: #ffe0b2;
+}
+
+/* Bottom Stats */
+.stats-section h2 {
+    text-align: center;
+    border: none;
+    background: var(--glass-bg);
+    margin: 0;
+    padding: 1rem;
+    border-radius: 16px 16px 0 0;
+    border: 1px solid var(--glass-border);
+    border-bottom: none;
+}
+
+.stats-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    background: var(--glass-bg);
+    padding: 1rem;
+    border-radius: 0 0 16px 16px;
+    border: 1px solid var(--glass-border);
+    border-top: none;
+}
+
+.stat-card {
+    background: #ffffff;
+    border: 2px solid #eeeeee;
+    border-radius: 12px;
+    padding: 1.2rem;
+    min-width: 140px;
+    text-align: center;
+    flex: 1 1 calc(50% - 10px);
+    /* 2 per row on mobile */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.stat-card .label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+    color: var(--text-muted);
+    font-weight: 800;
+}
+
+.stat-card .val {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #111;
+}
+
+footer {
+    text-align: center;
+    margin-top: 1rem;
+    padding-bottom: 2rem;
+}
+
+/* Color Classes */
+.text-good {
+    color: var(--good);
+}
+
+.text-warning {
+    color: var(--warning);
+}
+
+.text-danger {
+    color: var(--danger);
+}
+
+@media (max-width: 800px) {
+    .feed-weather-section {
+        grid-template-columns: 1fr;
+    }
+
+    .action-highlight {
+        min-height: 150px;
+    }
+}

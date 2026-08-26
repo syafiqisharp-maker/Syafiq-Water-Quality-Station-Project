@@ -1,5 +1,5 @@
 // IMPORTANT: Replace this URL with your deployed Google Apps Script Web App URL
-const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyCtF5PgLoT3P0MVc3emVybCk7hpfHZtswoxaa0jjIXN3usq0e5Lghd0k0yzPzk3gqg5g/exec';
+const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxg0g4k_1wqGGHOCFoSVETFBTJTipT-X7UJKlggySfUGqxGGE54I9wqMPe96NF8TsSIRA/exec';
 
 document.addEventListener('DOMContentLoaded', () => {
     fetchData();
@@ -90,11 +90,24 @@ function populateUI(data) {
     }
 
     // --- Bottom Section: Raw Stats ---
+    if (raw.timestamp) {
+        const dateObj = new Date(raw.timestamp);
+        // Check if date is valid
+        if (!isNaN(dateObj.getTime())) {
+            const dateStr = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+            const timeStr = dateObj.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+            const titleEl = document.getElementById('recent-readings-title');
+            if (titleEl) {
+                titleEl.textContent = `Recent Readings (${dateStr} ${timeStr})`;
+            }
+        }
+    }
+
     const rawGrid = document.getElementById('raw-stats-grid');
     rawGrid.innerHTML = `
         <div class="stat-card">
             <div class="label">DO</div>
-            <div class="val">${raw.do !== undefined ? parseFloat(raw.do).toFixed(2) : '-'}</div>
+            <div class="val">${raw.do !== undefined ? parseFloat(raw.do).toFixed(2) + ' ppm' : '-'}</div>
         </div>
         <div class="stat-card">
             <div class="label">pH</div>
@@ -119,12 +132,12 @@ function populateUI(data) {
 function simulateData() {
     setTimeout(() => {
         const mockData = {
-            raw: { do: 3.8, ph: 7.9, waterTemp: 29.5, lux: 85000, airTemp: 31.0 },
+            raw: { timestamp: new Date().toISOString(), do: 3.8, ph: 7.9, waterTemp: 29.5, lux: 85000, airTemp: 31.0 },
             analysis: {
                 do: { status: "Caution", message: "DO: 3.8 (Caution)", warning: true, value: 3.8 },
                 ph: { message: "Swing: 0.20 (Normal)", warning: false },
                 temperature: { message: "Swing: 1.50°C (Normal)", warning: false },
-                weatherLux: { message: "Normal", warning: false, avgToday: 80000, avgYest: 85000 },
+                weatherLux: { message: "High Algae Activity", warning: false, avgToday: 85000, avgYest: 85000 },
                 weatherRain: { message: "Today's rain: 10.00mm", warning: false, sumToday: 10 },
                 feedingAction: "Reduce/Cut Feed - Shrimp metabolism slowed."
             }

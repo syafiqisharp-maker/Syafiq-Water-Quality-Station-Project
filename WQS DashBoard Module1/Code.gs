@@ -21,19 +21,26 @@ function doGet(e) {
     
     const getHour = (d) => d.getHours();
 
-    let recentDO = 0, recentPH = 0, recentWaterTemp = 0, recentLux = 0, recentAirTemp = 0;
+    let recentTimestamp = null, recentDO = 0, recentPH = 0, recentWaterTemp = 0, recentLux = 0, recentAirTemp = 0;
     
-    if (wqsData.length > 1) {
-      const lastRow = wqsData[wqsData.length - 1];
-      recentDO = lastRow[1];
-      recentPH = lastRow[2];
-      recentWaterTemp = lastRow[4];
+    for (let i = wqsData.length - 1; i > 0; i--) {
+      if (wqsData[i][0]) { // Check if timestamp cell is not empty
+        const lastRow = wqsData[i];
+        recentTimestamp = lastRow[0];
+        recentDO = lastRow[1];
+        recentPH = lastRow[2];
+        recentWaterTemp = lastRow[4];
+        break;
+      }
     }
     
-    if (weatherData.length > 1) {
-      const lastRow = weatherData[weatherData.length - 1];
-      recentLux = lastRow[3];
-      recentAirTemp = lastRow[4];
+    for (let i = weatherData.length - 1; i > 0; i--) {
+      if (weatherData[i][9] || weatherData[i][0]) { // Timestamp check
+        const lastRow = weatherData[i];
+        recentLux = lastRow[3];
+        recentAirTemp = lastRow[4];
+        break;
+      }
     }
 
     // --- WQS Logic ---
@@ -94,13 +101,18 @@ function doGet(e) {
       const rain = parseFloat(row[2]) || 0;
       const lux = parseFloat(row[3]) || 0;
 
+      const hr = getHour(ts);
       if (isSameDate(ts, today)) {
-        luxTodaySum += lux;
-        luxTodayCount++;
         rainTodaySum += rain;
+        if (hr >= 10 && hr <= 17) {
+          luxTodaySum += lux;
+          luxTodayCount++;
+        }
       } else if (isSameDate(ts, yesterday)) {
-        luxYestSum += lux;
-        luxYestCount++;
+        if (hr >= 10 && hr <= 17) {
+          luxYestSum += lux;
+          luxYestCount++;
+        }
       }
     }
     
@@ -114,10 +126,10 @@ function doGet(e) {
     let doMessage = "No data around 5:00 AM";
     let doWarning = false;
     if (do5amMin !== null) {
-      if (do5amMin >= 4.0) { doStatus = "Good"; doMessage = `DO: ${do5amMin.toFixed(2)}`; }
-      else if (do5amMin >= 3.0) { doStatus = "Caution"; doMessage = `DO: ${do5amMin.toFixed(2)} (Caution)`; }
-      else if (do5amMin >= 2.0) { doStatus = "Risky"; doMessage = `DO: ${do5amMin.toFixed(2)} (Risky)`; doWarning = true; }
-      else { doStatus = "Danger"; doMessage = `DO: ${do5amMin.toFixed(2)} (Danger)`; doWarning = true; }
+      if (do5amMin >= 4.0) { doStatus = "Good"; doMessage = `DO: ${do5amMin.toFixed(2)} ppm`; }
+      else if (do5amMin >= 3.0) { doStatus = "Caution"; doMessage = `DO: ${do5amMin.toFixed(2)} ppm (Caution)`; }
+      else if (do5amMin >= 2.0) { doStatus = "Risky"; doMessage = `DO: ${do5amMin.toFixed(2)} ppm (Risky)`; doWarning = true; }
+      else { doStatus = "Danger"; doMessage = `DO: ${do5amMin.toFixed(2)} ppm (Danger)`; doWarning = true; }
     }
     if (do5amMin !== null && do5amMin < 4.0) doWarning = true; // Trigger feeding action even on caution
 
@@ -151,11 +163,17 @@ function doGet(e) {
       tempMessage = "Insufficient data for temp swing";
     }
 
-    // Weather Lux
-    let weatherLuxMessage = "Normal";
+    // Weather Lux (Algae Activity based on 10 AM - 5 PM avg)
+    let weatherLuxMessage = "Low Algae Activity";
     let weatherLuxWarning = false;
-    if (luxTodayAvg <= 70000 && luxYestAvg <= 70000 && luxTodayCount > 0 && luxYestCount > 0) {
-      weatherLuxMessage = "Low Photosynthesis Warning";
+
+    const luxVal = Math.round(luxTodayAvg) || 0;
+    if (luxVal > 80000) {
+      weatherLuxMessage = "High Algae Activity";
+    } else if (luxVal > 55000) {
+      weatherLuxMessage = "Moderate Algae Activity";
+    } else {
+      weatherLuxMessage = "Low Algae Activity";
       weatherLuxWarning = true;
     }
 
@@ -176,6 +194,7 @@ function doGet(e) {
       status: "success",
       data: {
         raw: {
+          timestamp: recentTimestamp instanceof Date ? recentTimestamp.toISOString() : recentTimestamp,
           do: recentDO,
           ph: recentPH,
           waterTemp: recentWaterTemp,
