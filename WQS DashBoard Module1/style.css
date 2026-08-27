@@ -1,5 +1,5 @@
 :root {
-    --glass-bg: rgba(255, 255, 255, 0.92);
+    --glass-bg: rgba(255, 255, 255, 0.94);
     /* Highly opaque white for extreme contrast */
     --glass-border: rgba(255, 255, 255, 1);
     --text-color: #111111;
@@ -8,6 +8,7 @@
     /* Dark gray for labels */
     --highlight: #0056b3;
     /* Strong blue */
+    --accent-teal: #00796b;
     --danger: #d32f2f;
     /* Strong red */
     --warning: #e65100;
@@ -82,7 +83,6 @@ body {
     max-width: 1200px;
     margin: 0 auto;
     padding: 1rem;
-    /* Reduced padding to save screen space on mobile */
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -90,7 +90,7 @@ body {
     width: 100%;
 }
 
-/* Put header in a glass card so text is perfectly readable over the image */
+/* Header */
 header {
     background: var(--glass-bg);
     backdrop-filter: blur(10px);
@@ -104,16 +104,14 @@ header {
 header h1 {
     text-align: center;
     font-weight: 900;
-    /* Extra bold */
     font-size: 1.6rem;
-    /* Scaled down slightly for mobile */
     color: #004d40;
 }
 
 main {
     display: flex;
     flex-direction: column;
-    gap: 2.5rem;
+    gap: 2rem;
 }
 
 /* Glassmorphism Common Styles */
@@ -124,12 +122,11 @@ main {
     border: 1px solid var(--glass-border);
     border-radius: 16px;
     padding: 1.5rem;
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.18);
 }
 
 .glass-btn {
     background: #0056b3;
-    /* Solid highly visible button */
     color: white;
     padding: 1.2rem 2.5rem;
     border-radius: 30px;
@@ -150,16 +147,171 @@ main {
 /* Headings */
 h2 {
     font-size: 1.3rem;
-    margin-bottom: 1.2rem;
-    border-bottom: 2px solid #ccc;
-    /* Thicker, more visible border */
-    padding-bottom: 0.5rem;
     font-weight: 800;
-    /* Very bold */
     color: #111;
 }
 
-/* Status Grids */
+/* =========================================================================
+   POND DETAILS SECTION (ENCLOSED CARD)
+   ========================================================================= */
+.pond-details-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.pond-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 0.6rem;
+}
+
+.pond-identity-badge {
+    background: linear-gradient(135deg, #004d40, #00796b);
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 1.15rem;
+    padding: 0.35rem 1rem;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    box-shadow: 0 2px 8px rgba(0, 77, 64, 0.3);
+}
+
+/* Meta Bar: Species, Line, Stock Source, DOC */
+.pond-meta-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.9rem 1.1rem;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.meta-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.meta-value {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.doc-pill {
+    display: inline-block;
+    background: #e8f5e9;
+    color: var(--good);
+    font-weight: 900;
+    padding: 0.2rem 0.6rem;
+    border-radius: 8px;
+    border: 1.5px solid #c8e6c9;
+    width: fit-content;
+}
+
+/* Sampling Sub-grid enclosed inside Pond Details */
+.sampling-container {
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.sampling-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px solid #edf2f7;
+    padding-bottom: 0.5rem;
+}
+
+.sampling-header h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #1e293b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sample-date-tag {
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 0.85rem;
+    font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    border-radius: 15px;
+    border: 1px solid #bfdbfe;
+}
+
+.sampling-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.8rem;
+}
+
+.sampling-card {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.9rem 0.8rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    transition: transform 0.2s ease;
+}
+
+.sampling-card:hover {
+    transform: translateY(-2px);
+}
+
+.sampling-card .label {
+    font-size: 0.8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.sampling-card .val {
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #0f172a;
+}
+
+.sampling-card .sub-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+/* =========================================================================
+   WATER QUALITY STATUS & WEATHER SECTIONS
+   ========================================================================= */
+.status-section h2 {
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 0.6rem;
+    margin-bottom: 1rem;
+}
+
 .status-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -168,14 +320,12 @@ h2 {
 
 .status-item {
     background: #ffffff;
-    /* Solid white inner cards */
     padding: 1.2rem;
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     border: 2px solid #e0e0e0;
-    /* High contrast border */
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
@@ -199,6 +349,12 @@ h2 {
     gap: 1.5rem;
 }
 
+.feed-weather-section h2 {
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 0.6rem;
+    margin-bottom: 1rem;
+}
+
 .weather-col,
 .feed-col {
     display: flex;
@@ -209,7 +365,6 @@ h2 {
     font-size: 1.3rem;
     font-weight: 900;
     background: #e8f5e9;
-    /* Light green background by default */
     padding: 1.5rem;
     border-radius: 12px;
     text-align: center;
@@ -224,7 +379,6 @@ h2 {
 
 .action-highlight.action-warning {
     background: #fff3e0;
-    /* Light orange background */
     color: var(--warning);
     border-color: #ffe0b2;
 }
@@ -261,7 +415,6 @@ h2 {
     min-width: 140px;
     text-align: center;
     flex: 1 1 calc(50% - 10px);
-    /* 2 per row on mobile */
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
 
@@ -278,6 +431,315 @@ h2 {
     font-size: 2rem;
     font-weight: 900;
     color: #111;
+}
+
+/* =========================================================================
+   WATER QUALITY HISTORY SECTION
+   ========================================================================= */
+.history-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+}
+
+.history-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.history-subtitle {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.abnormal-counter-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1.5px solid #fecaca;
+    padding: 0.35rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 6px rgba(185, 28, 28, 0.1);
+}
+
+.abnormal-counter-badge.no-issues {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+    box-shadow: 0 2px 6px rgba(22, 101, 52, 0.1);
+}
+
+/* Lifetime Temperature Extremes */
+.temp-records-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.temp-record-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    border: 2px solid #e2e8f0;
+    transition: transform 0.2s ease;
+}
+
+.temp-record-card:hover {
+    transform: translateY(-2px);
+}
+
+.min-temp-card {
+    border-left: 5px solid #0284c7;
+    background: linear-gradient(135deg, #ffffff 80%, #f0f9ff 100%);
+}
+
+.max-temp-card {
+    border-left: 5px solid #ea580c;
+    background: linear-gradient(135deg, #ffffff 80%, #fff7ed 100%);
+}
+
+.temp-record-icon {
+    font-size: 2rem;
+    line-height: 1;
+}
+
+.temp-record-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.temp-record-label {
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+}
+
+.temp-record-value {
+    font-size: 1.65rem;
+    font-weight: 900;
+    color: #0f172a;
+}
+
+.min-temp-card .temp-record-value {
+    color: #0369a1;
+}
+
+.max-temp-card .temp-record-value {
+    color: #c2410c;
+}
+
+.temp-record-meta {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 700;
+}
+
+/* History Log List */
+.history-log-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.history-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.3rem;
+}
+
+.history-log-header h3 {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #1e293b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.history-criteria-hint {
+    font-size: 0.74rem;
+    color: #64748b;
+    font-weight: 600;
+}
+
+.anomaly-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.anomaly-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border-left: 4px solid #ef4444;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.anomaly-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+}
+
+.anomaly-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: 1px dashed #e2e8f0;
+    padding-bottom: 0.5rem;
+}
+
+.anomaly-date-group {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.anomaly-doc-tag {
+    background: #1e293b;
+    color: #ffffff;
+    font-size: 0.82rem;
+    font-weight: 900;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+.anomaly-date {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #0f172a;
+}
+
+.anomaly-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.anomaly-pill {
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.pill-do {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.pill-ph {
+    background: #ffedd5;
+    color: #9a3412;
+    border: 1px solid #fdba74;
+}
+
+.pill-temp {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fcd34d;
+}
+
+.pill-rain {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #7dd3fc;
+}
+
+.pill-lux {
+    background: #f3e8ff;
+    color: #6b21a8;
+    border: 1px solid #d8b4fe;
+}
+
+.anomaly-details-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.anomaly-detail-item {
+    font-size: 0.85rem;
+    color: #334155;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.anomaly-detail-item::before {
+    content: "•";
+    color: #ef4444;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+/* Empty / Healthy State */
+.no-anomalies-card {
+    background: #f0fdf4;
+    border: 2px dashed #86efac;
+    border-radius: 12px;
+    padding: 1.8rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: #166534;
+}
+
+.no-anomalies-icon {
+    font-size: 2.2rem;
+}
+
+.no-anomalies-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+}
+
+.no-anomalies-desc {
+    font-size: 0.85rem;
+    color: #15803d;
+    font-weight: 600;
 }
 
 footer {
@@ -306,5 +768,22 @@ footer {
 
     .action-highlight {
         min-height: 150px;
+    }
+
+    .pond-meta-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .sampling-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .temp-records-wrapper {
+        grid-template-columns: 1fr;
+    }
+
+    .anomaly-card-top {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aquaculture Dashboard</title>
+    <title>Aquaculture Dashboard - Pond 01.02.12</title>
     <!-- Use Google Fonts for modern typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -20,7 +20,65 @@
         </header>
         
         <main>
-            <!-- Top Section: Water Quality Status -->
+            <!-- Pond Details Card (Enclosed Section) -->
+            <section class="glass-card pond-details-section">
+                <div class="pond-details-header">
+                    <h2>Pond Details</h2>
+                    <div class="pond-identity-badge" id="pond-id-badge">01.02.12</div>
+                </div>
+
+                <!-- Meta Info Bar: Species, Line, Stock Source, DOC -->
+                <div class="pond-meta-bar">
+                    <div class="meta-item">
+                        <span class="meta-label">Species</span>
+                        <span class="meta-value" id="pond-species">-</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Line</span>
+                        <span class="meta-value" id="pond-line">-</span>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Stock Source</span>
+                        <span class="meta-value" id="pond-stock-source">-</span>
+                    </div>
+                    <div class="meta-item doc-badge-container">
+                        <span class="meta-label">Culture Age</span>
+                        <span class="meta-value doc-pill" id="pond-doc">-</span>
+                    </div>
+                </div>
+
+                <!-- Recent Sampling Sub-grid enclosed inside Pond Details Card -->
+                <div class="sampling-container">
+                    <div class="sampling-header">
+                        <h3>Recent Sampling Results</h3>
+                        <span class="sample-date-tag" id="pond-sample-date">-</span>
+                    </div>
+                    <div class="sampling-grid" id="sampling-grid">
+                        <div class="sampling-card">
+                            <div class="label">Sample ABW</div>
+                            <div class="val" id="sample-abw">-</div>
+                            <div class="sub-label">Average Body Weight</div>
+                        </div>
+                        <div class="sampling-card">
+                            <div class="label">Sample AWG</div>
+                            <div class="val" id="sample-awg">-</div>
+                            <div class="sub-label">Weekly Growth</div>
+                        </div>
+                        <div class="sampling-card">
+                            <div class="label">Survival Rate (SR)</div>
+                            <div class="val text-good" id="sample-sr">-</div>
+                            <div class="sub-label">Estimated %</div>
+                        </div>
+                        <div class="sampling-card">
+                            <div class="label">Sample FCR</div>
+                            <div class="val" id="sample-fcr">-</div>
+                            <div class="sub-label">Feed Conversion Ratio</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Water Quality Status Section -->
             <section class="glass-card status-section">
                 <h2>Water Quality Status</h2>
                 <div class="status-grid" id="wq-status-grid">
@@ -28,7 +86,7 @@
                 </div>
             </section>
 
-            <!-- Middle Section: Weather & Feeding -->
+            <!-- Weather & Feeding Section -->
             <section class="glass-card feed-weather-section">
                 <div class="weather-col">
                     <h2>Weather Status</h2>
@@ -44,11 +102,56 @@
                 </div>
             </section>
 
-            <!-- Bottom Section: Raw Stat Cards -->
+            <!-- Bottom Section: Raw Sensor Readings -->
             <section class="stats-section">
                 <h2 id="recent-readings-title">Recent Readings</h2>
                 <div class="stats-grid" id="raw-stats-grid">
                     <!-- Populated via JS -->
+                </div>
+            </section>
+
+            <!-- Water Quality History Section -->
+            <section class="glass-card history-section">
+                <div class="history-header">
+                    <div class="history-title-group">
+                        <h2>Water Quality History</h2>
+                        <span class="history-subtitle">Abnormality Logs & Lifetime Temperature Extremes</span>
+                    </div>
+                    <div class="abnormal-counter-badge" id="abnormal-summary-badge">
+                        <span class="badge-icon">⚠️</span>
+                        <span id="abnormal-count-text">0 Abnormal Days</span>
+                    </div>
+                </div>
+
+                <!-- All-Time Water Temperature Records (Informational) -->
+                <div class="temp-records-wrapper">
+                    <div class="temp-record-card min-temp-card">
+                        <div class="temp-record-icon">❄️</div>
+                        <div class="temp-record-content">
+                            <span class="temp-record-label">All-Time Lowest Water Temp</span>
+                            <div class="temp-record-value" id="min-water-temp">-</div>
+                            <div class="temp-record-meta" id="min-water-temp-meta">-</div>
+                        </div>
+                    </div>
+                    <div class="temp-record-card max-temp-card">
+                        <div class="temp-record-icon">🔥</div>
+                        <div class="temp-record-content">
+                            <span class="temp-record-label">All-Time Highest Water Temp</span>
+                            <div class="temp-record-value" id="max-water-temp">-</div>
+                            <div class="temp-record-meta" id="max-water-temp-meta">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Abnormalities Log List -->
+                <div class="history-log-container">
+                    <div class="history-log-header">
+                        <h3>Detected Abnormalities Log</h3>
+                        <span class="history-criteria-hint">Criteria: DO &lt; 3ppm | pH swing &gt; 0.5 | Temp swing &gt; 2°C | Rain &gt; 40mm/day or &gt; 120mm/7d</span>
+                    </div>
+                    <div class="anomaly-list" id="anomaly-list-container">
+                        <!-- Populated via JS -->
+                    </div>
                 </div>
             </section>
         </main>
