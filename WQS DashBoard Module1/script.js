@@ -172,26 +172,36 @@ function populateUI(data) {
 
         const rawGrid = document.getElementById('raw-stats-grid');
         if (rawGrid) {
+            const formatSensorVal = (val, decimals, unit = '') => {
+                if (val === null || val === undefined || val === '' || val === 'N/A' || isNaN(parseFloat(val))) return '-';
+                return `${parseFloat(val).toFixed(decimals)}${unit ? ' ' + unit : ''}`;
+            };
+
+            const formatLuxVal = (val) => {
+                if (val === null || val === undefined || val === '' || val === 'N/A' || isNaN(parseFloat(val))) return '-';
+                return Math.round(parseFloat(val)).toLocaleString();
+            };
+
             rawGrid.innerHTML = `
                 <div class="stat-card">
                     <div class="label">DO</div>
-                    <div class="val">${raw.do !== undefined ? parseFloat(raw.do).toFixed(2) + ' ppm' : '-'}</div>
+                    <div class="val">${formatSensorVal(raw.do, 2, 'ppm')}</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">pH</div>
-                    <div class="val">${raw.ph !== undefined ? parseFloat(raw.ph).toFixed(2) : '-'}</div>
+                    <div class="val">${formatSensorVal(raw.ph, 2)}</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Water Temp</div>
-                    <div class="val">${raw.waterTemp !== undefined ? parseFloat(raw.waterTemp).toFixed(1) + '°C' : '-'}</div>
+                    <div class="val">${formatSensorVal(raw.waterTemp, 1, '°C')}</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Lux</div>
-                    <div class="val">${raw.lux !== undefined ? Math.round(raw.lux).toLocaleString() : '-'}</div>
+                    <div class="val">${formatLuxVal(raw.lux)}</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Air Temp</div>
-                    <div class="val">${raw.airTemp !== undefined ? parseFloat(raw.airTemp).toFixed(1) + '°C' : '-'}</div>
+                    <div class="val">${formatSensorVal(raw.airTemp, 1, '°C')}</div>
                 </div>
             `;
         }

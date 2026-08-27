@@ -37,25 +37,64 @@ function doGet(e) {
     
     const getHour = (d) => d.getHours();
 
-    let recentTimestamp = null, recentDO = 0, recentPH = 0, recentWaterTemp = 0, recentLux = 0, recentAirTemp = 0;
+    // Helper to validate whether a sensor cell contains a valid numeric reading (not 'N/A', not blank, not error, not NaN)
+    const isValidSensorReading = (val) => {
+      if (val === null || val === undefined || val === '') return false;
+      if (typeof val === 'string') {
+        const trimmed = val.trim().toUpperCase();
+        if (trimmed === 'N/A' || trimmed === '#N/A' || trimmed === 'NA' || trimmed === 'NULL' || trimmed === 'NONE' || trimmed === 'ERROR' || trimmed === 'ERR') {
+          return false;
+        }
+      }
+      const num = parseFloat(val);
+      return !isNaN(num) && isFinite(num);
+    };
+
+    let recentTimestamp = null;
+    let recentDO = null;
+    let recentPH = null;
+    let recentWaterTemp = null;
+    let recentLux = 0;
+    let recentAirTemp = 0;
     
+    // Scan backwards to find the most recent row where DO, pH, and Water Temp are ALL valid numbers (skipping rows with 'N/A' or sensor errors)
     for (let i = wqsData.length - 1; i > 0; i--) {
-      if (wqsData[i][0]) { // Check if timestamp cell is not empty
-        const lastRow = wqsData[i];
-        recentTimestamp = lastRow[0];
-        recentDO = lastRow[1];
-        recentPH = lastRow[2];
-        recentWaterTemp = lastRow[4];
+      const row = wqsData[i];
+      if (row[0] && isValidSensorReading(row[1]) && isValidSensorReading(row[2]) && isValidSensorReading(row[4])) {
+        recentTimestamp = row[0];
+        recentDO = parseFloat(row[1]);
+        recentPH = parseFloat(row[2]);
+        recentWaterTemp = parseFloat(row[4]);
         break;
       }
     }
+
+    // Fallback: If no single row had all parameters valid, pick the most recent valid value for each parameter independently
+    if (recentDO === null || recentPH === null || recentWaterTemp === null) {
+      for (let i = wqsData.length - 1; i > 0; i--) {
+        const row = wqsData[i];
+        if (!row[0]) continue;
+        if (recentDO === null && isValidSensorReading(row[1])) recentDO = parseFloat(row[1]);
+        if (recentPH === null && isValidSensorReading(row[2])) recentPH = parseFloat(row[2]);
+        if (recentWaterTemp === null && isValidSensorReading(row[4])) recentWaterTemp = parseFloat(row[4]);
+        if (recentTimestamp === null && (isValidSensorReading(row[1]) || isValidSensorReading(row[2]) || isValidSensorReading(row[4]))) {
+          recentTimestamp = row[0];
+        }
+        if (recentDO !== null && recentPH !== null && recentWaterTemp !== null) break;
+      }
+    }
+
+    // Ensure fallback defaults if no data exists at all
+    if (recentDO === null) recentDO = 0;
+    if (recentPH === null) recentPH = 0;
+    if (recentWaterTemp === null) recentWaterTemp = 0;
     
-    // Extract recent weather readings from 'Live' sheet
+    // Extract recent weather readings from 'Live' sheet (skip any row with N/A / invalid values)
     for (let i = weatherLiveData.length - 1; i > 0; i--) {
-      if (weatherLiveData[i][9] || weatherLiveData[i][0]) { // Timestamp check
-        const lastRow = weatherLiveData[i];
-        recentLux = lastRow[3];      // Column D (index 3)
-        recentAirTemp = lastRow[2];  // Column C (index 2)
+      const row = weatherLiveData[i];
+      if ((row[9] || row[0]) && isValidSensorReading(row[3]) && isValidSensorReading(row[2])) {
+        recentLux = parseFloat(row[3]);      // Column D (index 3)
+        recentAirTemp = parseFloat(row[2]);  // Column C (index 2)
         break;
       }
     }
@@ -73,29 +112,33 @@ function doGet(e) {
       const ts = new Date(row[0]);
       if (isNaN(ts.getTime())) continue;
 
-      const rowDO = parseFloat(row[1]);
-      const rowPH = parseFloat(row[2]);
-      const rowTemp = parseFloat(row[4]);
+      const hasDO = isValidSensorReading(row[1]);
+      const hasPH = isValidSensorReading(row[2]);
+      const hasTemp = isValidSensorReading(row[4]);
+
+      const rowDO = hasDO ? parseFloat(row[1]) : null;
+      const rowPH = hasPH ? parseFloat(row[2]) : null;
+      const rowTemp = hasTemp ? parseFloat(row[4]) : null;
       const hr = getHour(ts);
 
       // Today logic
       if (isSameDate(ts, today)) {
         // DO: Lowest around 5:00 AM (e.g. 4 AM - 6 AM)
         if (hr >= 4 && hr <= 6) {
-          if (do5amMin === null || rowDO < do5amMin) do5amMin = rowDO;
-          if (ph5am === null) ph5am = rowPH; 
+          if (rowDO !== null && (do5amMin === null || rowDO < do5amMin)) do5amMin = rowDO;
+          if (rowPH !== null && ph5am === null) ph5am = rowPH; 
         }
         // pH: around 5:00 PM (e.g. 16:00 - 18:00)
         if (hr >= 16 && hr <= 18) {
-          if (ph5pm === null) ph5pm = rowPH;
+          if (rowPH !== null && ph5pm === null) ph5pm = rowPH;
         }
         // Temp: Highest today
-        if (tempTodayMax === null || rowTemp > tempTodayMax) tempTodayMax = rowTemp;
+        if (rowTemp !== null && (tempTodayMax === null || rowTemp > tempTodayMax)) tempTodayMax = rowTemp;
       }
       
       // Yesterday night logic (18:00 yesterday to 06:00 today)
       if ((isSameDate(ts, yesterday) && hr >= 18) || (isSameDate(ts, today) && hr <= 6)) {
-        if (tempNightMin === null || rowTemp < tempNightMin) tempNightMin = rowTemp;
+        if (rowTemp !== null && (tempNightMin === null || rowTemp < tempNightMin)) tempNightMin = rowTemp;
       }
     }
     
