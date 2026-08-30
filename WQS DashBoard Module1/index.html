@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aquaculture Dashboard - Pond 01.02.12</title>
     <!-- Use Google Fonts for modern typography -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div id="loading-overlay" class="overlay">
         <div class="spinner"></div>
@@ -18,7 +21,7 @@
         <header>
             <h1>M01L02P12 Pond Status (Field Trial)</h1>
         </header>
-        
+
         <main>
             <!-- Pond Details Card (Enclosed Section) -->
             <section class="glass-card pond-details-section">
@@ -147,7 +150,7 @@
                 <div class="history-log-container">
                     <div class="history-log-header">
                         <h3>Detected Abnormalities Log</h3>
-                        <span class="history-criteria-hint">Criteria: DO &lt; 3ppm | pH swing &gt; 0.5 | Temp swing &gt; 2°C | Rain &gt; 40mm/day or &gt; 120mm/7d</span>
+                        <span class="history-criteria-hint">Criteria: DO &lt; 3ppm | pH swing &gt; 0.5 | Temp swing &ge; 3°C | Temp &gt; 33°C | Rain &gt; 40mm/day or &gt; 120mm/7d</span>
                     </div>
                     <div class="anomaly-list" id="anomaly-list-container">
                         <!-- Populated via JS -->
@@ -157,10 +160,12 @@
         </main>
 
         <footer>
-            <a href="https://docs.google.com/spreadsheets/d/1zVXbhakvH8kFIcV_YL-YS89dsAF0eDNE-eeTxV-IWuY/export?format=csv" class="download-btn glass-btn" target="_blank">Download WQS CSV</a>
+            <a href="https://docs.google.com/spreadsheets/d/1zVXbhakvH8kFIcV_YL-YS89dsAF0eDNE-eeTxV-IWuY/export?format=csv"
+                class="download-btn glass-btn" target="_blank">Download WQS CSV</a>
         </footer>
     </div>
-    
+
     <script src="script.js"></script>
 </body>
+
 </html>

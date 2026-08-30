@@ -102,26 +102,154 @@ function populateUI(data) {
             : '-';
     }
 
-    // --- Top Section: WQ Status ---
+    // --- Top Section: WQ Status (Daily Min, Max, Δ) ---
     const wqGrid = document.getElementById('wq-status-grid');
     if (wqGrid && analysis) {
+        const temp = analysis.temperature || {};
+        const doData = analysis.do || {};
+        const phData = analysis.ph || {};
+
+        const formatVal = (val, decimals, suffix = '') => {
+            if (val === null || val === undefined || val === '' || isNaN(parseFloat(val))) return '-';
+            return `${parseFloat(val).toFixed(decimals)}${suffix}`;
+        };
+
+        // Temperature Card
+        const tempMinStr = formatVal(temp.min, 1, '°');
+        const tempMaxStr = formatVal(temp.max, 1, '°');
+        const tempDeltaStr = formatVal(temp.delta, 1, '°');
+        let tempCardClass = 'wq-card';
+        let tempBadgeHtml = '';
+
+        if (temp.warning) {
+            if (temp.isHighTemp && temp.isHighFluctuation) {
+                tempCardClass += ' alert-danger';
+                tempBadgeHtml = `<span class="wq-alert-badge badge-danger">High Temp & Swing</span>`;
+            } else if (temp.isHighTemp) {
+                tempCardClass += ' alert-danger';
+                tempBadgeHtml = `<span class="wq-alert-badge badge-danger">&gt;33°C Alert</span>`;
+            } else if (temp.isHighFluctuation) {
+                tempCardClass += ' alert-warning';
+                tempBadgeHtml = `<span class="wq-alert-badge badge-warning">High Swing</span>`;
+            }
+        }
+
+        // Dissolved Oxygen Card
+        const doMinStr = formatVal(doData.min, 1);
+        const doMaxStr = formatVal(doData.max, 1);
+        const doDeltaStr = formatVal(doData.delta, 1);
+        let doCardClass = 'wq-card';
+        let doBadgeHtml = '';
+
+        if (doData.warning) {
+            if (doData.isDanger) {
+                doCardClass += ' alert-danger';
+                doBadgeHtml = `<span class="wq-alert-badge badge-danger">Critical Low</span>`;
+            } else {
+                doCardClass += ' alert-warning';
+                doBadgeHtml = `<span class="wq-alert-badge badge-warning">Low DO</span>`;
+            }
+        }
+
+        // pH Card
+        const phMinStr = formatVal(phData.min, 2);
+        const phMaxStr = formatVal(phData.max, 2);
+        const phDeltaStr = formatVal(phData.delta, 2);
+        let phCardClass = 'wq-card';
+        let phBadgeHtml = '';
+
+        if (phData.warning) {
+            phCardClass += ' alert-warning';
+            phBadgeHtml = `<span class="wq-alert-badge badge-warning">High Swing</span>`;
+        }
+
         wqGrid.innerHTML = `
-            <div class="status-item">
-                <h3>DO at 5 AM</h3>
-                <div class="value ${analysis.do.warning ? (analysis.do.status === 'Danger' ? 'text-danger' : 'text-warning') : 'text-good'}">
-                    ${analysis.do.message}
+            <!-- Temperature Card -->
+            <div class="${tempCardClass}">
+                <div class="wq-card-header">
+                    <div class="wq-card-title-group">
+                        <span class="wq-card-icon">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path>
+                            </svg>
+                        </span>
+                        <span class="wq-card-title">Temperature</span>
+                    </div>
+                    ${tempBadgeHtml}
+                </div>
+                <div class="wq-metrics-grid">
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Min</span>
+                        <span class="wq-metric-val">${tempMinStr}</span>
+                    </div>
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Max</span>
+                        <span class="wq-metric-val ${temp.isHighTemp ? 'val-alert' : ''}">${tempMaxStr}</span>
+                    </div>
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Δ</span>
+                        <span class="wq-metric-val ${temp.isHighFluctuation ? 'val-alert' : ''}">${tempDeltaStr}</span>
+                    </div>
                 </div>
             </div>
-            <div class="status-item">
-                <h3>pH Swing (5AM vs 5PM)</h3>
-                <div class="value ${analysis.ph.warning ? 'text-danger' : 'text-good'}">
-                    ${analysis.ph.message}
+
+            <!-- Dissolved Oxygen Card -->
+            <div class="${doCardClass}">
+                <div class="wq-card-header">
+                    <div class="wq-card-title-group">
+                        <span class="wq-card-icon">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                            </svg>
+                        </span>
+                        <span class="wq-card-title">Dissolved oxygen</span>
+                    </div>
+                    ${doBadgeHtml}
+                </div>
+                <div class="wq-metrics-grid">
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Min</span>
+                        <span class="wq-metric-val ${doData.warning ? 'val-alert' : ''}">${doMinStr}</span>
+                    </div>
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Max</span>
+                        <span class="wq-metric-val">${doMaxStr}</span>
+                    </div>
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Δ</span>
+                        <span class="wq-metric-val">${doDeltaStr}</span>
+                    </div>
                 </div>
             </div>
-            <div class="status-item">
-                <h3>Temp Swing (Yest. Night vs Day)</h3>
-                <div class="value ${analysis.temperature.warning ? 'text-danger' : 'text-good'}">
-                    ${analysis.temperature.message}
+
+            <!-- pH Card -->
+            <div class="${phCardClass}">
+                <div class="wq-card-header">
+                    <div class="wq-card-title-group">
+                        <span class="wq-card-icon">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 2v7.31L4.69 17.5A2 2 0 0 0 6.42 20.5h11.16a2 2 0 0 0 1.73-3L14 9.31V2"></path>
+                                <line x1="8.5" y1="2" x2="15.5" y2="2"></line>
+                                <line x1="14" y1="9" x2="10" y2="9"></line>
+                            </svg>
+                        </span>
+                        <span class="wq-card-title">pH</span>
+                    </div>
+                    ${phBadgeHtml}
+                </div>
+                <div class="wq-metrics-grid">
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Min</span>
+                        <span class="wq-metric-val">${phMinStr}</span>
+                    </div>
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Max</span>
+                        <span class="wq-metric-val">${phMaxStr}</span>
+                    </div>
+                    <div class="wq-metric-col">
+                        <span class="wq-metric-label">Δ</span>
+                        <span class="wq-metric-val ${phData.warning ? 'val-alert' : ''}">${phDeltaStr}</span>
+                    </div>
                 </div>
             </div>
         `;
@@ -343,12 +471,36 @@ function simulateData() {
                 airTemp: 31.4
             },
             analysis: {
-                do: { status: "Good", message: "DO: 4.20 ppm", warning: false, value: 4.2 },
-                ph: { message: "Swing: 0.25 (Normal)", warning: false },
-                temperature: { message: "Swing: 1.40°C (Normal)", warning: false },
+                temperature: {
+                    min: 29.6,
+                    max: 32.9,
+                    delta: 3.3,
+                    warning: true,
+                    isHighTemp: false,
+                    isHighFluctuation: true,
+                    status: "Warning",
+                    message: "High Swing: 3.3°C (≥3.0°C)"
+                },
+                do: {
+                    min: 4.6,
+                    max: 6.7,
+                    delta: 2.1,
+                    warning: false,
+                    isDanger: false,
+                    status: "Good",
+                    message: "DO Min: 4.6 ppm (Good)"
+                },
+                ph: {
+                    min: 7.14,
+                    max: 7.57,
+                    delta: 0.43,
+                    warning: false,
+                    status: "Normal",
+                    message: "Swing: 0.43 (Normal)"
+                },
                 weatherLux: { message: "High Algae Activity", warning: false, avgToday: 86500, avgYest: 84000 },
                 weatherRain: { message: "Today's rain: 0.00mm", warning: false, sumToday: 0 },
-                feedingAction: "Normal Feed - Optimal Conditions."
+                feedingAction: "Reduce/Cut Feed - Water quality/weather alert active."
             },
             history: {
                 totalAbnormalDays: 3,

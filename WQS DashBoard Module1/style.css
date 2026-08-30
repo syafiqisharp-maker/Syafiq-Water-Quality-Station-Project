@@ -314,32 +314,129 @@ h2 {
 
 .status-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.2rem;
 }
 
-.status-item {
+/* Individual Water Quality Status Card */
+.wq-card {
     background: #ffffff;
-    padding: 1.2rem;
-    border-radius: 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.35rem 1.4rem;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    border: 2px solid #e0e0e0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    gap: 1.1rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.status-item h3 {
-    font-size: 1rem;
-    color: var(--text-muted);
+.wq-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.wq-card.alert-warning {
+    border-color: #f97316;
+    background: linear-gradient(180deg, #fffaf5 0%, #ffffff 100%);
+}
+
+.wq-card.alert-danger {
+    border-color: #ef4444;
+    background: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);
+}
+
+/* Card Header: Icon + Parameter Name + Optional Badge */
+.wq-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.wq-card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.wq-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #475569;
+    flex-shrink: 0;
+}
+
+.wq-card-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #334155;
+    letter-spacing: -0.2px;
+}
+
+.wq-alert-badge {
+    font-size: 0.72rem;
     font-weight: 800;
+    padding: 0.25rem 0.6rem;
+    border-radius: 20px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
-.status-item .value {
-    font-size: 1.5rem;
+.badge-warning {
+    background: #ffedd5;
+    color: #c2410c;
+    border: 1px solid #fdba74;
+}
+
+.badge-danger {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.badge-good {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+/* 3-Column Metrics Grid (Min, Max, Δ) */
+.wq-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.wq-metric-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.wq-metric-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #64748b;
+    letter-spacing: 0.2px;
+}
+
+.wq-metric-val {
+    font-size: 1.95rem;
     font-weight: 900;
+    color: #0f172a;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+}
+
+.wq-card.alert-warning .wq-metric-val.val-alert {
+    color: #ea580c;
+}
+
+.wq-card.alert-danger .wq-metric-val.val-alert {
+    color: #dc2626;
 }
 
 /* Middle Section */
