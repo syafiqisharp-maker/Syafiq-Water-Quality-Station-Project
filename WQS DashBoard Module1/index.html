@@ -4,15 +4,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Precision Aquaculture Water Quality Station (WQS) Dashboard for realtime monitoring and 7-day trend analysis.">
+    <meta name="theme-color" content="#0284c7">
     <title>Aquaculture Dashboard - Pond 01.02.12</title>
-    <!-- Use Google Fonts for modern typography -->
+    <!-- Modern typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div id="loading-overlay" class="overlay">
+    <div id="loading-overlay" class="overlay" role="status" aria-live="polite">
         <div class="spinner"></div>
         <p>Loading Pond Data...</p>
     </div>
@@ -24,7 +26,7 @@
 
         <main>
             <!-- Pond Details Card (Enclosed Section) -->
-            <section class="glass-card pond-details-section">
+            <section class="glass-card pond-details-section" aria-label="Pond Details and Sampling Metrics">
                 <div class="pond-details-header">
                     <h2>Pond Details</h2>
                     <div class="pond-identity-badge" id="pond-id-badge">01.02.12</div>
@@ -81,40 +83,65 @@
                 </div>
             </section>
 
-            <!-- Water Quality Status Section -->
-            <section class="glass-card status-section">
-                <h2>Water Quality Status</h2>
-                <div class="status-grid" id="wq-status-grid">
+            <!-- Feeding Action Plan Section (Executive Decision & Why Breakdown) -->
+            <section class="glass-card feeding-action-section" aria-label="Feeding Action Plan and Reason Diagnostics">
+                <div class="feeding-header">
+                    <div class="feeding-title-group">
+                        <h2>Feeding Action Plan</h2>
+                        <span class="feeding-subtitle">Real-time Feeding Directive & Operational Reasons</span>
+                    </div>
+                    <div id="feeding-badge" class="feeding-status-badge badge-good">Normal Feed</div>
+                </div>
+                <div id="feeding-action-container" class="feeding-action-content" aria-live="polite">
                     <!-- Populated via JS -->
                 </div>
             </section>
 
-            <!-- Weather & Feeding Section -->
-            <section class="glass-card feed-weather-section">
-                <div class="weather-col">
-                    <h2>Weather Status</h2>
-                    <div id="weather-status-container">
-                        <!-- Populated via JS -->
+            <!-- Daily Fluctuations Section -->
+            <section class="glass-card status-section" aria-label="Daily Fluctuations">
+                <h2>Daily Fluctuations</h2>
+                <div class="status-grid" id="wq-status-grid" aria-live="polite">
+                    <!-- Populated via JS -->
+                </div>
+            </section>
+
+            <!-- Weather Status Section -->
+            <section class="glass-card weather-section" aria-label="Weather Status">
+                <div class="weather-header">
+                    <div class="weather-title-group">
+                        <h2>Weather Status</h2>
+                        <span class="weather-subtitle">Ambient Sunlight & Rainfall Monitoring</span>
                     </div>
                 </div>
-                <div class="feed-col">
-                    <h2>Feeding Action Plan</h2>
-                    <div id="feeding-action-container" class="action-highlight">
-                        <!-- Populated via JS -->
-                    </div>
+                <div id="weather-status-container" class="weather-grid" aria-live="polite">
+                    <!-- Populated via JS -->
                 </div>
             </section>
 
             <!-- Bottom Section: Raw Sensor Readings -->
-            <section class="stats-section">
+            <section class="stats-section" aria-label="Recent Sensor Readings">
                 <h2 id="recent-readings-title">Recent Readings</h2>
-                <div class="stats-grid" id="raw-stats-grid">
+                <div class="stats-grid" id="raw-stats-grid" aria-live="polite">
+                    <!-- Populated via JS -->
+                </div>
+            </section>
+
+            <!-- 7-Day Water Quality Trends Section -->
+            <section class="glass-card weekly-metrics-section" aria-label="Past 7 days WQ Trends (Average Daily)">
+                <div class="weekly-header">
+                    <div class="weekly-title-group">
+                        <h2>Past 7 days WQ Trends (Average Daily)</h2>
+                        <span class="weekly-subtitle">Strategic Baseline Trajectory & Morning DO Stability</span>
+                    </div>
+                    <div class="weekly-window-badge" id="weekly-window-badge">Past 7 Days</div>
+                </div>
+                <div class="weekly-grid" id="weekly-metrics-grid" aria-live="polite">
                     <!-- Populated via JS -->
                 </div>
             </section>
 
             <!-- Water Quality History Section -->
-            <section class="glass-card history-section">
+            <section class="glass-card history-section" aria-label="Water Quality History and Anomalies">
                 <div class="history-header">
                     <div class="history-title-group">
                         <h2>Water Quality History</h2>

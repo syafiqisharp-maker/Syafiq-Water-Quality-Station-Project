@@ -1,20 +1,28 @@
 :root {
     --glass-bg: rgba(255, 255, 255, 0.94);
-    /* Highly opaque white for extreme contrast */
     --glass-border: rgba(255, 255, 255, 1);
     --text-color: #111111;
-    /* Near black */
     --text-muted: #4a4a4a;
-    /* Dark gray for labels */
     --highlight: #0056b3;
-    /* Strong blue */
     --accent-teal: #00796b;
     --danger: #d32f2f;
-    /* Strong red */
     --warning: #e65100;
-    /* Strong dark orange */
     --good: #1b5e20;
-    /* Strong dark green */
+
+    /* Parameter Theme Tokens */
+    --color-do: #10b981;
+    --color-ph: #6366f1;
+    --color-water-temp: #0284c7;
+    --color-lux: #f59e0b;
+    --color-air-temp: #ea580c;
+
+    /* Dimensional Tokens */
+    --radius-lg: 16px;
+    --radius-md: 12px;
+    --radius-sm: 8px;
+    --card-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    --card-hover-shadow: 0 10px 25px rgba(0, 0, 0, 0.09);
+    --gpu-transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease;
 }
 
 * {
@@ -304,7 +312,7 @@ h2 {
 }
 
 /* =========================================================================
-   WATER QUALITY STATUS & WEATHER SECTIONS
+   DAILY FLUCTUATIONS & WEATHER SECTIONS
    ========================================================================= */
 .status-section h2 {
     border-bottom: 2px solid #ddd;
@@ -318,7 +326,7 @@ h2 {
     gap: 1.2rem;
 }
 
-/* Individual Water Quality Status Card */
+/* Individual Daily Fluctuations Card */
 .wq-card {
     background: #ffffff;
     border: 1.5px solid #e2e8f0;
@@ -439,95 +447,949 @@ h2 {
     color: #dc2626;
 }
 
-/* Middle Section */
-.feed-weather-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-}
-
-.feed-weather-section h2 {
-    border-bottom: 2px solid #ddd;
-    padding-bottom: 0.6rem;
-    margin-bottom: 1rem;
-}
-
-.weather-col,
-.feed-col {
+/* =========================================================================
+   FEEDING ACTION PLAN & WHY DIAGNOSTIC SECTION
+   ========================================================================= */
+.feeding-action-section {
     display: flex;
     flex-direction: column;
 }
 
-.action-highlight {
-    font-size: 1.3rem;
-    font-weight: 900;
-    background: #e8f5e9;
-    padding: 1.5rem;
-    border-radius: 12px;
-    text-align: center;
+.feeding-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.1rem;
+}
+
+.feeding-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.feeding-title-group h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.feeding-subtitle {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.2px;
+}
+
+.feeding-status-badge {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
+.feeding-action-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+}
+
+/* Primary Feeding Directive Banner */
+.feeding-banner {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 1.1rem;
+    padding: 1.25rem 1.4rem;
+    border-radius: 12px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.feeding-banner.banner-optimal {
+    background: linear-gradient(135deg, rgba(240, 253, 244, 0.95), rgba(220, 252, 231, 0.95));
+    border: 1.5px solid #86efac;
+    box-shadow: 0 4px 14px rgba(34, 197, 94, 0.08);
+}
+
+.feeding-banner.banner-caution {
+    background: linear-gradient(135deg, rgba(254, 252, 232, 0.95), rgba(254, 243, 199, 0.95));
+    border: 1.5px solid #fde047;
+    box-shadow: 0 4px 14px rgba(234, 179, 8, 0.1);
+}
+
+.feeding-banner.banner-critical {
+    background: linear-gradient(135deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.95));
+    border: 1.5px solid #fca5a5;
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.12);
+}
+
+.feeding-banner-icon {
+    font-size: 2.2rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.feeding-banner-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
     flex: 1;
-    color: var(--good);
-    border: 3px solid #c8e6c9;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-.action-highlight.action-warning {
-    background: #fff3e0;
-    color: var(--warning);
-    border-color: #ffe0b2;
+.feeding-banner-title {
+    font-size: 1.15rem;
+    font-weight: 850;
+    letter-spacing: -0.2px;
 }
 
-/* Bottom Stats */
+.banner-optimal .feeding-banner-title {
+    color: #15803d;
+}
+
+.banner-caution .feeding-banner-title {
+    color: #b45309;
+}
+
+.banner-critical .feeding-banner-title {
+    color: #b91c1c;
+}
+
+.feeding-banner-desc {
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.banner-optimal .feeding-banner-desc {
+    color: #166534;
+}
+
+.banner-caution .feeding-banner-desc {
+    color: #92400e;
+}
+
+.banner-critical .feeding-banner-desc {
+    color: #991b1b;
+}
+
+/* "Why?" Diagnostic Section */
+.why-container {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.why-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.why-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.why-badge-count {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.55rem;
+    border-radius: 9999px;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.why-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.why-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.why-item.why-critical {
+    background: #fef2f2;
+    border-left: 3.5px solid #ef4444;
+    color: #7f1d1d;
+}
+
+.why-item.why-caution {
+    background: #fffbeb;
+    border-left: 3.5px solid #f59e0b;
+    color: #78350f;
+}
+
+.why-item.why-optimal {
+    background: #f0fdf4;
+    border-left: 3.5px solid #10b981;
+    color: #14532d;
+}
+
+.why-item-icon {
+    font-size: 1.05rem;
+    line-height: 1.3;
+    flex-shrink: 0;
+}
+
+.why-item-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.why-item-headline {
+    font-weight: 800;
+    font-size: 0.86rem;
+}
+
+.why-item-sub {
+    font-size: 0.78rem;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.why-tag {
+    align-self: flex-start;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    margin-left: auto;
+    white-space: nowrap;
+}
+
+.why-tag-critical {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.why-tag-caution {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.why-tag-optimal {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+/* =========================================================================
+   WEATHER STATUS SECTION
+   ========================================================================= */
+.weather-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.weather-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    border-bottom: 1.5px solid #e2e8f0;
+    padding-bottom: 0.8rem;
+    margin-bottom: 1.1rem;
+}
+
+.weather-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.weather-title-group h2 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.weather-subtitle {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.2px;
+}
+
+.weather-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.2rem;
+}
+
+.weather-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.weather-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.07);
+}
+
+.weather-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.weather-card-title {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.weather-main-val {
+    font-size: 1.85rem;
+    font-weight: 900;
+    color: #0f172a;
+    line-height: 1.1;
+}
+
+.weather-unit {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.weather-status-msg {
+    font-size: 0.82rem;
+    font-weight: 650;
+    color: #475569;
+}
+
+.weather-context-line {
+    font-size: 0.74rem;
+    color: #94a3b8;
+    font-weight: 700;
+    padding-top: 0.3rem;
+    border-top: 1px dashed #f1f5f9;
+}
+
+/* =========================================================================
+   RECENT SENSOR READINGS SECTION (CARDS, BADGES, TRENDS, & SPARKLINES)
+   ========================================================================= */
 .stats-section h2 {
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
     border: none;
     background: var(--glass-bg);
     margin: 0;
-    padding: 1rem;
+    padding: 1.2rem 1.5rem;
     border-radius: 16px 16px 0 0;
     border: 1px solid var(--glass-border);
-    border-bottom: none;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.readings-timestamp-badge {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.8rem;
+    font-weight: 700;
+    padding: 0.25rem 0.8rem;
+    border-radius: 20px;
+    border: 1px solid #cbd5e1;
+    letter-spacing: 0.2px;
 }
 
 .stats-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
     background: var(--glass-bg);
-    padding: 1rem;
+    padding: 1.5rem;
     border-radius: 0 0 16px 16px;
     border: 1px solid var(--glass-border);
     border-top: none;
 }
 
+/* Stat Card */
 .stat-card {
     background: #ffffff;
-    border: 2px solid #eeeeee;
-    border-radius: 12px;
-    padding: 1.2rem;
-    min-width: 140px;
-    text-align: center;
-    flex: 1 1 calc(50% - 10px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.35rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    position: relative;
 }
 
-.stat-card .label {
-    font-size: 0.85rem;
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.09);
+}
+
+/* Individual Card Accent Borders */
+.stat-card-do {
+    border-left: 4.5px solid #10b981;
+}
+
+.stat-card-ph {
+    border-left: 4.5px solid #6366f1;
+}
+
+.stat-card-water-temp {
+    border-left: 4.5px solid #0284c7;
+}
+
+.stat-card-lux {
+    border-left: 4.5px solid #f59e0b;
+}
+
+.stat-card-air-temp {
+    border-left: 4.5px solid #ea580c;
+}
+
+/* Card Header: Icon + Parameter Title + Status Badge */
+.stat-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stat-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.stat-icon-symbol {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.stat-card-name {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #334155;
+    letter-spacing: -0.2px;
+}
+
+/* Status Badges */
+.sensor-badge {
+    font-size: 0.72rem;
+    font-weight: 800;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 0.5rem;
-    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.sensor-badge.badge-optimal {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.sensor-badge.badge-good {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+
+.sensor-badge.badge-normal {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+}
+
+.sensor-badge.badge-warning {
+    background: #fff7ed;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+}
+
+.sensor-badge.badge-danger {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+}
+
+/* Lux Specific Condition Badges */
+.sensor-badge.badge-lux-intense {
+    background: #fef9c3;
+    color: #a16207;
+    border: 1px solid #fde047;
+    font-weight: 900;
+}
+
+.sensor-badge.badge-lux-clear {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    font-weight: 900;
+}
+
+.sensor-badge.badge-lux-partly {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
     font-weight: 800;
 }
 
-.stat-card .val {
-    font-size: 2rem;
+.sensor-badge.badge-lux-overcast {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    font-weight: 800;
+}
+
+.sensor-badge.badge-lux-night {
+    background: #e0e7ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+    font-weight: 800;
+}
+
+/* Card Main Row: Large Metric + Trend Rate */
+.stat-main-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+}
+
+.stat-val-wrapper {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.stat-val {
+    font-size: 2.15rem;
     font-weight: 900;
-    color: #111;
+    color: #0f172a;
+    letter-spacing: -0.8px;
+    line-height: 1.1;
+}
+
+.stat-unit {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+/* Trend Rate-of-Change Pills */
+.trend-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 0.22rem 0.65rem;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.trend-pill.trend-up {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.trend-pill.trend-down {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.trend-pill.trend-stable {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+/* Context Advisory Sub-Row */
+.stat-context-row {
+    min-height: 18px;
+}
+
+.context-note {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #64748b;
+    line-height: 1.3;
+}
+
+.context-note.text-good {
+    color: #047857;
+    font-weight: 700;
+}
+
+.context-note.text-warning {
+    color: #c2410c;
+    font-weight: 700;
+}
+
+.context-note.text-danger {
+    color: #dc2626;
+    font-weight: 800;
+}
+
+/* Sparkline Container & Meta */
+.stat-sparkline-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.6rem 0.75rem 0.45rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.3rem;
+}
+
+.sparkline-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.spark-label {
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #94a3b8;
+    font-size: 0.68rem;
+}
+
+.spark-extremes {
+    font-weight: 700;
+    color: #475569;
+}
+
+.mini-sparkline {
+    width: 100%;
+    height: 40px;
+    overflow: visible;
+    display: block;
+}
+
+/* =========================================================================
+   7-DAY WATER QUALITY TRENDS SECTION
+   ========================================================================= */
+.weekly-metrics-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.3rem;
+}
+
+.weekly-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+}
+
+.weekly-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.weekly-subtitle {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.weekly-window-badge {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1.5px solid #bfdbfe;
+    font-size: 0.85rem;
+    font-weight: 800;
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    letter-spacing: 0.2px;
+    box-shadow: 0 2px 6px rgba(29, 78, 216, 0.08);
+}
+
+.weekly-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.25rem;
+}
+
+/* 7-Day Card */
+.weekly-card {
+    background: #ffffff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.35rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    position: relative;
+}
+
+.weekly-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.09);
+}
+
+.weekly-card-do {
+    border-left: 4.5px solid #10b981;
+}
+
+.weekly-card-ph {
+    border-left: 4.5px solid #6366f1;
+}
+
+.weekly-card-temp {
+    border-left: 4.5px solid #0284c7;
+}
+
+.weekly-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.weekly-title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.weekly-icon-symbol {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.weekly-card-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #334155;
+    letter-spacing: -0.2px;
+}
+
+/* 7-Day Main Row */
+.weekly-main-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+}
+
+.weekly-val-wrapper {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+}
+
+.weekly-val {
+    font-size: 2.15rem;
+    font-weight: 900;
+    color: #0f172a;
+    letter-spacing: -0.8px;
+    line-height: 1.1;
+}
+
+.weekly-unit {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+/* 7-Day Shift Pill */
+.weekly-shift-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 0.25rem 0.65rem;
+    border-radius: 8px;
+    white-space: nowrap;
+}
+
+.weekly-shift-pill.shift-up {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+
+.weekly-shift-pill.shift-down {
+    background: #fee2e2;
+    color: #b91c1c;
+    border: 1px solid #fca5a5;
+}
+
+.weekly-shift-pill.shift-stable {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+
+/* Operational Advisory Box */
+.weekly-advisory-box {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.65rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: #334155;
+}
+
+.weekly-advisory-box.advisory-good {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+.weekly-advisory-box.advisory-caution {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+}
+
+.weekly-advisory-box.advisory-alert {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+/* 7-Point Daily Sparkline Container */
+.weekly-sparkline-container {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.65rem 0.75rem 0.45rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.weekly-spark-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.weekly-spark-label {
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #94a3b8;
+    font-size: 0.68rem;
+}
+
+.weekly-spark-extremes {
+    font-weight: 700;
+    color: #475569;
+}
+
+.weekly-sparkline {
+    width: 100%;
+    height: 52px;
+    overflow: visible;
+    display: block;
+}
+
+.sparkline-point-label {
+    font-family: inherit;
+    font-size: 9.5px;
+    font-weight: 800;
+    paint-order: stroke fill;
+    stroke: #ffffff;
+    stroke-width: 3.5px;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    user-select: none;
+    letter-spacing: -0.2px;
+}
+
+.sparkline-max-label {
+    fill: #0f172a;
+}
+
+.sparkline-min-label {
+    fill: #334155;
+}
+
+.weekly-days-axis {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 4px;
+    font-size: 0.68rem;
+    font-weight: 800;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-top: 1px dashed #e2e8f0;
+    padding-top: 0.3rem;
+    margin-top: 0.15rem;
 }
 
 /* =========================================================================
@@ -859,12 +1721,27 @@ footer {
 }
 
 @media (max-width: 800px) {
-    .feed-weather-section {
+    .weather-grid {
         grid-template-columns: 1fr;
     }
 
-    .action-highlight {
-        min-height: 150px;
+    .feeding-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .feeding-banner-icon {
+        font-size: 1.8rem;
+    }
+
+    .why-item {
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .why-tag {
+        margin-left: 0;
     }
 
     .pond-meta-bar {

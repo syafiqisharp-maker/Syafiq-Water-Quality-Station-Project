@@ -35,7 +35,8 @@ class AlertConfig {
   static get PH_DELTA_ALERT_THRESHOLD() { return 0.5; }   // Alert if pH Swing (Δ) > 0.5
 
   // Weather & Sunlight
-  static get LUX_OPTIMAL_MIN() { return 55000; }          // Low algae activity below this
+  static get LUX_LOW_THRESHOLD() { return 20000; }        // Overcast / Low Sunlight alert threshold
+  static get LUX_OPTIMAL_MIN() { return 55000; }          // Moderate/Optimal algae activity threshold
   static get LUX_HIGH_MIN() { return 80000; }             // High algae activity threshold
   static get RAIN_DAILY_DANGER_MM() { return 40.0; }      // Single-day rainfall danger threshold
   static get RAIN_7DAY_DANGER_MM() { return 120.0; }      // 7-day cumulative rainfall threshold
@@ -279,6 +280,7 @@ class WeatherProcessor {
     let luxYestSum = 0, luxYestCount = 0;
     let rainTodaySum = 0, lastRain = 0, isFirstRain = true;
     let recentLux = 0, recentAirTemp = 0;
+    const weatherSeries = [];
 
     for (let i = 1; i < weatherLiveData.length; i++) {
       const row = weatherLiveData[i];
@@ -297,6 +299,14 @@ class WeatherProcessor {
 
       if (!isNaN(rowLux)) recentLux = rowLux;
       if (!isNaN(rowAirTemp)) recentAirTemp = rowAirTemp;
+
+      if (!isNaN(rowLux) || !isNaN(rowAirTemp)) {
+        weatherSeries.push({
+          time: ts.getTime(),
+          lux: !isNaN(rowLux) ? rowLux : null,
+          airTemp: !isNaN(rowAirTemp) ? rowAirTemp : null
+        });
+      }
 
       const hr = ts.getHours();
 
@@ -324,12 +334,92 @@ class WeatherProcessor {
       }
     }
 
+    // Process 12-hour trends and sparkline series
+    const luxTrend = WeatherProcessor._calculateTrend(weatherSeries, 'lux', recentLux, 500);
+    const airTempTrend = WeatherProcessor._calculateTrend(weatherSeries, 'airTemp', recentAirTemp, 0.2);
+
     return {
       recentLux: recentLux,
       recentAirTemp: recentAirTemp,
       luxTodayAvg: luxTodayCount > 0 ? luxTodaySum / luxTodayCount : 0,
       luxYestAvg: luxYestCount > 0 ? luxYestSum / luxYestCount : 0,
-      rainTodaySum: parseFloat(rainTodaySum.toFixed(2))
+      rainTodaySum: parseFloat(rainTodaySum.toFixed(2)),
+      trends: {
+        lux: luxTrend.trend,
+        airTemp: airTempTrend.trend
+      },
+      sparklines: {
+        lux: luxTrend.sparkline,
+        airTemp: airTempTrend.sparkline
+      }
+    };
+  }
+
+  /**
+   * Helper to compute 1-hour delta rate and downsampled sparkline points
+   */
+  static _calculateTrend(series, key, latestVal, threshold = 0.1) {
+    if (!series || series.length === 0) {
+      return { trend: { delta1h: 0, ratePerHour: 0, direction: 'stable' }, sparkline: latestVal !== null ? [latestVal] : [] };
+    }
+
+    const validPoints = series
+      .filter(p => p[key] !== null && !isNaN(p[key]))
+      .sort((a, b) => a.time - b.time);
+
+    if (validPoints.length === 0) {
+      return { trend: { delta1h: 0, ratePerHour: 0, direction: 'stable' }, sparkline: latestVal !== null ? [latestVal] : [] };
+    }
+
+    const latest = validPoints[validPoints.length - 1];
+    const latestTime = latest.time;
+    const cutoff12h = latestTime - (12 * 3600 * 1000);
+    const recentWindow = validPoints.filter(p => p.time >= cutoff12h);
+
+    // Find reading ~1 hour ago (30 to 90 min)
+    const target1hTime = latestTime - (3600 * 1000);
+    let bestPoint = null;
+    let minDiff = Infinity;
+
+    for (const p of recentWindow) {
+      if (p.time < latestTime) {
+        const diff = Math.abs(p.time - target1hTime);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestPoint = p;
+        }
+      }
+    }
+
+    let delta1h = 0;
+    let ratePerHour = 0;
+    if (bestPoint && bestPoint !== latest) {
+      const dtHours = Math.max(0.1, (latestTime - bestPoint.time) / 3600000);
+      delta1h = latest[key] - bestPoint[key];
+      ratePerHour = delta1h / dtHours;
+    }
+
+    let direction = 'stable';
+    if (ratePerHour > threshold) direction = 'up';
+    else if (ratePerHour < -threshold) direction = 'down';
+
+    // Downsample window to 16 points for clean sparkline
+    const sparkline = [];
+    const step = Math.max(1, Math.floor(recentWindow.length / 16));
+    for (let i = 0; i < recentWindow.length; i += step) {
+      sparkline.push(Math.round(recentWindow[i][key] * 100) / 100);
+    }
+    if (recentWindow.length > 0 && sparkline[sparkline.length - 1] !== Math.round(latest[key] * 100) / 100) {
+      sparkline.push(Math.round(latest[key] * 100) / 100);
+    }
+
+    return {
+      trend: {
+        delta1h: Math.round(delta1h * 100) / 100,
+        ratePerHour: Math.round(ratePerHour * 100) / 100,
+        direction: direction
+      },
+      sparkline: sparkline
     };
   }
 
@@ -387,9 +477,12 @@ class WeatherProcessor {
       sevenDayRainMap[currKey] = Math.max(0, windowSum);
     }
 
+    const latestKey = weatherKeys.length > 0 ? weatherKeys[weatherKeys.length - 1] : null;
+
     return {
       dailyWeather: dailyWeather,
-      sevenDayRainMap: sevenDayRainMap
+      sevenDayRainMap: sevenDayRainMap,
+      latestRain7d: latestKey ? (sevenDayRainMap[latestKey] || 0) : 0
     };
   }
 }
@@ -414,6 +507,7 @@ class WaterQualityProcessor {
     let recentTimestamp = null, recentDO = null, recentPH = null, recentWaterTemp = null;
     let minTempRecord = null, maxTempRecord = null;
     const dailyWqs = {};
+    const wqsSeries = [];
 
     // Today metrics tracking
     let tempTodayMin = null, tempTodayMax = null;
@@ -443,6 +537,15 @@ class WaterQualityProcessor {
         recentDO = rowDO;
         recentPH = rowPH;
         recentWaterTemp = rowTemp;
+      }
+
+      if (hasDO || hasPH || hasTemp) {
+        wqsSeries.push({
+          time: rowTime,
+          do: rowDO,
+          ph: rowPH,
+          waterTemp: rowTemp
+        });
       }
 
       // Skip historical aggregation if earlier than stocking / cycle start date
@@ -499,11 +602,18 @@ class WaterQualityProcessor {
           doMin: null,
           doMax: null,
           phMin: null,
-          phMax: null
+          phMax: null,
+          tempSum: 0,
+          tempCount: 0,
+          phSum: 0,
+          phCount: 0
         };
       }
 
       const dayObj = dailyWqs[dKey];
+      if (rowTemp !== null) { dayObj.tempSum += rowTemp; dayObj.tempCount++; }
+      if (rowPH !== null) { dayObj.phSum += rowPH; dayObj.phCount++; }
+
       // Daily min between 00:00 and 19:00
       if (hr <= 19) {
         if (rowTemp !== null && (dayObj.tempMin === null || rowTemp < dayObj.tempMin)) dayObj.tempMin = rowTemp;
@@ -544,6 +654,76 @@ class WaterQualityProcessor {
       ? parseFloat((phTodayMax - phTodayMin).toFixed(2))
       : null;
 
+    // Process 12-hour trends and sparklines for WQS
+    const doTrend = WaterQualityProcessor._calculateTrend(wqsSeries, 'do', recentDO, 0.05);
+    const phTrend = WaterQualityProcessor._calculateTrend(wqsSeries, 'ph', recentPH, 0.02);
+    const waterTempTrend = WaterQualityProcessor._calculateTrend(wqsSeries, 'waterTemp', recentWaterTemp, 0.1);
+
+    // Calculate 7-Day Strategic Water Quality Trends
+    const sortedDateKeys = Object.keys(dailyWqs).sort();
+    const last7Keys = sortedDateKeys.slice(-7);
+    const past7DaysData = [];
+
+    for (const k of last7Keys) {
+      const d = dailyWqs[k];
+      const dayLabel = d.dateObj ? DateUtils.formatDateStandard(d.dateObj) : k;
+      const shortDate = d.dateObj ? `${d.dateObj.getDate()} ${DateUtils.MONTH_NAMES[d.dateObj.getMonth()]}` : k;
+      const doMinVal = d.doMin !== null ? Math.round(d.doMin * 100) / 100 : null;
+      const phAvgVal = d.phCount > 0 ? Math.round((d.phSum / d.phCount) * 100) / 100 : ((d.phMin !== null && d.phMax !== null) ? Math.round(((d.phMin + d.phMax) / 2) * 100) / 100 : null);
+      const tempAvgVal = d.tempCount > 0 ? Math.round((d.tempSum / d.tempCount) * 10) / 10 : ((d.tempMin !== null && d.tempMax !== null) ? Math.round(((d.tempMin + d.tempMax) / 2) * 10) / 10 : null);
+
+      past7DaysData.push({
+        dateKey: k,
+        dateLabel: dayLabel,
+        shortDate: shortDate,
+        doc: d.doc,
+        doMin: doMinVal,
+        phAvg: phAvgVal,
+        tempAvg: tempAvgVal
+      });
+    }
+
+    // DO 7-Day Morning Minima Summary
+    const validDo7d = past7DaysData.map(d => d.doMin).filter(v => v !== null);
+    const doAvg7d = validDo7d.length > 0 ? Math.round((validDo7d.reduce((a, b) => a + b, 0) / validDo7d.length) * 100) / 100 : null;
+    const do7dDelta = validDo7d.length >= 2 ? Math.round((validDo7d[validDo7d.length - 1] - validDo7d[0]) * 100) / 100 : 0;
+
+    // pH 7-Day Daily Mean Summary
+    const validPh7d = past7DaysData.map(d => d.phAvg).filter(v => v !== null);
+    const phAvg7d = validPh7d.length > 0 ? Math.round((validPh7d.reduce((a, b) => a + b, 0) / validPh7d.length) * 100) / 100 : null;
+    const ph7dDelta = validPh7d.length >= 2 ? Math.round((validPh7d[validPh7d.length - 1] - validPh7d[0]) * 100) / 100 : 0;
+
+    // Water Temp 7-Day Daily Mean Summary
+    const validTemp7d = past7DaysData.map(d => d.tempAvg).filter(v => v !== null);
+    const tempAvg7d = validTemp7d.length > 0 ? Math.round((validTemp7d.reduce((a, b) => a + b, 0) / validTemp7d.length) * 10) / 10 : null;
+    const temp7dDelta = validTemp7d.length >= 2 ? Math.round((validTemp7d[validTemp7d.length - 1] - validTemp7d[0]) * 10) / 10 : 0;
+
+    const weeklyMetrics = {
+      daysCount: past7DaysData.length,
+      startDate: past7DaysData.length > 0 ? past7DaysData[0].shortDate : '',
+      endDate: past7DaysData.length > 0 ? past7DaysData[past7DaysData.length - 1].shortDate : '',
+      startDoc: past7DaysData.length > 0 ? past7DaysData[0].doc : null,
+      endDoc: past7DaysData.length > 0 ? past7DaysData[past7DaysData.length - 1].doc : null,
+      do: {
+        avg: doAvg7d,
+        delta7d: do7dDelta,
+        sparkline: validDo7d,
+        days: past7DaysData.map(d => ({ date: d.shortDate, val: d.doMin, doc: d.doc }))
+      },
+      ph: {
+        avg: phAvg7d,
+        delta7d: ph7dDelta,
+        sparkline: validPh7d,
+        days: past7DaysData.map(d => ({ date: d.shortDate, val: d.phAvg, doc: d.doc }))
+      },
+      temperature: {
+        avg: tempAvg7d,
+        delta7d: temp7dDelta,
+        sparkline: validTemp7d,
+        days: past7DaysData.map(d => ({ date: d.shortDate, val: d.tempAvg, doc: d.doc }))
+      }
+    };
+
     return {
       recentRaw: {
         timestamp: recentTimestamp,
@@ -556,9 +736,88 @@ class WaterQualityProcessor {
         do: { min: doTodayMin, max: doTodayMax, delta: doTodayDelta },
         ph: { min: phTodayMin, max: phTodayMax, delta: phTodayDelta }
       },
+      trends: {
+        do: doTrend.trend,
+        ph: phTrend.trend,
+        waterTemp: waterTempTrend.trend
+      },
+      sparklines: {
+        do: doTrend.sparkline,
+        ph: phTrend.sparkline,
+        waterTemp: waterTempTrend.sparkline
+      },
+      weeklyMetrics: weeklyMetrics,
       dailyWqs: dailyWqs,
       minTempRecord: minTempRecord,
       maxTempRecord: maxTempRecord
+    };
+  }
+
+  /**
+   * Helper to compute 1-hour delta rate and downsampled sparkline points for WQS
+   */
+  static _calculateTrend(series, key, latestVal, threshold = 0.05) {
+    if (!series || series.length === 0) {
+      return { trend: { delta1h: 0, ratePerHour: 0, direction: 'stable' }, sparkline: latestVal !== null ? [latestVal] : [] };
+    }
+
+    const validPoints = series
+      .filter(p => p[key] !== null && !isNaN(p[key]))
+      .sort((a, b) => a.time - b.time);
+
+    if (validPoints.length === 0) {
+      return { trend: { delta1h: 0, ratePerHour: 0, direction: 'stable' }, sparkline: latestVal !== null ? [latestVal] : [] };
+    }
+
+    const latest = validPoints[validPoints.length - 1];
+    const latestTime = latest.time;
+    const cutoff12h = latestTime - (12 * 3600 * 1000);
+    const recentWindow = validPoints.filter(p => p.time >= cutoff12h);
+
+    // Find reading ~1 hour ago (30 to 90 min)
+    const target1hTime = latestTime - (3600 * 1000);
+    let bestPoint = null;
+    let minDiff = Infinity;
+
+    for (const p of recentWindow) {
+      if (p.time < latestTime) {
+        const diff = Math.abs(p.time - target1hTime);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestPoint = p;
+        }
+      }
+    }
+
+    let delta1h = 0;
+    let ratePerHour = 0;
+    if (bestPoint && bestPoint !== latest) {
+      const dtHours = Math.max(0.1, (latestTime - bestPoint.time) / 3600000);
+      delta1h = latest[key] - bestPoint[key];
+      ratePerHour = delta1h / dtHours;
+    }
+
+    let direction = 'stable';
+    if (ratePerHour > threshold) direction = 'up';
+    else if (ratePerHour < -threshold) direction = 'down';
+
+    // Downsample window to 16 points for clean sparkline
+    const sparkline = [];
+    const step = Math.max(1, Math.floor(recentWindow.length / 16));
+    for (let i = 0; i < recentWindow.length; i += step) {
+      sparkline.push(Math.round(recentWindow[i][key] * 100) / 100);
+    }
+    if (recentWindow.length > 0 && sparkline[sparkline.length - 1] !== Math.round(latest[key] * 100) / 100) {
+      sparkline.push(Math.round(latest[key] * 100) / 100);
+    }
+
+    return {
+      trend: {
+        delta1h: Math.round(delta1h * 100) / 100,
+        ratePerHour: Math.round(ratePerHour * 100) / 100,
+        direction: direction
+      },
+      sparkline: sparkline
     };
   }
 }
@@ -672,7 +931,7 @@ class AlertEngine {
   /**
    * Builds real-time status determinations, badges, and feeding action plan
    */
-  static buildAnalysisStatus(todayMetrics, weatherLive) {
+  static buildAnalysisStatus(todayMetrics, weatherLive, weatherHistory, today) {
     // 1. Water Temperature Analysis
     const temp = (todayMetrics && todayMetrics.temperature) || {};
     const isHighTemp = temp.max !== null && temp.max > AlertConfig.TEMP_HIGH_THRESHOLD;
@@ -735,22 +994,38 @@ class AlertEngine {
     }
 
     // 4. Weather Lux & Rainfall Analysis
-    let weatherLuxMessage = "Low Algae Activity";
+    const hasTodayLux = weatherLive && weatherLive.luxTodayAvg !== undefined && weatherLive.luxTodayAvg > 0;
+    const evaluatedLux = hasTodayLux
+      ? Math.round(weatherLive.luxTodayAvg)
+      : ((weatherLive && weatherLive.luxYestAvg !== undefined) ? Math.round(weatherLive.luxYestAvg) : 0);
+
+    let weatherLuxMessage = "Optimal Sunlight";
     let weatherLuxWarning = false;
-    const luxVal = Math.round(weatherLive.luxTodayAvg) || 0;
-    if (luxVal > AlertConfig.LUX_HIGH_MIN) {
+
+    if (evaluatedLux > AlertConfig.LUX_HIGH_MIN) {
       weatherLuxMessage = "High Algae Activity";
-    } else if (luxVal > AlertConfig.LUX_OPTIMAL_MIN) {
+    } else if (evaluatedLux >= AlertConfig.LUX_OPTIMAL_MIN) {
+      weatherLuxMessage = "Optimal Algae Activity";
+    } else if (evaluatedLux >= AlertConfig.LUX_LOW_THRESHOLD) {
       weatherLuxMessage = "Moderate Algae Activity";
-    } else {
-      weatherLuxMessage = "Low Algae Activity";
+    } else if (evaluatedLux > 0) {
+      weatherLuxMessage = "Low Algae Activity / Overcast";
       weatherLuxWarning = true;
+    } else {
+      weatherLuxMessage = "Pending Sunlight Data";
     }
 
-    let weatherRainMessage = `Today's rain: ${weatherLive.rainTodaySum.toFixed(2)}mm`;
-    let weatherRainWarning = weatherLive.rainTodaySum > AlertConfig.RAIN_DAILY_DANGER_MM;
-    if (weatherRainWarning) {
-      weatherRainMessage += " (High)";
+    const rainToday = (weatherLive && weatherLive.rainTodaySum !== undefined) ? weatherLive.rainTodaySum : 0;
+    const rain7d = (weatherHistory && weatherHistory.latestRain7d !== undefined) ? weatherHistory.latestRain7d : 0;
+
+    let weatherRainMessage = `Today's rain: ${rainToday.toFixed(2)}mm`;
+    const weatherRainIsDanger = rainToday >= 20.0 || rainToday > AlertConfig.RAIN_DAILY_DANGER_MM;
+    let weatherRainWarning = weatherRainIsDanger || rain7d >= AlertConfig.RAIN_7DAY_DANGER_MM;
+
+    if (weatherRainIsDanger) {
+      weatherRainMessage += " (Heavy Alert)";
+    } else if (rain7d >= AlertConfig.RAIN_7DAY_DANGER_MM) {
+      weatherRainMessage += ` (7d: ${rain7d.toFixed(1)}mm High)`;
     }
 
     // 5. Feeding Action Plan
@@ -790,13 +1065,15 @@ class AlertEngine {
       weatherLux: {
         message: weatherLuxMessage,
         warning: weatherLuxWarning,
-        avgToday: weatherLive.luxTodayAvg,
-        avgYest: weatherLive.luxYestAvg
+        avgToday: weatherLive ? weatherLive.luxTodayAvg : 0,
+        avgYest: weatherLive ? weatherLive.luxYestAvg : 0
       },
       weatherRain: {
         message: weatherRainMessage,
         warning: weatherRainWarning,
-        sumToday: weatherLive.rainTodaySum
+        isDanger: weatherRainIsDanger,
+        sumToday: rainToday,
+        sum7Day: rain7d
       },
       feedingAction: feedingAction
     };
@@ -880,7 +1157,7 @@ class AppController {
       const wqsResult = WaterQualityProcessor.process(wqsData, startFilterTime, cycleStartDate, pondDetails.doc, today);
 
       // 6. Alert & Advisory Evaluation
-      const analysis = AlertEngine.buildAnalysisStatus(wqsResult.todayMetrics, weatherLive);
+      const analysis = AlertEngine.buildAnalysisStatus(wqsResult.todayMetrics, weatherLive, weatherHistory, today);
       const abnormalities = AlertEngine.detectAbnormalities(
         wqsResult.dailyWqs,
         weatherHistory.dailyWeather,
@@ -903,8 +1180,23 @@ class AppController {
             ph: wqsResult.recentRaw.ph,
             waterTemp: wqsResult.recentRaw.waterTemp,
             lux: weatherLive.recentLux,
-            airTemp: weatherLive.recentAirTemp
+            airTemp: weatherLive.recentAirTemp,
+            trends: {
+              do: wqsResult.trends.do,
+              ph: wqsResult.trends.ph,
+              waterTemp: wqsResult.trends.waterTemp,
+              lux: weatherLive.trends.lux,
+              airTemp: weatherLive.trends.airTemp
+            },
+            sparklines: {
+              do: wqsResult.sparklines.do,
+              ph: wqsResult.sparklines.ph,
+              waterTemp: wqsResult.sparklines.waterTemp,
+              lux: weatherLive.sparklines.lux,
+              airTemp: weatherLive.sparklines.airTemp
+            }
           },
+          weeklyMetrics: wqsResult.weeklyMetrics,
           analysis: analysis,
           history: {
             totalAbnormalDays: abnormalities.length,
