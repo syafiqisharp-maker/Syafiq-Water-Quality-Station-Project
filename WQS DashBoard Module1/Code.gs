@@ -38,8 +38,10 @@ class AlertConfig {
   static get LUX_LOW_THRESHOLD() { return 20000; }        // Overcast / Low Sunlight alert threshold
   static get LUX_OPTIMAL_MIN() { return 55000; }          // Moderate/Optimal algae activity threshold
   static get LUX_HIGH_MIN() { return 80000; }             // High algae activity threshold
-  static get RAIN_DAILY_DANGER_MM() { return 40.0; }      // Single-day rainfall danger threshold
-  static get RAIN_7DAY_DANGER_MM() { return 120.0; }      // 7-day cumulative rainfall threshold
+  static get RAIN_DAILY_DANGER_MM() { return 40.0; }      // Single-day rainfall danger threshold (>= 40mm)
+  static get RAIN_DAILY_WARNING_MM() { return 20.0; }     // Single-day rainfall caution threshold (>= 20mm)
+  static get RAIN_7DAY_DANGER_MM() { return 120.0; }      // 7-day cumulative rainfall danger threshold (>= 120mm)
+  static get RAIN_7DAY_WARNING_MM() { return 100.0; }     // 7-day cumulative rainfall caution threshold (>= 100mm)
 }
 
 // Backward-compatible global alias for legacy references
@@ -902,24 +904,24 @@ class AlertEngine {
         }
       }
 
-      // 5. Heavy Rainfall (> 40mm/day or > 120mm/7-day)
+      // 5. Heavy Rainfall (>= 40mm/day or >= 120mm/7-day)
       if (weather) {
-        if (weather.rainSum > AlertConfig.RAIN_DAILY_DANGER_MM) {
+        if (weather.rainSum >= AlertConfig.RAIN_DAILY_DANGER_MM) {
           issues.push({
             type: 'rain',
             name: 'Heavy Rainfall',
             value: `${weather.rainSum.toFixed(1)} mm`,
-            desc: `Single-day rainfall reached ${weather.rainSum.toFixed(1)} mm (> ${AlertConfig.RAIN_DAILY_DANGER_MM} mm threshold).`
+            desc: `Single-day rainfall reached ${weather.rainSum.toFixed(1)} mm (≥ ${AlertConfig.RAIN_DAILY_DANGER_MM} mm threshold).`
           });
         }
 
         const rain7d = sevenDayRainMap[k] || 0;
-        if (rain7d > AlertConfig.RAIN_7DAY_DANGER_MM && weather.rainSum <= AlertConfig.RAIN_DAILY_DANGER_MM) {
+        if (rain7d >= AlertConfig.RAIN_7DAY_DANGER_MM && weather.rainSum < AlertConfig.RAIN_DAILY_DANGER_MM) {
           issues.push({
             type: 'rain',
             name: 'Continuous Rain (7-Day)',
-            value: `${rain7d.toFixed(1)} mm / 7d`,
-            desc: `Cumulative rainfall reached ${rain7d.toFixed(1)} mm across 7 consecutive days (> ${AlertConfig.RAIN_7DAY_DANGER_MM} mm threshold).`
+            value: `${rain7d.toFixed(1)} mm / week`,
+            desc: `Cumulative rainfall reached ${rain7d.toFixed(1)} mm across 7 consecutive days (≥ ${AlertConfig.RAIN_7DAY_DANGER_MM} mm threshold).`
           });
         }
       }
@@ -1028,13 +1030,21 @@ class AlertEngine {
     const rain7d = (weatherHistory && weatherHistory.latestRain7d !== undefined) ? weatherHistory.latestRain7d : 0;
 
     let weatherRainMessage = `Today's rain: ${rainToday.toFixed(2)}mm`;
-    const weatherRainIsDanger = rainToday >= 20.0 || rainToday > AlertConfig.RAIN_DAILY_DANGER_MM;
-    let weatherRainWarning = weatherRainIsDanger || rain7d >= AlertConfig.RAIN_7DAY_DANGER_MM;
+    const weatherRainIsDanger = rainToday >= AlertConfig.RAIN_DAILY_DANGER_MM || rain7d >= AlertConfig.RAIN_7DAY_DANGER_MM;
+    let weatherRainWarning = weatherRainIsDanger || rainToday >= AlertConfig.RAIN_DAILY_WARNING_MM || rain7d >= AlertConfig.RAIN_7DAY_WARNING_MM;
 
     if (weatherRainIsDanger) {
-      weatherRainMessage += " (Heavy Alert)";
-    } else if (rain7d >= AlertConfig.RAIN_7DAY_DANGER_MM) {
-      weatherRainMessage += ` (7d: ${rain7d.toFixed(1)}mm High)`;
+      if (rainToday >= AlertConfig.RAIN_DAILY_DANGER_MM) {
+        weatherRainMessage += " (Heavy Alert)";
+      } else {
+        weatherRainMessage += ` (7d: ${rain7d.toFixed(1)}mm High Alert)`;
+      }
+    } else if (weatherRainWarning) {
+      if (rainToday >= AlertConfig.RAIN_DAILY_WARNING_MM) {
+        weatherRainMessage += " (Rain Warning)";
+      } else {
+        weatherRainMessage += ` (7d: ${rain7d.toFixed(1)}mm High)`;
+      }
     }
 
     // 5. Feeding Action Plan

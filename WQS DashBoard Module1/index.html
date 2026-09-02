@@ -7,7 +7,8 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <meta name="description" content="Precision Aquaculture Water Quality Station (WQS) Dashboard for realtime monitoring and 7-day trend analysis.">
+    <meta name="description"
+        content="Precision Aquaculture Water Quality Station (WQS) Dashboard for realtime monitoring and 7-day trend analysis.">
     <meta name="theme-color" content="#0284c7">
     <title>Aquaculture Dashboard - Pond 01.02.12</title>
     <!-- Modern typography -->
@@ -96,7 +97,6 @@
                 <div class="feeding-header">
                     <div class="feeding-title-group">
                         <h2>Feeding Action Plan</h2>
-                        <span class="feeding-subtitle">Real-time Feeding Directive & Operational Reasons</span>
                     </div>
                     <div id="feeding-badge" class="feeding-status-badge badge-good">Normal Feed</div>
                 </div>
@@ -118,7 +118,6 @@
                 <div class="weather-header">
                     <div class="weather-title-group">
                         <h2>Weather Status</h2>
-                        <span class="weather-subtitle">Ambient Sunlight & Rainfall Monitoring</span>
                     </div>
                 </div>
                 <div id="weather-status-container" class="weather-grid" aria-live="polite">
@@ -139,7 +138,6 @@
                 <div class="weekly-header">
                     <div class="weekly-title-group">
                         <h2>Past 7 days WQ Trends (Average Daily)</h2>
-                        <span class="weekly-subtitle">Strategic Baseline Trajectory & Morning DO Stability</span>
                     </div>
                     <div class="weekly-window-badge" id="weekly-window-badge">Past 7 Days</div>
                 </div>
@@ -153,7 +151,6 @@
                 <div class="history-header">
                     <div class="history-title-group">
                         <h2>Water Quality History</h2>
-                        <span class="history-subtitle">Abnormality Logs & Lifetime Temperature Extremes</span>
                     </div>
                     <div class="abnormal-counter-badge" id="abnormal-summary-badge">
                         <span class="badge-icon">⚠️</span>
@@ -185,7 +182,7 @@
                 <div class="history-log-container">
                     <div class="history-log-header">
                         <h3>Detected Abnormalities Log</h3>
-                        <span class="history-criteria-hint">Criteria: DO &lt; 3ppm | pH swing &gt; 0.5 | Temp swing &ge; 3°C | Temp &gt; 33°C | Rain &gt; 40mm/day or &gt; 120mm/7d</span>
+                        <span class="history-criteria-hint">Criteria: DO &lt; 3.0 ppm | pH swing &gt; 0.5 | Temp swing &ge; 3.0°C | Temp &ge; 33.0°C | Rain &ge; 40mm/day or &ge; 120mm/week</span>
                     </div>
                     <div class="anomaly-list" id="anomaly-list-container">
                         <!-- Populated via JS -->

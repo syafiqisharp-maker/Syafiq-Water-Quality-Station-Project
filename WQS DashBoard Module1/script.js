@@ -87,6 +87,14 @@ const AquacultureConfig = Object.freeze({
         PARTLY_CLOUDY: 55000,
         OVERCAST: 20000,
         NIGHT: 5000
+    },
+
+    // Rainfall Thresholds (mm)
+    RAINFALL: {
+        CRITICAL_DAILY: 40.0,   // Severe storm / heavy danger threshold (mm/day)
+        CAUTION_DAILY: 20.0,    // Moderate shower / caution threshold (mm/day)
+        CRITICAL_7DAY: 120.0,   // Cumulative 7-day danger threshold (mm)
+        CAUTION_7DAY: 100.0     // Cumulative 7-day caution threshold (mm)
     }
 });
 
@@ -580,12 +588,15 @@ class FeedingActionRenderer {
         const cautionReasons = [];
 
         // --- 1. EVALUATE CRITICAL TRIGGERS (REDUCE / CUT FEED) ---
-        // A. Heavy Rainfall (≥ 20 mm)
-        if (rainToday >= 20.0 || rainData.isDanger) {
+        // A. Heavy Rainfall (≥ 40 mm/day or ≥ 120 mm/7-day)
+        if (rainToday >= AquacultureConfig.RAINFALL.CRITICAL_DAILY || rain7d >= AquacultureConfig.RAINFALL.CRITICAL_7DAY || (rainData && rainData.isDanger)) {
+            const isDaily = rainToday >= AquacultureConfig.RAINFALL.CRITICAL_DAILY;
             criticalReasons.push({
                 icon: '🌧️',
-                headline: `Heavy Rain Alert (${Formatters.number(rainToday, 1)} mm recorded today)`,
-                desc: 'Causes pond thermal and salinity stratification, plankton die-off, and rapid DO drop.',
+                headline: isDaily
+                    ? `Heavy Rain Alert (${Formatters.number(rainToday, 1)} mm recorded today ≥ 40.0 mm)`
+                    : `Severe 7-Day Cumulative Rain (${Formatters.number(rain7d, 1)} mm ≥ 120.0 mm)`,
+                desc: 'Causes severe pond thermal & salinity stratification, plankton die-off, and rapid bottom DO drop.',
                 tag: 'Critical Trigger'
             });
         }
@@ -637,7 +648,7 @@ class FeedingActionRenderer {
         if (wmDoDelta !== null && wmDoDelta <= AquacultureConfig.DO.WEEKLY_DROP_ALERT) {
             cautionReasons.push({
                 icon: '📉',
-                headline: `7-Day Declining DO Trend (${Formatters.number(wmDoDelta, 2)} ppm / 7d)`,
+                headline: `7-Day Declining DO Trend (${Formatters.number(wmDoDelta, 2)} ppm / week)`,
                 desc: 'Sustained downward oxygen baseline indicates organic bottom sludge accumulation.',
                 tag: 'Weekly Trend'
             });
@@ -664,14 +675,14 @@ class FeedingActionRenderer {
         if (wmPhDelta !== null && wmPhDelta >= AquacultureConfig.PH.WEEKLY_BLOOM_RISE) {
             cautionReasons.push({
                 icon: '📈',
-                headline: `7-Day Algae Bloom Thickening (pH +${Formatters.number(wmPhDelta, 2)} / 7d)`,
+                headline: `7-Day Algae Bloom Thickening (pH +${Formatters.number(wmPhDelta, 2)} / week)`,
                 desc: 'Phytoplankton density is multiplying rapidly; monitor afternoon pH spike and feeding.',
                 tag: 'Weekly Trend'
             });
         } else if (wmPhDelta !== null && wmPhDelta <= AquacultureConfig.PH.WEEKLY_CRASH_DROP) {
             cautionReasons.push({
                 icon: '📉',
-                headline: `7-Day pH Decline / Bloom Crash (pH ${Formatters.number(wmPhDelta, 2)} / 7d)`,
+                headline: `7-Day pH Decline / Bloom Crash (pH ${Formatters.number(wmPhDelta, 2)} / week)`,
                 desc: 'Algae collapse or alkalinity depletion suspected; check pond alkalinity.',
                 tag: 'Weekly Trend'
             });
@@ -691,14 +702,14 @@ class FeedingActionRenderer {
         if (wmTempDelta !== null && wmTempDelta <= AquacultureConfig.WATER_TEMP.WEEKLY_COOLING) {
             cautionReasons.push({
                 icon: '❄️',
-                headline: `7-Day Cooling Trend (${Formatters.number(wmTempDelta, 1)}°C / 7d)`,
+                headline: `7-Day Cooling Trend (${Formatters.number(wmTempDelta, 1)}°C / week)`,
                 desc: 'Cooling trend lowers shrimp metabolic rate; reduce feeding if needed.',
                 tag: 'Weekly Trend'
             });
         } else if (wmTempDelta !== null && wmTempDelta >= AquacultureConfig.WATER_TEMP.WEEKLY_WARMING) {
             cautionReasons.push({
                 icon: '🔥',
-                headline: `7-Day Warming Trend (+${Formatters.number(wmTempDelta, 1)}°C / 7d)`,
+                headline: `7-Day Warming Trend (+${Formatters.number(wmTempDelta, 1)}°C / week)`,
                 desc: 'Warming trend increase shrimp oxygen demand; monitor feeding.',
                 tag: 'Weekly Trend'
             });
@@ -715,11 +726,18 @@ class FeedingActionRenderer {
             });
         }
 
-        // H. 7-Day Sustained Rainfall (> 100 mm)
-        if (rain7d >= 100.0 && rainToday < 20.0) {
+        // H. Moderate Daily Rainfall (20.0 - 39.9 mm) or Sustained 7-Day Rain (100 - 119.9 mm)
+        if (rainToday >= AquacultureConfig.RAINFALL.CAUTION_DAILY && rainToday < AquacultureConfig.RAINFALL.CRITICAL_DAILY) {
             cautionReasons.push({
                 icon: '🌧️',
-                headline: `7-Day Sustained Rain (${Formatters.number(rain7d, 1)} mm / 7d)`,
+                headline: `Moderate Rain Alert (${Formatters.number(rainToday, 1)} mm today)`,
+                desc: 'Rainfall lowers surface water temperature and suppresses feeding response; monitor feed trays.',
+                tag: 'Weather Condition'
+            });
+        } else if (rain7d >= AquacultureConfig.RAINFALL.CAUTION_7DAY && rain7d < AquacultureConfig.RAINFALL.CRITICAL_7DAY && rainToday < AquacultureConfig.RAINFALL.CAUTION_DAILY) {
+            cautionReasons.push({
+                icon: '🌧️',
+                headline: `7-Day Sustained Rain (${Formatters.number(rain7d, 1)} mm / week)`,
                 desc: 'Prolonged rainfall lowers pond salinity and buffering capacity; reduce feeding if needed.',
                 tag: 'Weekly Trend'
             });
@@ -853,12 +871,15 @@ class WeatherRenderer {
 
         const rainToday = (weatherRain && weatherRain.sumToday !== undefined) ? weatherRain.sumToday : 0;
         const rain7d = (weatherRain && weatherRain.sum7Day !== undefined) ? weatherRain.sum7Day : 0;
+        const isRainDanger = (weatherRain && weatherRain.isDanger) || rainToday >= AquacultureConfig.RAINFALL.CRITICAL_DAILY || rain7d >= AquacultureConfig.RAINFALL.CRITICAL_7DAY;
+        const isRainWarning = isRainDanger || (weatherRain && weatherRain.warning) || rainToday >= AquacultureConfig.RAINFALL.CAUTION_DAILY || rain7d >= AquacultureConfig.RAINFALL.CAUTION_7DAY;
+
         let rainBadgeClass = 'badge-good';
         let rainBadgeText = 'No Rain';
-        if (weatherRain && weatherRain.isDanger) {
+        if (isRainDanger) {
             rainBadgeClass = 'badge-danger';
             rainBadgeText = 'Heavy Rain Alert';
-        } else if (weatherRain && weatherRain.warning) {
+        } else if (isRainWarning) {
             rainBadgeClass = 'badge-warning';
             rainBadgeText = 'Rain Warning';
         } else if (rainToday > 0) {
@@ -1195,14 +1216,14 @@ class WeeklyTrendsRenderer {
         const rawPh = raw ? parseFloat(raw.ph) : 7.24;
         const rawTemp = raw ? parseFloat(raw.waterTemp) : 29.9;
         const currentDoc = (pondDetails && pondDetails.doc) ? parseInt(pondDetails.doc, 10) : 46;
-
-        // Window Range Tag
         const startDoc = wm.startDoc || (currentDoc ? Math.max(1, currentDoc - 6) : null);
         const endDoc = wm.endDoc || currentDoc;
-        const docTagStr = (startDoc && endDoc) ? `DOC ${startDoc}–${endDoc}` : 'Past 7 Days';
-        const dateRangeStr = (wm.startDate && wm.endDate) ? ` • ${wm.startDate} – ${wm.endDate}` : '';
+
+        // Window Range Tag (Date only)
         if (badgeEl) {
-            badgeEl.textContent = `${docTagStr}${dateRangeStr}`;
+            badgeEl.textContent = (wm.startDate && wm.endDate)
+                ? `${wm.startDate} – ${wm.endDate}`
+                : 'Past 7 Days';
         }
 
         // 1. DO: 7-Day Morning Minimums
@@ -1352,7 +1373,7 @@ class WeeklyTrendsRenderer {
                         <span class="weekly-unit">ppm (7d avg)</span>
                     </div>
                     <span class="weekly-shift-pill ${doShiftPillClass}">
-                        ${doDelta !== 0 ? (doDelta > 0 ? '▲' : '▼') : '▬'} ${doSign}${Math.abs(doDelta).toFixed(2)} ppm / 7d
+                        ${doDelta !== 0 ? (doDelta > 0 ? '▲' : '▼') : '▬'} ${doSign}${Math.abs(doDelta).toFixed(2)} ppm / week
                     </span>
                 </div>
                 <div class="weekly-advisory-box ${doAdvisoryClass}">${doAdvisoryText}</div>
@@ -1380,7 +1401,7 @@ class WeeklyTrendsRenderer {
                         <span class="weekly-unit">(7d avg)</span>
                     </div>
                     <span class="weekly-shift-pill ${phShiftPillClass}">
-                        ${phDelta !== 0 ? (phDelta > 0 ? '▲' : '▼') : '▬'} ${phSign}${Math.abs(phDelta).toFixed(2)} / 7d
+                        ${phDelta !== 0 ? (phDelta > 0 ? '▲' : '▼') : '▬'} ${phSign}${Math.abs(phDelta).toFixed(2)} / week
                     </span>
                 </div>
                 <div class="weekly-advisory-box ${phAdvisoryClass}">${phAdvisoryText}</div>
@@ -1408,7 +1429,7 @@ class WeeklyTrendsRenderer {
                         <span class="weekly-unit">°C (7d avg)</span>
                     </div>
                     <span class="weekly-shift-pill ${tempShiftPillClass}">
-                        ${tempDelta !== 0 ? (tempDelta > 0 ? '▲' : '▼') : '▬'} ${tempSign}${Math.abs(tempDelta).toFixed(1)} °C / 7d
+                        ${tempDelta !== 0 ? (tempDelta > 0 ? '▲' : '▼') : '▬'} ${tempSign}${Math.abs(tempDelta).toFixed(1)} °C / week
                     </span>
                 </div>
                 <div class="weekly-advisory-box ${tempAdvisoryClass}">${tempAdvisoryText}</div>
@@ -1756,7 +1777,7 @@ class DataService {
                         doc: 21,
                         date: "26 Jul 2026",
                         issues: [
-                            { type: "rain", name: "Continuous Rain (7-Day)", value: "138.0 mm / 7d", desc: "Cumulative rainfall exceeded 120 mm over 7 consecutive days (Total 138.0 mm)." },
+                            { type: "rain", name: "Continuous Rain (7-Day)", value: "138.0 mm / week", desc: "Cumulative rainfall exceeded 120 mm over 7 consecutive days (Total 138.0 mm)." },
                             { type: "do", name: "Low DO", value: "2.85 ppm", desc: "Morning DO dropped to 2.85 ppm due to prolonged cloud cover and rain runoff." }
                         ]
                     }
