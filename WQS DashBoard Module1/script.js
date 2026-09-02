@@ -57,7 +57,7 @@ const AquacultureConfig = Object.freeze({
             BLOOM_RISING: '📈 Algae bloom thickening — Monitor afternoon pH peak & consider light shading or water exchange.',
             CRASH_DECLINING: '📉 Alkalinity depletion / Bloom crash — Check total alkalinity & apply lime / dolomite.',
             HIGH_ALERT: '⚠️ High pH baseline — Risk of toxic free ammonia (NH₃); adjust organic carbon / probiotics.',
-            LOW_ALERT: '⚠️ Low pH baseline — Acidic stress; apply agricultural lime and check alkalinity.',
+            LOW_ALERT: '⚠️ Low pH baseline — Acidic stress; apply lime and check alkalinity.',
             OPTIMAL: '✅ Optimal pH balance — Pond buffering capacity & phytoplankton density stable.'
         }
     },
@@ -1541,6 +1541,9 @@ class HistoryRenderer {
 // =========================================================================
 
 class DataService {
+    static lastFetchTimestamp = 0;
+    static isFetching = false;
+
     /**
      * Attempts to read cached payload instantly from localStorage
      */
@@ -1573,19 +1576,37 @@ class DataService {
     }
 
     /**
-     * Asynchronously fetches fresh data from Google Apps Script endpoint
+     * Asynchronously fetches fresh data from Google Apps Script endpoint.
+     * Uses HTTP cache-busting query parameter and `cache: 'no-store'` to prevent
+     * mobile browsers (Safari/Chrome) from serving stale disk/memory responses.
+     * 
+     * @param {boolean} force - If true, passes bypass parameters to backend CacheService.
      */
-    static async fetchNetwork() {
+    static async fetchNetwork(force = false) {
         if (!AppConfig.GAS_WEB_APP_URL || AppConfig.GAS_WEB_APP_URL.includes('YOUR_DEPLOYED_WEB_APP_URL_HERE')) {
             return { status: 'mock', data: DataService.getMockData() };
         }
+
+        // Prevent redundant parallel fetch requests
+        if (DataService.isFetching) {
+            return null;
+        }
+        DataService.isFetching = true;
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
 
         try {
-            const response = await fetch(AppConfig.GAS_WEB_APP_URL, {
+            // Build cache-busted URL with dynamic timestamp
+            const url = new URL(AppConfig.GAS_WEB_APP_URL);
+            url.searchParams.set('t', Date.now().toString());
+            if (force) {
+                url.searchParams.set('nocache', 'true');
+            }
+
+            const response = await fetch(url.toString(), {
                 method: 'GET',
+                redirect: 'follow',
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
@@ -1596,6 +1617,7 @@ class DataService {
 
             const result = await response.json();
             if (result.status === 'success' && result.data) {
+                DataService.lastFetchTimestamp = Date.now();
                 DataService.setLocalCache(result.data);
                 return { status: 'success', data: result.data };
             } else {
@@ -1608,6 +1630,8 @@ class DataService {
                 return { status: 'cached_fallback', data: cached.data };
             }
             return { status: 'mock_fallback', data: DataService.getMockData() };
+        } finally {
+            DataService.isFetching = false;
         }
     }
 
@@ -1748,6 +1772,9 @@ class DataService {
 // =========================================================================
 
 class AppController {
+    static refreshTimer = null;
+    static STALE_THRESHOLD_MS = 30 * 1000; // 30s throttle for visibility re-sync
+
     static init() {
         // 1. Instant Cache Render (Stale-While-Revalidate: < 50ms)
         const cached = DataService.getLocalCache();
@@ -1759,14 +1786,60 @@ class AppController {
         // 2. Fetch fresh network data in background
         AppController.refresh();
 
-        // 3. Set recurring background refresh
-        setInterval(() => {
-            AppController.refresh();
+        // 3. Set recurring background refresh (1 minute interval)
+        AppController.startAutoRefresh();
+
+        // 4. Register mobile browser lifecycle listeners (Page Visibility / Tab Wake / Online)
+        AppController.registerLifecycleListeners();
+    }
+
+    /**
+     * Periodic background auto-refresh scheduler
+     */
+    static startAutoRefresh() {
+        if (AppController.refreshTimer) {
+            clearInterval(AppController.refreshTimer);
+        }
+        AppController.refreshTimer = setInterval(() => {
+            // Only auto-refresh if tab is active/visible
+            if (!document.hidden) {
+                AppController.refresh();
+            }
         }, AppConfig.AUTO_REFRESH_INTERVAL_MS);
     }
 
-    static async refresh() {
-        const result = await DataService.fetchNetwork();
+    /**
+     * Registers mobile and browser lifecycle events:
+     * - 'visibilitychange': triggers re-fetch when user unlocks phone or switches back to tab
+     * - 'pageshow': triggers re-fetch when browser restores page from bfcache (Back/Forward cache)
+     * - 'online': triggers re-fetch when network reconnects
+     */
+    static registerLifecycleListeners() {
+        // Tab / App focus & mobile phone unlock
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                const timeSinceLastFetch = Date.now() - DataService.lastFetchTimestamp;
+                if (timeSinceLastFetch > AppController.STALE_THRESHOLD_MS) {
+                    AppController.refresh();
+                }
+            }
+        });
+
+        // Mobile Back-Forward Cache (bfcache) resume
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                AppController.refresh();
+            }
+        });
+
+        // Network connection restoration
+        window.addEventListener('online', () => {
+            AppController.refresh();
+        });
+    }
+
+    static async refresh(force = false) {
+        const result = await DataService.fetchNetwork(force);
         if (result && result.data) {
             AppController.render(result.data);
         }

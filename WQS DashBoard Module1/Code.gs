@@ -1122,7 +1122,13 @@ class AppController {
   static handleRequest(e) {
     try {
       const targetPond = (e && e.parameter && e.parameter.pond) ? e.parameter.pond : AppConfig.TARGET_POND;
-      const forceRefresh = (e && e.parameter && (e.parameter.refresh === 'true' || e.parameter.nocache === 'true' || e.parameter.force === 'true'));
+      const forceRefresh = (e && e.parameter && (
+        e.parameter.refresh === 'true' || 
+        e.parameter.nocache === 'true' || 
+        e.parameter.force === 'true' ||
+        e.parameter.refresh === '1' ||
+        e.parameter.nocache === '1'
+      ));
       const cacheKey = `wqs_dashboard_${targetPond}`;
 
       // 1. Check Short-Term Cache
