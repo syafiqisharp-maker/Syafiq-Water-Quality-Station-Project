@@ -149,6 +149,7 @@ class PondRepository {
       sampleABW: null,
       sampleAWG: null,
       sr: null,
+      biomass: null,
       sampleFCR: null,
       rawFound: false
     };
@@ -184,6 +185,7 @@ class PondRepository {
       const sampleABWCol = getColIndex('sample abw');
       const sampleAWGCol = getColIndex('awg');
       const srCol = getColIndex('sr');
+      const biomassCol = getColIndex('biomass', 'biomass (kg)', 'biomass(kg)', 'est biomass', 'estimated biomass', 'total biomass');
       const sampleFCRCol = getColIndex('sample fcr');
 
       // Search rows backwards to get latest configuration for this pond
@@ -241,6 +243,13 @@ class PondRepository {
           if (srCol !== -1 && row[srCol] !== '') {
             const srVal = parseFloat(String(row[srCol]).replace('%', '').trim());
             if (!isNaN(srVal)) result.sr = (srVal <= 1 && srVal > 0) ? srVal * 100 : srVal;
+          }
+
+          // Biomass (kg)
+          if (biomassCol !== -1 && row[biomassCol] !== '' && row[biomassCol] !== null && row[biomassCol] !== undefined) {
+            const cleanedBio = String(row[biomassCol]).replace(/[^\d.-]/g, '').trim();
+            const bio = parseFloat(cleanedBio);
+            if (!isNaN(bio)) result.biomass = Math.round(bio);
           }
 
           // FCR

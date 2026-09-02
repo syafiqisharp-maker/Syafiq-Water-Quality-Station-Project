@@ -166,29 +166,67 @@ class Formatters {
 
 class SvgSparklineService {
     /**
-     * Renders a 12-hour continuous SVG sparkline
+     * Renders a 12-hour continuous SVG sparkline with High/Low point labels
      */
-    static renderContinuous(data, colorHex = '#10b981', gradId = 'grad-default', height = 40, width = 180) {
+    static renderContinuous(data, colorHex = '#10b981', gradId = 'grad-default', height = 50, width = 220, formatFn = null) {
         if (!data || !Array.isArray(data) || data.length < 2) {
             return `<svg class="mini-sparkline" viewBox="0 0 ${width} ${height}"><line x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="3 3" /></svg>`;
         }
 
-        const padding = 4;
+        const paddingX = 14;
+        const paddingTop = 11;
+        const paddingBottom = 11;
         const minVal = Math.min(...data);
         const maxVal = Math.max(...data);
         const range = (maxVal - minVal) === 0 ? 1 : (maxVal - minVal);
-        const usableHeight = height - (padding * 2);
-        const usableWidth = width - (padding * 2);
+        const usableHeight = height - paddingTop - paddingBottom;
+        const usableWidth = width - (paddingX * 2);
 
         const points = data.map((val, idx) => {
-            const x = padding + (idx / (data.length - 1)) * usableWidth;
-            const y = padding + usableHeight - ((val - minVal) / range) * usableHeight;
-            return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+            const x = paddingX + (idx / (data.length - 1)) * usableWidth;
+            const y = paddingTop + usableHeight - ((val - minVal) / range) * usableHeight;
+            return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)), val, idx };
         });
 
         const polylineStr = points.map(p => `${p.x},${p.y}`).join(' ');
-        const areaStr = `${polylineStr} ${usableWidth + padding},${height} ${padding},${height}`;
+        const areaStr = `${polylineStr} ${usableWidth + paddingX},${height} ${paddingX},${height}`;
         const lastPoint = points[points.length - 1];
+
+        // Find min and max point indices
+        const maxIdx = data.indexOf(maxVal);
+        const minIdx = data.indexOf(minVal);
+        const maxPoint = points[maxIdx];
+        const minPoint = points[minIdx];
+
+        const defaultFmt = v => Number(v).toFixed(2);
+        const fmt = (typeof formatFn === 'function') ? formatFn : defaultFmt;
+
+        // Labels and highlight circles for Max and Min points
+        let labelsSvg = '';
+        let circlesSvg = '';
+
+        if (maxPoint) {
+            const maxAnchor = maxIdx === 0 ? 'start' : (maxIdx === data.length - 1 ? 'end' : 'middle');
+            const maxValStr = fmt(maxVal);
+            const labelY = Math.max(9, maxPoint.y - 5);
+            labelsSvg += `<text x="${maxPoint.x}" y="${labelY}" text-anchor="${maxAnchor}" class="sparkline-point-label sparkline-max-label">${maxValStr}</text>`;
+            circlesSvg += `<circle cx="${maxPoint.x}" cy="${maxPoint.y}" r="3" fill="${colorHex}" stroke="#ffffff" stroke-width="1.5" />`;
+        }
+
+        if (minPoint && minVal !== maxVal) {
+            const minAnchor = minIdx === 0 ? 'start' : (minIdx === data.length - 1 ? 'end' : 'middle');
+            const minValStr = fmt(minVal);
+            const labelY = Math.min(height - 2, minPoint.y + 11);
+            labelsSvg += `<text x="${minPoint.x}" y="${labelY}" text-anchor="${minAnchor}" class="sparkline-point-label sparkline-min-label">${minValStr}</text>`;
+            if (minIdx !== maxIdx) {
+                circlesSvg += `<circle cx="${minPoint.x}" cy="${minPoint.y}" r="3" fill="${colorHex}" stroke="#ffffff" stroke-width="1.5" />`;
+            }
+        }
+
+        // Always show the current/latest point circle if not already covered
+        if (lastPoint && lastPoint.idx !== maxIdx && lastPoint.idx !== minIdx) {
+            circlesSvg += `<circle cx="${lastPoint.x}" cy="${lastPoint.y}" r="3" fill="${colorHex}" stroke="#ffffff" stroke-width="1.5" />`;
+        }
 
         return `
             <svg class="mini-sparkline" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
@@ -200,7 +238,8 @@ class SvgSparklineService {
                 </defs>
                 <polygon points="${areaStr}" fill="url(#${gradId})" />
                 <polyline points="${polylineStr}" fill="none" stroke="${colorHex}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
-                <circle cx="${lastPoint.x}" cy="${lastPoint.y}" r="3" fill="${colorHex}" stroke="#ffffff" stroke-width="1.5" />
+                ${circlesSvg}
+                ${labelsSvg}
             </svg>
         `;
     }
@@ -324,6 +363,20 @@ class PondDetailsRenderer {
                 sampleSrEl.className = 'val ' + (srVal >= 80 ? 'text-good' : (srVal >= 65 ? 'text-warning' : 'text-danger'));
             } else {
                 sampleSrEl.textContent = '-';
+            }
+        }
+
+        const sampleBiomassEl = document.getElementById('sample-biomass');
+        if (sampleBiomassEl) {
+            if (pd.biomass !== null && pd.biomass !== undefined && pd.biomass !== '') {
+                const numBio = typeof pd.biomass === 'number' ? pd.biomass : parseFloat(String(pd.biomass).replace(/[^\d.-]/g, ''));
+                if (!isNaN(numBio)) {
+                    sampleBiomassEl.textContent = `${Math.round(numBio).toLocaleString('en-US')} kg`;
+                } else {
+                    sampleBiomassEl.textContent = '-';
+                }
+            } else {
+                sampleBiomassEl.textContent = '-';
             }
         }
 
@@ -852,7 +905,8 @@ class RecentReadingsRenderer {
         if (!rawGrid || !raw) return;
 
         const ts = raw.timestamp ? new Date(raw.timestamp) : new Date();
-        const hour = !isNaN(ts.getTime()) ? ts.getHours() : 10;
+        const validTs = !isNaN(ts.getTime()) ? ts : new Date();
+        const hour = validTs.getHours();
         const timeStr = !isNaN(ts.getTime())
             ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : 'Live';
@@ -861,6 +915,28 @@ class RecentReadingsRenderer {
         if (titleEl) {
             titleEl.innerHTML = `Recent Sensor Readings <span class="readings-timestamp-badge">🕒 ${timeStr}</span>`;
         }
+
+        // 12-Hour X-Axis Time Markers (Start = -12h, Mid = -6h, End = Latest)
+        const endHourDate = validTs;
+        const midHourDate = new Date(validTs.getTime() - (6 * 3600 * 1000));
+        const startHourDate = new Date(validTs.getTime() - (12 * 3600 * 1000));
+
+        const formatAxisHour = (d) => {
+            const h = d.getHours().toString().padStart(2, '0');
+            return `${h}:00`;
+        };
+
+        const startHourStr = formatAxisHour(startHourDate);
+        const midHourStr = formatAxisHour(midHourDate);
+        const endHourStr = formatAxisHour(endHourDate);
+
+        const hoursAxisHtml = `
+            <div class="stat-hours-axis">
+                <span>${startHourStr}</span>
+                <span>${midHourStr}</span>
+                <span>${endHourStr}</span>
+            </div>
+        `;
 
         const trends = raw.trends || {};
         const sparklines = raw.sparklines || {};
@@ -889,7 +965,7 @@ class RecentReadingsRenderer {
         }
 
         const doSparkData = (sparklines.do && sparklines.do.length >= 2) ? sparklines.do : [doVal - 0.77, doVal - 0.64, doVal - 0.41, doVal - 0.21, doVal - 0.10, doVal];
-        const doSparkSvg = SvgSparklineService.renderContinuous(doSparkData, '#10b981', 'grad-do');
+        const doSparkSvg = SvgSparklineService.renderContinuous(doSparkData, '#10b981', 'grad-do', 50, 220, v => Number(v).toFixed(2));
 
         // 2. pH Card
         const phVal = parseFloat(raw.ph);
@@ -907,7 +983,7 @@ class RecentReadingsRenderer {
             ? analysis.ph.delta
             : (phSparkData.length >= 2 ? (Math.max(...phSparkData) - Math.min(...phSparkData)).toFixed(2) : 0.12);
         const phContextNote = `<span class="context-note">Daily Swing Δ: ${Formatters.number(phDeltaToday, 2)} (Safe ≤ 0.5)</span>`;
-        const phSparkSvg = SvgSparklineService.renderContinuous(phSparkData, '#6366f1', 'grad-ph');
+        const phSparkSvg = SvgSparklineService.renderContinuous(phSparkData, '#6366f1', 'grad-ph', 50, 220, v => Number(v).toFixed(2));
 
         // 3. Water Temp Card
         const tempVal = parseFloat(raw.waterTemp);
@@ -928,7 +1004,7 @@ class RecentReadingsRenderer {
             ? analysis.temperature.delta
             : (tempSparkData.length >= 2 ? (Math.max(...tempSparkData) - Math.min(...tempSparkData)).toFixed(1) : 1.1);
         const tempContextNote = `<span class="context-note">Thermal Delta: ${Formatters.number(tempDeltaToday, 1)} °C (Optimal 28–31°C)</span>`;
-        const tempSparkSvg = SvgSparklineService.renderContinuous(tempSparkData, '#0284c7', 'grad-wtemp');
+        const tempSparkSvg = SvgSparklineService.renderContinuous(tempSparkData, '#0284c7', 'grad-wtemp', 50, 220, v => `${Number(v).toFixed(1)}°`);
 
         // 4. Sunlight (Lux) Card
         const luxVal = parseFloat(raw.lux);
@@ -945,7 +1021,7 @@ class RecentReadingsRenderer {
         }
 
         const luxSparkData = (sparklines.lux && sparklines.lux.length >= 2) ? sparklines.lux : [Math.round(luxVal * 0.2), Math.round(luxVal * 0.4), Math.round(luxVal * 0.65), Math.round(luxVal * 0.85), Math.round(luxVal * 0.95), Math.round(luxVal)];
-        const luxSparkSvg = SvgSparklineService.renderContinuous(luxSparkData, luxCondition.sparkColor, 'grad-lux');
+        const luxSparkSvg = SvgSparklineService.renderContinuous(luxSparkData, luxCondition.sparkColor, 'grad-lux', 50, 220, v => Number(v) >= 10000 ? `${(Number(v) / 1000).toFixed(1)}k` : Math.round(Number(v)).toLocaleString());
 
         // 5. Air Temp Card
         const airTempVal = parseFloat(raw.airTemp);
@@ -965,7 +1041,7 @@ class RecentReadingsRenderer {
         const airTempTrendInfo = Formatters.trendDelta(airTempTrendObj, '°C', 1);
         const airTempContextNote = `<span class="context-note">Ambient weather station</span>`;
         const airTempSparkData = (sparklines.airTemp && sparklines.airTemp.length >= 2) ? sparklines.airTemp : [Math.round((airTempVal - 1.8) * 10) / 10, Math.round((airTempVal - 1.2) * 10) / 10, Math.round((airTempVal - 0.7) * 10) / 10, Math.round((airTempVal - 0.3) * 10) / 10, Math.round(airTempVal * 10) / 10];
-        const airTempSparkSvg = SvgSparklineService.renderContinuous(airTempSparkData, airTempSparkColor, 'grad-air');
+        const airTempSparkSvg = SvgSparklineService.renderContinuous(airTempSparkData, airTempSparkColor, 'grad-air', 50, 220, v => `${Number(v).toFixed(1)}°`);
 
         // Single Batch DOM Injection (Zero Reflows)
         rawGrid.innerHTML = `
@@ -989,9 +1065,9 @@ class RecentReadingsRenderer {
                 <div class="stat-sparkline-box">
                     <div class="sparkline-meta">
                         <span class="spark-label">12H Trend</span>
-                        <span class="spark-extremes">${Math.min(...doSparkData).toFixed(2)} → ${Math.max(...doSparkData).toFixed(2)} ppm</span>
                     </div>
                     ${doSparkSvg}
+                    ${hoursAxisHtml}
                 </div>
             </div>
 
@@ -1014,9 +1090,9 @@ class RecentReadingsRenderer {
                 <div class="stat-sparkline-box">
                     <div class="sparkline-meta">
                         <span class="spark-label">12H Trend</span>
-                        <span class="spark-extremes">${Math.min(...phSparkData).toFixed(2)} → ${Math.max(...phSparkData).toFixed(2)}</span>
                     </div>
                     ${phSparkSvg}
+                    ${hoursAxisHtml}
                 </div>
             </div>
 
@@ -1040,9 +1116,9 @@ class RecentReadingsRenderer {
                 <div class="stat-sparkline-box">
                     <div class="sparkline-meta">
                         <span class="spark-label">12H Trend</span>
-                        <span class="spark-extremes">${Math.min(...tempSparkData).toFixed(1)}° → ${Math.max(...tempSparkData).toFixed(1)}°C</span>
                     </div>
                     ${tempSparkSvg}
+                    ${hoursAxisHtml}
                 </div>
             </div>
 
@@ -1066,9 +1142,9 @@ class RecentReadingsRenderer {
                 <div class="stat-sparkline-box">
                     <div class="sparkline-meta">
                         <span class="spark-label">12H Trend</span>
-                        <span class="spark-extremes">${Math.round(Math.min(...luxSparkData)).toLocaleString()} → ${Math.round(Math.max(...luxSparkData)).toLocaleString()}</span>
                     </div>
                     ${luxSparkSvg}
+                    ${hoursAxisHtml}
                 </div>
             </div>
 
@@ -1092,9 +1168,9 @@ class RecentReadingsRenderer {
                 <div class="stat-sparkline-box">
                     <div class="sparkline-meta">
                         <span class="spark-label">12H Trend</span>
-                        <span class="spark-extremes">${Math.min(...airTempSparkData).toFixed(1)}° → ${Math.max(...airTempSparkData).toFixed(1)}°C</span>
                     </div>
                     ${airTempSparkSvg}
+                    ${hoursAxisHtml}
                 </div>
             </div>
         `;
@@ -1550,6 +1626,7 @@ class DataService {
                 sampleABW: 14.85,
                 sampleAWG: 2.20,
                 sr: 87.5,
+                biomass: 4500,
                 sampleFCR: 1.22
             },
             raw: {
