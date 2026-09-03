@@ -27,9 +27,9 @@ const AppConfig = Object.freeze({
  * Aquaculture Domain Thresholds & Farm Operational Advisories
  * (Single Source of Truth for all Alert & Advisory Logic)
  */
-const AquacultureConfig = Object.freeze({
+class AquacultureConfig {
     // Dissolved Oxygen Thresholds (ppm)
-    DO: {
+    static DO = {
         CRITICAL_LOW: 3.0,
         CAUTION_LOW: 4.0,
         OPTIMAL_MIN: 5.0,
@@ -44,13 +44,14 @@ const AquacultureConfig = Object.freeze({
             MORNING_CLIMB: '☀️ Morning photosynthesis climb (healthy)',
             MORNING_DROP: '⚠️ Morning DO drop — Check paddlewheels!'
         }
-    },
+    };
 
     // pH Thresholds
-    PH: {
+    static PH = {
         CRITICAL_HIGH: 8.5,
         CRITICAL_LOW: 7.3,
         MAX_SAFE_SWING: 0.5,
+        SEVERE_SWING: 1.0,
         WEEKLY_BLOOM_RISE: 0.30,
         WEEKLY_CRASH_DROP: -0.30,
         ADVISORIES: {
@@ -60,10 +61,10 @@ const AquacultureConfig = Object.freeze({
             LOW_ALERT: '⚠️ Low pH baseline — Acidic stress; apply lime and check alkalinity.',
             OPTIMAL: '✅ Optimal pH balance — Pond buffering capacity & phytoplankton density stable.'
         }
-    },
+    };
 
     // Water Temperature Thresholds (°C)
-    WATER_TEMP: {
+    static WATER_TEMP = {
         STRESS_HIGH: 33.0,
         STRESS_LOW: 27.0,
         OPTIMAL_MIN: 28.5,
@@ -78,24 +79,43 @@ const AquacultureConfig = Object.freeze({
             STRESS_LOW: '❄️ Low water temperature — Reduced digestive enzyme activity; reduce feed.',
             OPTIMAL: '✅ Optimal thermal stability — Normal feeding amount.'
         }
-    },
+    };
 
     // Sunlight Irradiance (Lux)
-    LUX: {
+    static LUX = {
         INTENSE: 110000,
         CLEAR: 85000,
         PARTLY_CLOUDY: 55000,
-        OVERCAST: 5000
-    },
+        OVERCAST: 20000,
+        NIGHT: 5000
+    };
 
     // Rainfall Thresholds (mm)
-    RAINFALL: {
+    static RAINFALL = {
         CRITICAL_DAILY: 40.0,   // Severe storm / heavy danger threshold (mm/day)
         CAUTION_DAILY: 20.0,    // Moderate shower / caution threshold (mm/day)
         CRITICAL_7DAY: 120.0,   // Cumulative 7-day danger threshold (mm)
         CAUTION_7DAY: 100.0     // Cumulative 7-day caution threshold (mm)
+    };
+
+    /**
+     * Synchronizes in-memory thresholds with Code.gs AlertConfig received via API
+     * @param {Object} serverConfig - data.config from Code.gs
+     */
+    static syncFromBackend(serverConfig) {
+        if (!serverConfig || typeof serverConfig !== 'object') return;
+        try {
+            if (serverConfig.DO) Object.assign(AquacultureConfig.DO, serverConfig.DO);
+            if (serverConfig.PH) Object.assign(AquacultureConfig.PH, serverConfig.PH);
+            if (serverConfig.WATER_TEMP) Object.assign(AquacultureConfig.WATER_TEMP, serverConfig.WATER_TEMP);
+            if (serverConfig.LUX) Object.assign(AquacultureConfig.LUX, serverConfig.LUX);
+            if (serverConfig.RAINFALL) Object.assign(AquacultureConfig.RAINFALL, serverConfig.RAINFALL);
+            console.log('[AquacultureConfig] Thresholds synchronized from Code.gs Single Source of Truth');
+        } catch (e) {
+            console.warn('[AquacultureConfig] Threshold sync error:', e);
+        }
     }
-});
+}
 
 
 // =========================================================================
@@ -1644,6 +1664,12 @@ class HistoryRenderer {
             }
         }
 
+        // Dynamically update criteria hint based on active AquacultureConfig
+        const criteriaEl = document.getElementById('history-criteria-hint') || document.querySelector('.history-criteria-hint');
+        if (criteriaEl) {
+            criteriaEl.innerHTML = `Criteria: DO &lt; ${AquacultureConfig.DO.CRITICAL_LOW.toFixed(1)} ppm | pH swing &gt; ${AquacultureConfig.PH.MAX_SAFE_SWING.toFixed(1)} | Temp swing &ge; ${AquacultureConfig.WATER_TEMP.MAX_SAFE_SWING.toFixed(1)}°C | Temp &ge; ${AquacultureConfig.WATER_TEMP.STRESS_HIGH.toFixed(1)}°C | Rain &ge; ${AquacultureConfig.RAINFALL.CRITICAL_DAILY.toFixed(0)}mm/day or &ge; ${AquacultureConfig.RAINFALL.CRITICAL_7DAY.toFixed(0)}mm/week`;
+        }
+
         // 3. Render Abnormality Timeline Rows
         const listContainer = document.getElementById('anomaly-list-container');
         if (!listContainer) return;
@@ -1895,6 +1921,13 @@ class DataService {
                 weatherRain: { message: "Today's rain: 0.00mm", warning: false, sumToday: 0.56, sumYest: 0.0, sum2DaysAgo: 12.4, sum7Day: 47.5 },
                 feedingAction: "Normal Feed - Optimal Conditions."
             },
+            config: {
+                DO: AquacultureConfig.DO,
+                PH: AquacultureConfig.PH,
+                WATER_TEMP: AquacultureConfig.WATER_TEMP,
+                LUX: AquacultureConfig.LUX,
+                RAINFALL: AquacultureConfig.RAINFALL
+            },
             history: {
                 totalAbnormalDays: 3,
                 tempExtremes: {
@@ -2014,6 +2047,11 @@ class AppController {
 
     static render(data) {
         if (!data) return;
+
+        // 1. Synchronize in-memory thresholds with Code.gs AlertConfig if provided in payload
+        if (data.config) {
+            AquacultureConfig.syncFromBackend(data.config);
+        }
 
         const analysis = data.analysis || {
             temperature: { min: 28.8, max: 29.9, delta: 1.1, warning: false },

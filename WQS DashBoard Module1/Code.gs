@@ -23,25 +23,90 @@ class AppConfig {
  * Centralized water quality and weather alert thresholds
  */
 class AlertConfig {
-  // Water Temperature (°C)
-  static get TEMP_HIGH_THRESHOLD() { return 33.0; }       // Alert if Water Temp > 33.0°C
-  static get TEMP_DELTA_ALERT_THRESHOLD() { return 3.0; } // Alert if Temp Swing (Δ) >= 3.0°C in same day
+  // Dissolved Oxygen Thresholds (ppm)
+  static get DO() {
+    return {
+      CRITICAL_LOW: 3.0,
+      CAUTION_LOW: 4.0,
+      OPTIMAL_MIN: 5.0,
+      WEEKLY_DROP_ALERT: -0.40,
+      WEEKLY_RECOVERY: 0.40
+    };
+  }
 
-  // Dissolved Oxygen (ppm)
-  static get DO_DANGER_THRESHOLD() { return 3.0; }        // Critical Danger if DO Min < 3.0 ppm
-  static get DO_WARNING_THRESHOLD() { return 4.0; }       // Caution / Warning if DO Min < 4.0 ppm
+  // pH Thresholds
+  static get PH() {
+    return {
+      CRITICAL_HIGH: 8.5,
+      CRITICAL_LOW: 7.3,
+      MAX_SAFE_SWING: 0.5,
+      SEVERE_SWING: 1.0,
+      WEEKLY_BLOOM_RISE: 0.30,
+      WEEKLY_CRASH_DROP: -0.30
+    };
+  }
 
-  // pH
-  static get PH_DELTA_ALERT_THRESHOLD() { return 0.5; }   // Alert if pH Swing (Δ) > 0.5
+  // Water Temperature Thresholds (°C)
+  static get WATER_TEMP() {
+    return {
+      STRESS_HIGH: 33.0,
+      STRESS_LOW: 27.0,
+      OPTIMAL_MIN: 28.5,
+      OPTIMAL_MAX: 31.0,
+      MAX_SAFE_SWING: 3.0,
+      WEEKLY_COOLING: -1.2,
+      WEEKLY_WARMING: 1.2
+    };
+  }
 
-  // Weather & Sunlight
-  static get LUX_LOW_THRESHOLD() { return 20000; }        // Overcast / Low Sunlight alert threshold
-  static get LUX_OPTIMAL_MIN() { return 55000; }          // Moderate/Optimal algae activity threshold
-  static get LUX_HIGH_MIN() { return 80000; }             // High algae activity threshold
-  static get RAIN_DAILY_DANGER_MM() { return 40.0; }      // Single-day rainfall danger threshold (>= 40mm)
-  static get RAIN_DAILY_WARNING_MM() { return 20.0; }     // Single-day rainfall caution threshold (>= 20mm)
-  static get RAIN_7DAY_DANGER_MM() { return 120.0; }      // 7-day cumulative rainfall danger threshold (>= 120mm)
-  static get RAIN_7DAY_WARNING_MM() { return 100.0; }     // 7-day cumulative rainfall caution threshold (>= 100mm)
+  // Weather & Sunlight (Lux)
+  static get LUX() {
+    return {
+      INTENSE: 110000,
+      CLEAR: 85000,
+      PARTLY_CLOUDY: 55000,
+      OVERCAST: 20000,
+      NIGHT: 5000
+    };
+  }
+
+  // Rainfall Thresholds (mm)
+  static get RAINFALL() {
+    return {
+      CRITICAL_DAILY: 40.0,   // Single-day rainfall danger threshold (>= 40mm)
+      CAUTION_DAILY: 20.0,    // Single-day rainfall caution threshold (>= 20mm)
+      CRITICAL_7DAY: 120.0,   // 7-day cumulative rainfall danger threshold (>= 120mm)
+      CAUTION_7DAY: 100.0     // 7-day cumulative rainfall caution threshold (>= 100mm)
+    };
+  }
+
+  // Backward-compatible getters for existing backend engine references
+  static get TEMP_HIGH_THRESHOLD() { return AlertConfig.WATER_TEMP.STRESS_HIGH; }
+  static get TEMP_DELTA_ALERT_THRESHOLD() { return AlertConfig.WATER_TEMP.MAX_SAFE_SWING; }
+  static get DO_DANGER_THRESHOLD() { return AlertConfig.DO.CRITICAL_LOW; }
+  static get DO_WARNING_THRESHOLD() { return AlertConfig.DO.CAUTION_LOW; }
+  static get PH_DELTA_ALERT_THRESHOLD() { return AlertConfig.PH.MAX_SAFE_SWING; }
+  static get LUX_LOW_THRESHOLD() { return AlertConfig.LUX.OVERCAST; }
+  static get LUX_OPTIMAL_MIN() { return AlertConfig.LUX.PARTLY_CLOUDY; }
+  static get LUX_HIGH_MIN() { return AlertConfig.LUX.CLEAR; }
+  static get RAIN_DAILY_DANGER_MM() { return AlertConfig.RAINFALL.CRITICAL_DAILY; }
+  static get RAIN_DAILY_WARNING_MM() { return AlertConfig.RAINFALL.CAUTION_DAILY; }
+  static get RAIN_7DAY_DANGER_MM() { return AlertConfig.RAINFALL.CRITICAL_7DAY; }
+  static get RAIN_7DAY_WARNING_MM() { return AlertConfig.RAINFALL.CAUTION_7DAY; }
+
+  /**
+   * Serializes active alert thresholds to client payload
+   * (Frontend script.js automatically adopts these values)
+   */
+  static toClientConfig() {
+    return {
+      DO: AlertConfig.DO,
+      PH: AlertConfig.PH,
+      WATER_TEMP: AlertConfig.WATER_TEMP,
+      LUX: AlertConfig.LUX,
+      RAINFALL: AlertConfig.RAINFALL
+    };
+  }
 }
 
 // Backward-compatible global alias for legacy references
@@ -979,13 +1044,13 @@ class AlertEngine {
     let tempMessage = "Normal";
     if (isHighTemp && isHighTempDelta) {
       tempStatus = "Danger";
-      tempMessage = `High Temp (>33°C) & Swing (≥3.0°C)`;
+      tempMessage = `High Temp (>${AlertConfig.TEMP_HIGH_THRESHOLD}°C) & Swing (≥${AlertConfig.TEMP_DELTA_ALERT_THRESHOLD.toFixed(1)}°C)`;
     } else if (isHighTemp) {
       tempStatus = "Warning";
-      tempMessage = `High Temp: ${temp.max.toFixed(1)}°C (>33°C)`;
+      tempMessage = `High Temp: ${temp.max.toFixed(1)}°C (>${AlertConfig.TEMP_HIGH_THRESHOLD}°C)`;
     } else if (isHighTempDelta) {
       tempStatus = "Warning";
-      tempMessage = `High Swing: ${temp.delta.toFixed(1)}°C (≥3.0°C)`;
+      tempMessage = `High Swing: ${temp.delta.toFixed(1)}°C (≥${AlertConfig.TEMP_DELTA_ALERT_THRESHOLD.toFixed(1)}°C)`;
     } else if (temp.delta !== null) {
       tempMessage = `Swing: ${temp.delta.toFixed(1)}°C (Normal)`;
     } else {
@@ -1023,7 +1088,7 @@ class AlertEngine {
     let phMessage = "Normal";
     if (isHighPhDelta) {
       phStatus = "Warning";
-      phMessage = `High pH Swing: ${phData.delta.toFixed(2)} (>0.5)`;
+      phMessage = `High pH Swing: ${phData.delta.toFixed(2)} (>${AlertConfig.PH_DELTA_ALERT_THRESHOLD})`;
     } else if (phData.delta !== null) {
       phMessage = `Swing: ${phData.delta.toFixed(2)} (Normal)`;
     } else {
@@ -1265,6 +1330,7 @@ class AppController {
           },
           weeklyMetrics: wqsResult.weeklyMetrics,
           analysis: analysis,
+          config: AlertConfig.toClientConfig(),
           history: {
             totalAbnormalDays: abnormalities.length,
             tempExtremes: {
