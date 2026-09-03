@@ -488,19 +488,6 @@ h2 {
     letter-spacing: 0.2px;
 }
 
-.feeding-status-badge {
-    font-size: 0.75rem;
-    font-weight: 800;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    padding: 0.35rem 0.85rem;
-    border-radius: 9999px;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    white-space: nowrap;
-}
-
 .feeding-action-content {
     display: flex;
     flex-direction: column;
@@ -512,7 +499,7 @@ h2 {
     display: flex;
     align-items: center;
     gap: 1.1rem;
-    padding: 1.25rem 1.4rem;
+    padding: 1rem 1.4rem;
     border-radius: 12px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -536,22 +523,17 @@ h2 {
 }
 
 .feeding-banner-icon {
-    font-size: 2.2rem;
+    font-size: 2rem;
     line-height: 1;
     flex-shrink: 0;
-}
-
-.feeding-banner-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    flex: 1;
 }
 
 .feeding-banner-title {
     font-size: 1.15rem;
     font-weight: 850;
     letter-spacing: -0.2px;
+    line-height: 1.35;
+    flex: 1;
 }
 
 .banner-optimal .feeding-banner-title {
@@ -564,24 +546,6 @@ h2 {
 
 .banner-critical .feeding-banner-title {
     color: #b91c1c;
-}
-
-.feeding-banner-desc {
-    font-size: 0.88rem;
-    font-weight: 600;
-    line-height: 1.4;
-}
-
-.banner-optimal .feeding-banner-desc {
-    color: #166534;
-}
-
-.banner-caution .feeding-banner-desc {
-    color: #92400e;
-}
-
-.banner-critical .feeding-banner-desc {
-    color: #991b1b;
 }
 
 /* "Why?" Diagnostic Section */
@@ -631,7 +595,7 @@ h2 {
 
 .why-item {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: 0.75rem;
     padding: 0.65rem 0.85rem;
     border-radius: 8px;
@@ -813,6 +777,259 @@ h2 {
     padding-top: 0.3rem;
     border-top: 1px dashed #f1f5f9;
 }
+
+/* Sunlight & Rainfall Cards (Symmetrical Design) */
+.sunlight-card,
+.rainfall-card {
+    gap: 0.85rem;
+}
+
+.sunlight-hero,
+.rainfall-hero {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.sunlight-hero-main,
+.rainfall-hero-main {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+}
+
+.sunlight-hero-icon,
+.rainfall-hero-icon {
+    font-size: 2.1rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
+}
+
+.sunlight-hero-text,
+.rainfall-hero-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.sunlight-hero-condition,
+.rainfall-hero-val {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #0f172a;
+    line-height: 1.2;
+    letter-spacing: -0.3px;
+}
+
+.rainfall-unit {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #64748b;
+}
+
+.sunlight-hero-photo,
+.rainfall-hero-photo {
+    font-size: 0.84rem;
+    font-weight: 750;
+    line-height: 1.2;
+}
+
+.sunlight-hero-photo.status-good,
+.rainfall-hero-photo.status-good {
+    color: #059669;
+}
+
+.sunlight-hero-photo.status-moderate,
+.rainfall-hero-photo.status-moderate {
+    color: #0284c7;
+}
+
+.sunlight-hero-photo.status-warning,
+.rainfall-hero-photo.status-warning {
+    color: #d97706;
+}
+
+.sunlight-hero-photo.status-danger,
+.rainfall-hero-photo.status-danger {
+    color: #dc2626;
+}
+
+.sunlight-hero-photo.status-neutral,
+.rainfall-hero-photo.status-neutral {
+    color: #64748b;
+}
+
+.sunlight-hero-caption,
+.rainfall-hero-caption {
+    font-size: 0.72rem;
+    font-weight: 650;
+    color: #64748b;
+    border-top: 1px dashed #cbd5e1;
+    padding-top: 0.35rem;
+}
+
+/* 2-Day History Rows */
+.sunlight-history,
+.rainfall-history {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.sunlight-row,
+.rainfall-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.45rem 0.65rem;
+    background: #ffffff;
+    border: 1.5px solid #f1f5f9;
+    border-radius: 8px;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.sunlight-row:hover,
+.rainfall-row:hover {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.sunlight-day-info,
+.rainfall-day-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 95px;
+}
+
+.sunlight-day-info .day-title,
+.rainfall-day-info .day-title {
+    font-size: 0.82rem;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.sunlight-day-info .day-sub,
+.rainfall-day-info .day-sub {
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.sunlight-day-status,
+.rainfall-day-status {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 9999px;
+    font-weight: 650;
+    max-width: 70%;
+    text-align: right;
+    justify-content: flex-end;
+}
+
+.sunlight-day-status .status-dot,
+.rainfall-day-status .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sunlight-day-status .status-name,
+.rainfall-day-status .status-name {
+    font-weight: 800;
+}
+
+.sunlight-day-status .status-sep,
+.rainfall-day-status .status-sep {
+    opacity: 0.6;
+}
+
+.sunlight-day-status .status-photo,
+.rainfall-day-status .status-photo {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Semantic Status Variants */
+.sunlight-day-status.status-good,
+.rainfall-day-status.status-good {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+.sunlight-day-status.status-good .status-dot,
+.rainfall-day-status.status-good .status-dot {
+    background: #10b981;
+}
+
+.sunlight-day-status.status-moderate,
+.rainfall-day-status.status-moderate {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+.sunlight-day-status.status-moderate .status-dot,
+.rainfall-day-status.status-moderate .status-dot {
+    background: #22c55e;
+}
+
+.sunlight-day-status.status-warning,
+.rainfall-day-status.status-warning {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+.sunlight-day-status.status-warning .status-dot,
+.rainfall-day-status.status-warning .status-dot {
+    background: #f59e0b;
+}
+
+.sunlight-day-status.status-danger,
+.rainfall-day-status.status-danger {
+    background: #fef2f2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+.sunlight-day-status.status-danger .status-dot,
+.rainfall-day-status.status-danger .status-dot {
+    background: #ef4444;
+}
+
+.sunlight-day-status.status-neutral,
+.rainfall-day-status.status-neutral {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+.sunlight-day-status.status-neutral .status-dot,
+.rainfall-day-status.status-neutral .status-dot {
+    background: #94a3b8;
+}
+
+@media (max-width: 480px) {
+    .sunlight-row,
+    .rainfall-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+    .sunlight-day-status,
+    .rainfall-day-status {
+        max-width: 100%;
+        justify-content: flex-start;
+    }
+}
+
 
 /* =========================================================================
    RECENT SENSOR READINGS SECTION (CARDS, BADGES, TRENDS, & SPARKLINES)

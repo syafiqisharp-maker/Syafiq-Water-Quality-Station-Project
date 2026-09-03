@@ -85,8 +85,7 @@ const AquacultureConfig = Object.freeze({
         INTENSE: 110000,
         CLEAR: 85000,
         PARTLY_CLOUDY: 55000,
-        OVERCAST: 20000,
-        NIGHT: 5000
+        OVERCAST: 5000
     },
 
     // Rainfall Thresholds (mm)
@@ -752,7 +751,6 @@ class FeedingActionRenderer {
                 bannerClass: 'banner-critical',
                 bannerIcon: '🚨',
                 title: 'REDUCE FEEDING — CRITICAL WATER QUALITY / WEATHER ALERT',
-                desc: 'Cut feeding ration by 30%–50%. Turn on all paddlewheels, inspect feed trays and pond bottom for mortality.',
                 reasons: [...criticalReasons, ...cautionReasons]
             };
         } else if (cautionReasons.length > 0) {
@@ -763,7 +761,6 @@ class FeedingActionRenderer {
                 bannerClass: 'banner-caution',
                 bannerIcon: '⚠️',
                 title: 'CAREFUL FEEDING — ADJUST RATION & MONITOR CLOSELY',
-                desc: 'Inspect feed trays and pond bottom closely.',
                 reasons: cautionReasons
             };
         } else {
@@ -772,14 +769,11 @@ class FeedingActionRenderer {
                 badgeText: 'Normal Feed',
                 badgeClass: 'badge-good',
                 bannerClass: 'banner-optimal',
-                bannerIcon: '🍤',
+                bannerIcon: '🟢',
                 title: 'NORMAL FEEDING — OPTIMAL CONDITIONS',
-                desc: 'Execute standard feeding quota according to DOC feeding table and recent sampling biomass results.',
                 reasons: [{
                     icon: '✅',
-                    headline: 'All Water Quality & Weather Parameters in Safe Optimal Ranges',
-                    desc: 'Stable Dissolved Oxygen (≥ 4.0 ppm), minimal pH swing (≤ 0.5), optimal water temperature (28–31°C), and normal sunlight.',
-                    tag: 'Optimal Baseline'
+                    headline: 'All Water Quality & Weather Parameters in Safe Optimal Ranges'
                 }]
             };
         }
@@ -787,15 +781,9 @@ class FeedingActionRenderer {
 
     static render(analysis, raw, weeklyMetrics) {
         const container = document.getElementById('feeding-action-container');
-        const badge = document.getElementById('feeding-badge');
         if (!container) return;
 
         const evalResult = FeedingActionRenderer.evaluate({ analysis, raw, weeklyMetrics });
-
-        if (badge) {
-            badge.className = `feeding-status-badge ${evalResult.badgeClass}`;
-            badge.textContent = evalResult.badgeText;
-        }
 
         const reasonItemsHtml = evalResult.reasons.map(r => {
             let itemClass = 'why-item why-optimal';
@@ -819,9 +807,9 @@ class FeedingActionRenderer {
                     <span class="why-item-icon">${r.icon}</span>
                     <div class="why-item-content">
                         <span class="why-item-headline">${r.headline}</span>
-                        <span class="why-item-sub">${r.desc}</span>
+                        ${r.desc ? `<span class="why-item-sub">${r.desc}</span>` : ''}
                     </div>
-                    <span class="${tagClass}">${r.tag}</span>
+                    ${r.tag ? `<span class="${tagClass}">${r.tag}</span>` : ''}
                 </div>
             `;
         }).join('');
@@ -830,10 +818,7 @@ class FeedingActionRenderer {
             <!-- Action Directive Banner -->
             <div class="feeding-banner ${evalResult.bannerClass}">
                 <span class="feeding-banner-icon">${evalResult.bannerIcon}</span>
-                <div class="feeding-banner-body">
-                    <div class="feeding-banner-title">${evalResult.title}</div>
-                    <div class="feeding-banner-desc">${evalResult.desc}</div>
-                </div>
+                <div class="feeding-banner-title">${evalResult.title}</div>
             </div>
 
             <!-- "Why?" Diagnostic Section -->
@@ -856,62 +841,222 @@ class FeedingActionRenderer {
  * 4.4 Dedicated Weather & Sunlight Renderer
  */
 class WeatherRenderer {
-    static render(analysis) {
+    /**
+     * Evaluates sunlight irradiance into human-readable weather conditions & photosynthesis viability
+     */
+    static evaluateSunlight(luxVal) {
+        const lux = (luxVal !== null && luxVal !== undefined && !isNaN(luxVal)) ? parseFloat(luxVal) : null;
+        if (lux === null || lux <= 0) {
+            return {
+                condition: 'Pending Data',
+                icon: '⏳',
+                photosynthesis: 'Awaiting Data',
+                levelClass: 'status-neutral'
+            };
+        }
+        if (lux > AquacultureConfig.LUX.INTENSE) {
+            return {
+                condition: 'Intense Sunlight',
+                icon: '☀️',
+                photosynthesis: 'Intense Photosynthesis',
+                levelClass: 'status-good'
+            };
+        }
+        if (lux > AquacultureConfig.LUX.CLEAR) {
+            return {
+                condition: 'Clear Sky',
+                icon: '☀️',
+                photosynthesis: 'Optimal Photosynthesis',
+                levelClass: 'status-good'
+            };
+        }
+        if (lux > AquacultureConfig.LUX.PARTLY_CLOUDY) {
+            return {
+                condition: 'Partly Cloudy',
+                icon: '⛅',
+                photosynthesis: 'Moderate Photosynthesis',
+                levelClass: 'status-moderate'
+            };
+        }
+        if (lux > AquacultureConfig.LUX.OVERCAST) {
+            return {
+                condition: 'Overcast',
+                icon: '☁️',
+                photosynthesis: 'Weak Photosynthesis',
+                levelClass: 'status-warning'
+            };
+        }
+        return {
+            condition: 'Dark / Heavy Cloud',
+            icon: '🌧️',
+            photosynthesis: 'Critical Light Deficit',
+            levelClass: 'status-danger'
+        };
+    }
+
+    /**
+     * Evaluates daily rainfall accumulation into operational descriptive status & color
+     */
+    static evaluateRain(mmVal) {
+        const mm = (mmVal !== null && mmVal !== undefined && !isNaN(mmVal)) ? parseFloat(mmVal) : 0;
+        if (mm >= AquacultureConfig.RAINFALL.CRITICAL_DAILY) {
+            return {
+                text: 'Heavy Storm Danger',
+                levelClass: 'status-danger'
+            };
+        }
+        if (mm >= AquacultureConfig.RAINFALL.CAUTION_DAILY) {
+            return {
+                text: 'Moderate Rain Warning',
+                levelClass: 'status-warning'
+            };
+        }
+        if (mm > 0.1) {
+            return {
+                text: 'Light Rain',
+                levelClass: 'status-moderate'
+            };
+        }
+        return {
+            text: 'No Rain',
+            levelClass: 'status-good'
+        };
+    }
+
+    static render(analysis, raw = null) {
         if (!analysis) return;
         const { weatherLux, weatherRain } = analysis;
 
         const weatherContainer = document.getElementById('weather-status-container');
         if (!weatherContainer) return;
 
-        const luxVal = (weatherLux && weatherLux.avgToday !== undefined) ? weatherLux.avgToday : 0;
-        const luxYest = (weatherLux && weatherLux.avgYest !== undefined) ? weatherLux.avgYest : 0;
-        const luxIsWarning = weatherLux && weatherLux.warning;
-        const luxBadgeClass = luxIsWarning ? 'badge-warning' : 'badge-good';
-        const luxBadgeText = luxIsWarning ? 'Low Light' : 'Normal';
+        // 1. Evaluate Sunlight for Yesterday (Primary Morning Benchmark)
+        const yestLux = (weatherLux && weatherLux.avgYest !== undefined) ? weatherLux.avgYest : 0;
+        const yestStatus = WeatherRenderer.evaluateSunlight(yestLux);
 
+        // 2. Evaluate Sunlight for 2 Days Ago (Trend Context)
+        const twoDaysAgoLux = (weatherLux && weatherLux.avg2DaysAgo !== undefined) ? weatherLux.avg2DaysAgo : 0;
+        const twoDaysAgoStatus = WeatherRenderer.evaluateSunlight(twoDaysAgoLux);
+
+        // 3. Dynamic Evaluation for Today (Live)
+        const currentHour = new Date().getHours();
+        let todayStatus;
+
+        if (currentHour < 10) {
+            // Before 10:00 AM: Evaluate live instantaneous lux reading
+            const liveLux = (raw && raw.lux !== undefined && raw.lux !== null) ? parseFloat(raw.lux) : 0;
+            todayStatus = WeatherRenderer.evaluateSunlight(liveLux);
+        } else {
+            // From 10:00 AM onwards: Accumulate and evaluate daytime average
+            const hasTodayAvg = weatherLux && weatherLux.avgToday !== undefined && weatherLux.avgToday > 0;
+            const evaluatedTodayLux = hasTodayAvg ? weatherLux.avgToday : ((raw && raw.lux !== undefined) ? parseFloat(raw.lux) : 0);
+            todayStatus = WeatherRenderer.evaluateSunlight(evaluatedTodayLux);
+        }
+
+        // 4. Evaluate Rainfall
         const rainToday = (weatherRain && weatherRain.sumToday !== undefined) ? weatherRain.sumToday : 0;
+        const rainYest = (weatherRain && weatherRain.sumYest !== undefined) ? weatherRain.sumYest : 0;
+        const rain2DaysAgo = (weatherRain && weatherRain.sum2DaysAgo !== undefined) ? weatherRain.sum2DaysAgo : 0;
         const rain7d = (weatherRain && weatherRain.sum7Day !== undefined) ? weatherRain.sum7Day : 0;
+
+        const rainTodayStatus = WeatherRenderer.evaluateRain(rainToday);
+        const rainYestStatus = WeatherRenderer.evaluateRain(rainYest);
+        const rain2DaysAgoStatus = WeatherRenderer.evaluateRain(rain2DaysAgo);
+
         const isRainDanger = (weatherRain && weatherRain.isDanger) || rainToday >= AquacultureConfig.RAINFALL.CRITICAL_DAILY || rain7d >= AquacultureConfig.RAINFALL.CRITICAL_7DAY;
         const isRainWarning = isRainDanger || (weatherRain && weatherRain.warning) || rainToday >= AquacultureConfig.RAINFALL.CAUTION_DAILY || rain7d >= AquacultureConfig.RAINFALL.CAUTION_7DAY;
 
-        let rainBadgeClass = 'badge-good';
-        let rainBadgeText = 'No Rain';
-        if (isRainDanger) {
-            rainBadgeClass = 'badge-danger';
-            rainBadgeText = 'Heavy Rain Alert';
-        } else if (isRainWarning) {
-            rainBadgeClass = 'badge-warning';
-            rainBadgeText = 'Rain Warning';
-        } else if (rainToday > 0) {
-            rainBadgeClass = 'badge-good';
-            rainBadgeText = 'Light Rain';
-        }
-
         weatherContainer.innerHTML = `
-            <!-- Sunlight Card -->
-            <div class="weather-card">
+            <!-- Sunlight & Photosynthesis Card -->
+            <div class="weather-card sunlight-card">
                 <div class="weather-card-top">
-                    <span class="weather-card-title">☀️ Sunlight (Lux)</span>
-                    <span class="wq-alert-badge ${luxBadgeClass}">${luxBadgeText}</span>
+                    <span class="weather-card-title">☀️ Sunlight Activity</span>
                 </div>
-                <div class="weather-main-val">
-                    ${Formatters.integer(luxVal)} <span class="weather-unit">lux (avg)</span>
+
+                <!-- Primary Benchmark: Today's Live Solar Viability -->
+                <div class="sunlight-hero">
+                    <div class="sunlight-hero-main">
+                        <span class="sunlight-hero-icon">${todayStatus.icon}</span>
+                        <div class="sunlight-hero-text">
+                            <div class="sunlight-hero-condition">${todayStatus.condition}</div>
+                            <div class="sunlight-hero-photo ${todayStatus.levelClass}">${todayStatus.photosynthesis}</div>
+                        </div>
+                    </div>
+                    <div class="sunlight-hero-caption">Today's Sunlight Condition (Live)</div>
                 </div>
-                <div class="weather-status-msg">${weatherLux ? (weatherLux.message || 'Optimal Sunlight') : 'Optimal Sunlight'}</div>
-                <div class="weather-context-line">Yesterday: ${Formatters.integer(luxYest)} lux</div>
+
+                <!-- 2-Day History Breakdown -->
+                <div class="sunlight-history">
+                    <div class="sunlight-row">
+                        <div class="sunlight-day-info">
+                            <span class="day-title">Yesterday</span>
+                        </div>
+                        <div class="sunlight-day-status ${yestStatus.levelClass}">
+                            <span class="status-dot"></span>
+                            <span class="status-name">${yestStatus.condition}</span>
+                            <span class="status-sep">&bull;</span>
+                            <span class="status-photo">${yestStatus.photosynthesis}</span>
+                        </div>
+                    </div>
+
+                    <div class="sunlight-row">
+                        <div class="sunlight-day-info">
+                            <span class="day-title">2 Days Ago</span>
+                        </div>
+                        <div class="sunlight-day-status ${twoDaysAgoStatus.levelClass}">
+                            <span class="status-dot"></span>
+                            <span class="status-name">${twoDaysAgoStatus.condition}</span>
+                            <span class="status-sep">&bull;</span>
+                            <span class="status-photo">${twoDaysAgoStatus.photosynthesis}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Rainfall Card -->
-            <div class="weather-card">
+            <!-- Rainfall Activity Card (Symmetrical Layout) -->
+            <div class="weather-card rainfall-card">
                 <div class="weather-card-top">
-                    <span class="weather-card-title">🌧️ Rainfall</span>
-                    <span class="wq-alert-badge ${rainBadgeClass}">${rainBadgeText}</span>
+                    <span class="weather-card-title">🌧️ Rainfall Activity</span>
                 </div>
-                <div class="weather-main-val">
-                    ${Formatters.number(rainToday, 1)} <span class="weather-unit">mm (today)</span>
+
+                <!-- Primary Benchmark: Today's Rainfall Status -->
+                <div class="rainfall-hero">
+                    <div class="rainfall-hero-main">
+                        <span class="rainfall-hero-icon">🌧️</span>
+                        <div class="rainfall-hero-text">
+                            <div class="rainfall-hero-val">${Formatters.number(rainToday, 1)} <span class="rainfall-unit">mm (today)</span></div>
+                            <div class="rainfall-hero-photo ${rainTodayStatus.levelClass}">${rainTodayStatus.text}</div>
+                        </div>
+                    </div>
+                    <div class="rainfall-hero-caption">7-Day Cumulative Total: ${Formatters.number(rain7d, 1)} mm</div>
                 </div>
-                <div class="weather-status-msg">${weatherRain ? (weatherRain.message || 'No rainfall recorded') : 'No rainfall'}</div>
-                <div class="weather-context-line">7-Day Total: ${Formatters.number(rain7d, 1)} mm</div>
+
+                <!-- 2-Day History Breakdown (Identical Symmetrical Rows) -->
+                <div class="rainfall-history">
+                    <div class="rainfall-row">
+                        <div class="rainfall-day-info">
+                            <span class="day-title">Yesterday</span>
+                        </div>
+                        <div class="rainfall-day-status ${rainYestStatus.levelClass}">
+                            <span class="status-dot"></span>
+                            <span class="status-name">${Formatters.number(rainYest, 1)} mm</span>
+                            <span class="status-sep">&bull;</span>
+                            <span class="status-photo">${rainYestStatus.text}</span>
+                        </div>
+                    </div>
+
+                    <div class="rainfall-row">
+                        <div class="rainfall-day-info">
+                            <span class="day-title">2 Days Ago</span>
+                        </div>
+                        <div class="rainfall-day-status ${rain2DaysAgoStatus.levelClass}">
+                            <span class="status-dot"></span>
+                            <span class="status-name">${Formatters.number(rain2DaysAgo, 1)} mm</span>
+                            <span class="status-sep">&bull;</span>
+                            <span class="status-photo">${rain2DaysAgoStatus.text}</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -1746,8 +1891,8 @@ class DataService {
                     status: "Normal",
                     message: "Swing: 0.12 (Normal)"
                 },
-                weatherLux: { message: "High Algae Activity", warning: false, avgToday: 61130, avgYest: 58000 },
-                weatherRain: { message: "Today's rain: 0.00mm", warning: false, sumToday: 0, sum7Day: 0 },
+                weatherLux: { message: "High Algae Activity", warning: false, avgToday: 61130, avgYest: 58000, avg2DaysAgo: 52000 },
+                weatherRain: { message: "Today's rain: 0.00mm", warning: false, sumToday: 0.56, sumYest: 0.0, sum2DaysAgo: 12.4, sum7Day: 47.5 },
                 feedingAction: "Normal Feed - Optimal Conditions."
             },
             history: {
@@ -1874,8 +2019,8 @@ class AppController {
             temperature: { min: 28.8, max: 29.9, delta: 1.1, warning: false },
             do: { min: 4.62, max: 5.39, delta: 0.77, warning: false },
             ph: { min: 7.12, max: 7.24, delta: 0.12, warning: false },
-            weatherLux: { message: "High Algae Activity", warning: false, avgToday: 61130, avgYest: 58000 },
-            weatherRain: { message: "Today's rain: 0.00mm", warning: false, sumToday: 0, sum7Day: 0 },
+            weatherLux: { message: "High Algae Activity", warning: false, avgToday: 61130, avgYest: 58000, avg2DaysAgo: 52000 },
+            weatherRain: { message: "Today's rain: 0.00mm", warning: false, sumToday: 0.56, sumYest: 0.0, sum2DaysAgo: 12.4, sum7Day: 47.5 },
             feedingAction: "Normal Feed - Optimal Conditions."
         };
 
@@ -1883,7 +2028,7 @@ class AppController {
         PondDetailsRenderer.render(data.pondDetails);
         FeedingActionRenderer.render(analysis, data.raw, data.weeklyMetrics);
         DailyWqRenderer.render(analysis, data.raw);
-        WeatherRenderer.render(analysis);
+        WeatherRenderer.render(analysis, data.raw);
         RecentReadingsRenderer.render(data.raw, analysis);
         WeeklyTrendsRenderer.render(data.weeklyMetrics, data.raw, data.pondDetails);
         HistoryRenderer.render(data.history);

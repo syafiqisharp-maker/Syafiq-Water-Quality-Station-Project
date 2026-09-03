@@ -286,10 +286,13 @@ class WeatherProcessor {
    * - Daytime average Lux for today and yesterday (10:00 - 17:00)
    * - Accumulated rainfall today with rollover & reboot immunity
    */
-  static processLive(weatherLiveData, today, yesterday) {
+  static processLive(weatherLiveData, today, yesterday, twoDaysAgo = null) {
     let luxTodaySum = 0, luxTodayCount = 0;
     let luxYestSum = 0, luxYestCount = 0;
-    let rainTodaySum = 0, lastRain = 0, isFirstRain = true;
+    let lux2DaysAgoSum = 0, lux2DaysAgoCount = 0;
+    let rainTodaySum = 0, lastRainToday = null;
+    let rainYestSum = 0, lastRainYest = null;
+    let rain2DaysAgoSum = 0, lastRain2DaysAgo = null;
     let recentLux = 0, recentAirTemp = 0;
     const weatherSeries = [];
 
@@ -329,18 +332,38 @@ class WeatherProcessor {
         }
         // Cumulative rainfall with reboot protection
         if (!isNaN(rowRain) && rowRain >= 0) {
-          if (isFirstRain) {
+          if (lastRainToday === null) {
             rainTodaySum = rowRain;
-            isFirstRain = false;
           } else {
-            rainTodaySum += (rowRain >= lastRain) ? (rowRain - lastRain) : rowRain;
+            rainTodaySum += (rowRain >= lastRainToday) ? (rowRain - lastRainToday) : rowRain;
           }
-          lastRain = rowRain;
+          lastRainToday = rowRain;
         }
       } else if (DateUtils.isSameDate(ts, yesterday)) {
         if (hr >= 10 && hr <= 17 && !isNaN(rowLux)) {
           luxYestSum += rowLux;
           luxYestCount++;
+        }
+        if (!isNaN(rowRain) && rowRain >= 0) {
+          if (lastRainYest === null) {
+            rainYestSum = rowRain;
+          } else {
+            rainYestSum += (rowRain >= lastRainYest) ? (rowRain - lastRainYest) : rowRain;
+          }
+          lastRainYest = rowRain;
+        }
+      } else if (twoDaysAgo && DateUtils.isSameDate(ts, twoDaysAgo)) {
+        if (hr >= 10 && hr <= 17 && !isNaN(rowLux)) {
+          lux2DaysAgoSum += rowLux;
+          lux2DaysAgoCount++;
+        }
+        if (!isNaN(rowRain) && rowRain >= 0) {
+          if (lastRain2DaysAgo === null) {
+            rain2DaysAgoSum = rowRain;
+          } else {
+            rain2DaysAgoSum += (rowRain >= lastRain2DaysAgo) ? (rowRain - lastRain2DaysAgo) : rowRain;
+          }
+          lastRain2DaysAgo = rowRain;
         }
       }
     }
@@ -354,7 +377,10 @@ class WeatherProcessor {
       recentAirTemp: recentAirTemp,
       luxTodayAvg: luxTodayCount > 0 ? luxTodaySum / luxTodayCount : 0,
       luxYestAvg: luxYestCount > 0 ? luxYestSum / luxYestCount : 0,
+      lux2DaysAgoAvg: lux2DaysAgoCount > 0 ? lux2DaysAgoSum / lux2DaysAgoCount : 0,
       rainTodaySum: parseFloat(rainTodaySum.toFixed(2)),
+      rainYestSum: parseFloat(rainYestSum.toFixed(2)),
+      rain2DaysAgoSum: parseFloat(rain2DaysAgoSum.toFixed(2)),
       trends: {
         lux: luxTrend.trend,
         airTemp: airTempTrend.trend
@@ -1029,6 +1055,18 @@ class AlertEngine {
     const rainToday = (weatherLive && weatherLive.rainTodaySum !== undefined) ? weatherLive.rainTodaySum : 0;
     const rain7d = (weatherHistory && weatherHistory.latestRain7d !== undefined) ? weatherHistory.latestRain7d : 0;
 
+    // Resolve yesterday and 2 days ago rainfall
+    const yestDate = new Date(today.getTime() - 86400000);
+    const twoDaysAgoDate = new Date(today.getTime() - 2 * 86400000);
+    const yestKey = DateUtils.toDateKey(yestDate);
+    const twoDaysAgoKey = DateUtils.toDateKey(twoDaysAgoDate);
+
+    const histYest = (weatherHistory && weatherHistory.dailyWeather && weatherHistory.dailyWeather[yestKey]) ? weatherHistory.dailyWeather[yestKey].rainSum : 0;
+    const hist2DaysAgo = (weatherHistory && weatherHistory.dailyWeather && weatherHistory.dailyWeather[twoDaysAgoKey]) ? weatherHistory.dailyWeather[twoDaysAgoKey].rainSum : 0;
+
+    const rainYest = (weatherLive && weatherLive.rainYestSum > 0) ? weatherLive.rainYestSum : histYest;
+    const rain2DaysAgo = (weatherLive && weatherLive.rain2DaysAgoSum > 0) ? weatherLive.rain2DaysAgoSum : hist2DaysAgo;
+
     let weatherRainMessage = `Today's rain: ${rainToday.toFixed(2)}mm`;
     const weatherRainIsDanger = rainToday >= AlertConfig.RAIN_DAILY_DANGER_MM || rain7d >= AlertConfig.RAIN_7DAY_DANGER_MM;
     let weatherRainWarning = weatherRainIsDanger || rainToday >= AlertConfig.RAIN_DAILY_WARNING_MM || rain7d >= AlertConfig.RAIN_7DAY_WARNING_MM;
@@ -1085,13 +1123,16 @@ class AlertEngine {
         message: weatherLuxMessage,
         warning: weatherLuxWarning,
         avgToday: weatherLive ? weatherLive.luxTodayAvg : 0,
-        avgYest: weatherLive ? weatherLive.luxYestAvg : 0
+        avgYest: weatherLive ? weatherLive.luxYestAvg : 0,
+        avg2DaysAgo: weatherLive ? (weatherLive.lux2DaysAgoAvg || 0) : 0
       },
       weatherRain: {
         message: weatherRainMessage,
         warning: weatherRainWarning,
         isDanger: weatherRainIsDanger,
         sumToday: rainToday,
+        sumYest: rainYest,
+        sum2DaysAgo: rain2DaysAgo,
         sum7Day: rain7d
       },
       feedingAction: feedingAction
@@ -1152,6 +1193,7 @@ class AppController {
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const yesterday = new Date(today.getTime() - 86400000);
+      const twoDaysAgo = new Date(today.getTime() - 2 * 86400000);
 
       // 2. Fetch Operational Details (Stocking Date & Culture Cycle bounds)
       const pondDetails = PondRepository.fetchDetails(targetPond, today);
@@ -1175,7 +1217,7 @@ class AppController {
       const weatherHistoryData = weatherHistorySheet.getDataRange().getValues();
 
       // 4. Process Weather Data
-      const weatherLive = WeatherProcessor.processLive(weatherLiveData, today, yesterday);
+      const weatherLive = WeatherProcessor.processLive(weatherLiveData, today, yesterday, twoDaysAgo);
       const weatherHistory = WeatherProcessor.processHistory(weatherHistoryData, startFilterTime);
 
       // 5. Process Water Quality Data
