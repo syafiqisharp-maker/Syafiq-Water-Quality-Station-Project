@@ -15,7 +15,7 @@
 
 // Timing & Watchdog Intervals
 #define TRANSMIT_INTERVAL_MINUTES 6
-#define PACKET_WARN_TIMEOUT_MS    ((TRANSMIT_INTERVAL_MINUTES * 2 + 2) * 60000UL) // Warning threshold if no packet received (14 min)
+#define PACKET_WARN_TIMEOUT_MS    ((TRANSMIT_INTERVAL_MINUTES + 2) * 60000UL) // Warning threshold if 1 packet missed (8 min)
 #define RX_KEEPER_INTERVAL_MS     30000UL // Re-arm radio every 30s to prevent standby drop
 #define STATUS_LOG_INTERVAL_MS    15000UL // Serial heartbeat log every 15s
 
