@@ -53,16 +53,17 @@ Connect the 4 wires of the A02YYUW ultrasonic sensor directly to these pins:
 ## 3. Timing & Deep Sleep Behavior
 
 1. **Initial Power-On (Cold Boot)**:
-   - When first powered on, the transmitter board **waits 3 minutes (180 seconds)** before taking its first reading.
-   - This gives you time to mount the barrel lid, position the feeder, and let the sensor stabilize.
-   - A countdown is printed to the Serial Monitor every 30 seconds.
-2. **First Measurement & LoRa Transmission**:
-   - Takes 5 distance readings from the A02YYUW sensor and calculates the median value in **cm**.
-   - Measures the battery voltage on internal GPIO 1.
-   - Transmits packet: `ID:01.02.12,Dist_cm:45.2,Bat_V:4.12,Pkt:1`
-3. **10-Minute Deep Sleep Cycle**:
-   - The ESP32-S3 and SX1262 enter ultra-low power Deep Sleep (~15–20 µA) for 10 minutes.
-   - Upon waking from deep sleep, it **does NOT wait 3 minutes**—it immediately takes the new reading, transmits, and goes back to sleep.
+   - When first powered on, the transmitter displays **"Warmup: 60s"** on the onboard LCD.
+   - It counts down 1 minute, allowing you to position the feeder and let the sensor stabilize.
+2. **Tiered Warmup Transmission Schedule**:
+   - **Packet #1 (T = 1 min mark)**: First reading transmitted. Board enters deep sleep for **2 minutes**.
+   - **Packet #2 (T = 3 min mark)**: Wakes up, transmits, and enters deep sleep for **3 minutes**.
+   - **Packet #3 (T = 6 min mark)**: Wakes up, transmits, and enters deep sleep for **6 minutes**.
+   - **Packet #4, #5, ...**: Resumes every **6 minutes** indefinitely.
+3. **Ultra-Low Power & Fail-Safes**:
+   - The SX1262 LoRa radio is put into deep sleep (`radio.deepSleepMs()`), achieving ~15–20 µA total sleep draw.
+   - The LCD screen is turned on **only during cold boot warmup** and stays completely off during periodic wakeups.
+   - Low-battery cutoff (< 3.2V) prevents brownout boot loops during low-sun periods.
 
 ---
 

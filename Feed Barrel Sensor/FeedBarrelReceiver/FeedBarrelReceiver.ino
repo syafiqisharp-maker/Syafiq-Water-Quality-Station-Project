@@ -66,6 +66,21 @@ unsigned long lastWiFiCheck = 0;
 static bool heartbeatState = false;
 static unsigned long lastElapsedMinutes = 9999;
 
+// ==========================================
+// BACKGROUND CLOUD UPLOAD (FreeRTOS Task)
+// ==========================================
+// Struct to pass telemetry data to the upload task without blocking loop()
+struct CloudPayload {
+  char pondId[16];
+  char distCM[16];
+  char batV[16];
+};
+static QueueHandle_t cloudQueue = NULL;
+static TaskHandle_t  cloudTaskHandle = NULL;
+
+// Hard watchdog: reboot ESP32 if no packet received for this long
+#define RX_HARD_WATCHDOG_MS (20UL * 60UL * 1000UL)  // 20 minutes (allows missing up to 2 cycles before reboot)
+
 // Extract a substring value by key from "key:value,key:value"
 String extractValue(const String &data, const String &key) {
   int keyIndex = data.indexOf(key);
@@ -232,88 +247,118 @@ void loraRxError(void) {
   rxErrorFlag = true;
 }
 
-// Post telemetry readings to Google Sheets via Apps Script Web App
-bool postToGoogleSheets(const String &pondId, const String &distCM, const String &batV) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println(F("[HTTP] Wi-Fi offline. Skipping Google Sheets upload."));
-    cloudStatus = CLOUD_FAIL;
-    return false;
-  }
+// ==========================================
+// BACKGROUND CLOUD UPLOAD TASK (runs on Core 0)
+// ==========================================
+// This runs in its own FreeRTOS task so HTTP calls NEVER block the LoRa loop.
+void cloudUploadTask(void *pvParameters) {
+  CloudPayload payload;
+  for (;;) {
+    // Block here until a new payload is queued from loop()
+    if (xQueueReceive(cloudQueue, &payload, portMAX_DELAY) == pdTRUE) {
+      cloudStatus = CLOUD_UPLOADING;
 
-  String scriptUrl = String(GOOGLE_SCRIPT_URL);
-  if (scriptUrl.indexOf("http") != 0 || scriptUrl.indexOf("YOUR_GOOGLE") >= 0) {
-    Serial.println(F("[HTTP] Notice: GOOGLE_SCRIPT_URL not configured yet in Config.h"));
-    cloudStatus = CLOUD_FAIL;
-    return false;
-  }
+      if (WiFi.status() != WL_CONNECTED) {
+        Serial.println(F("[HTTP] Wi-Fi offline. Skipping Google Sheets upload."));
+        cloudStatus = CLOUD_FAIL;
+        continue;
+      }
 
-  cloudStatus = CLOUD_UPLOADING;
-  Serial.println(F("[HTTP] Initiating Google Sheets upload..."));
+      String scriptUrl = String(GOOGLE_SCRIPT_URL);
+      if (scriptUrl.indexOf("http") != 0 || scriptUrl.indexOf("YOUR_GOOGLE") >= 0) {
+        Serial.println(F("[HTTP] Notice: GOOGLE_SCRIPT_URL not configured yet in Config.h"));
+        cloudStatus = CLOUD_FAIL;
+        continue;
+      }
 
-  WiFiClientSecure client;
-  client.setInsecure(); // Skip certificate verification for Google script redirect
-  HTTPClient http;
+      Serial.println(F("[HTTP] Initiating Google Sheets upload (background)..."));
 
-  if (!http.begin(client, scriptUrl)) {
-    Serial.println(F("[HTTP] Error: Unable to begin HTTP client"));
-    cloudStatus = CLOUD_FAIL;
-    return false;
-  }
+      WiFiClientSecure client;
+      client.setInsecure();
+      HTTPClient http;
 
-  http.addHeader("Content-Type", "application/json");
-  http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-  http.setTimeout(HTTP_TIMEOUT_MS);
+      if (!http.begin(client, scriptUrl)) {
+        Serial.println(F("[HTTP] Error: Unable to begin HTTP client"));
+        cloudStatus = CLOUD_FAIL;
+        continue;
+      }
 
-  // Construct JSON payload
-  // Format: {"pond_id":"01.02.12","distance":45.2,"battery":4.12}
-  String jsonPayload = "{";
-  jsonPayload += "\"pond_id\":\"" + pondId + "\",";
-  if (distCM == "ERR" || distCM == "---") {
-    jsonPayload += "\"distance\":\"ERR\",";
-  } else {
-    jsonPayload += "\"distance\":" + distCM + ",";
-  }
-  if (batV == "---") {
-    jsonPayload += "\"battery\":\"---\"";
-  } else {
-    jsonPayload += "\"battery\":" + batV;
-  }
-  jsonPayload += "}";
-
-  Serial.printf("[HTTP POST] Payload: %s\n", jsonPayload.c_str());
-  int httpCode = http.POST(jsonPayload);
-  Serial.printf("[HTTP POST] Response code: %d\n", httpCode);
-
-  // Handle HTTP 302 Redirect (Google Script redirect pattern)
-  if (httpCode == 301 || httpCode == 302) {
-    String redirectUrl = http.getLocation();
-    http.end();
-    if (http.begin(client, redirectUrl)) {
+      http.addHeader("Content-Type", "application/json");
+      http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
       http.setTimeout(HTTP_TIMEOUT_MS);
-      httpCode = http.GET();
-      Serial.printf("[HTTP GET Redirect] Response code: %d\n", httpCode);
+
+      // Construct JSON payload
+      String jsonPayload = "{";
+      jsonPayload += "\"pond_id\":\"" + String(payload.pondId) + "\",";
+      String dist = String(payload.distCM);
+      if (dist == "ERR" || dist == "---") {
+        jsonPayload += "\"distance\":\"ERR\",";
+      } else {
+        jsonPayload += "\"distance\":" + dist + ",";
+      }
+      String bat = String(payload.batV);
+      if (bat == "---") {
+        jsonPayload += "\"battery\":\"---\"";
+      } else {
+        jsonPayload += "\"battery\":" + bat;
+      }
+      jsonPayload += "}";
+
+      Serial.printf("[HTTP POST] Payload: %s\n", jsonPayload.c_str());
+      int httpCode = http.POST(jsonPayload);
+      Serial.printf("[HTTP POST] Response code: %d\n", httpCode);
+
+      // Handle HTTP 302 Redirect (Google Script redirect pattern)
+      if (httpCode == 301 || httpCode == 302) {
+        String redirectUrl = http.getLocation();
+        http.end();
+        if (http.begin(client, redirectUrl)) {
+          http.setTimeout(HTTP_TIMEOUT_MS);
+          httpCode = http.GET();
+          Serial.printf("[HTTP GET Redirect] Response code: %d\n", httpCode);
+        }
+      }
+
+      if (httpCode > 0) {
+        String resp = http.getString();
+        resp.trim();
+        if (httpCode == 200 || resp.indexOf("success") >= 0) {
+          Serial.println(F("[HTTP POST] Logged to Google Sheets successfully!"));
+          cloudStatus = CLOUD_OK;
+        } else {
+          Serial.printf("[HTTP POST] Response: %s\n", resp.c_str());
+          cloudStatus = CLOUD_FAIL;
+        }
+      } else {
+        Serial.printf("[HTTP POST] Failed with error: %s\n", http.errorToString(httpCode).c_str());
+        cloudStatus = CLOUD_FAIL;
+      }
+
+      http.end();
     }
   }
+}
 
-  bool success = false;
-  if (httpCode > 0) {
-    String resp = http.getString();
-    resp.trim();
-    if (httpCode == 200 || resp.indexOf("success") >= 0) {
-      Serial.println(F("[HTTP POST] Logged to Google Sheets successfully!"));
-      cloudStatus = CLOUD_OK;
-      success = true;
-    } else {
-      Serial.printf("[HTTP POST] Response: %s\n", resp.c_str());
-      cloudStatus = CLOUD_FAIL;
-    }
-  } else {
-    Serial.printf("[HTTP POST] Failed with error: %s\n", http.errorToString(httpCode).c_str());
-    cloudStatus = CLOUD_FAIL;
+// Queue a cloud upload without blocking the LoRa loop
+void queueCloudUpload(const String &pondId, const String &distCM, const String &batV) {
+  if (cloudQueue == NULL) return;
+
+  CloudPayload payload;
+  strncpy(payload.pondId, pondId.c_str(), sizeof(payload.pondId) - 1);
+  payload.pondId[sizeof(payload.pondId) - 1] = '\0';
+  strncpy(payload.distCM, distCM.c_str(), sizeof(payload.distCM) - 1);
+  payload.distCM[sizeof(payload.distCM) - 1] = '\0';
+  strncpy(payload.batV, batV.c_str(), sizeof(payload.batV) - 1);
+  payload.batV[sizeof(payload.batV) - 1] = '\0';
+
+  // Use xQueueOverwrite-like behavior: if queue is full, drop oldest
+  if (xQueueSend(cloudQueue, &payload, 0) != pdTRUE) {
+    // Queue full (previous upload still in progress) – drop oldest and enqueue new
+    CloudPayload discard;
+    xQueueReceive(cloudQueue, &discard, 0);
+    xQueueSend(cloudQueue, &payload, 0);
+    Serial.println(F("[CLOUD] Queue full, replaced pending upload with latest data."));
   }
-
-  http.end();
-  return success;
 }
 
 void setup() {
@@ -349,6 +394,19 @@ void setup() {
   // 4. Start Continuous Listening
   radio.startRx();
   Serial.println(F("[LORA RX] Listening for incoming barrel packets..."));
+
+  // 5. Create background cloud upload task (runs on Core 0, away from LoRa on Core 1)
+  cloudQueue = xQueueCreate(2, sizeof(CloudPayload));
+  xTaskCreatePinnedToCore(
+    cloudUploadTask,   // Task function
+    "CloudUpload",     // Name
+    8192,              // Stack size (bytes) – HTTPS needs headroom
+    NULL,              // Parameters
+    1,                 // Priority (low, so LoRa loop is never starved)
+    &cloudTaskHandle,  // Task handle
+    0                  // Pin to Core 0 (LoRa radio task runs on Core 1)
+  );
+  Serial.println(F("[CLOUD] Background upload task started on Core 0."));
 }
 
 void loop() {
@@ -382,18 +440,29 @@ void loop() {
     Serial.printf("  -> Distance  : %s cm\n", lastDistCM.c_str());
     Serial.printf("  -> Battery   : %s V\n", lastBatV.c_str());
     Serial.printf("  -> Packet No : %s\n", lastPktNum.c_str());
+
+    uint32_t pktVal = lastPktNum.toInt();
+    if (pktVal == 1) {
+      Serial.println(F("  -> Schedule  : Warmup Pkt #1. Next expected in ~2 min (at 3-min mark)"));
+    } else if (pktVal == 2) {
+      Serial.println(F("  -> Schedule  : Warmup Pkt #2. Next expected in ~3 min (at 6-min mark)"));
+    } else if (pktVal == 3) {
+      Serial.println(F("  -> Schedule  : Warmup Pkt #3. Next expected in ~6 min (at 12-min mark)"));
+    } else {
+      Serial.printf("  -> Schedule  : Steady-state (Pkt #%s). Next expected in ~6 min\n", lastPktNum.c_str());
+    }
+
     Serial.printf("  -> Signal    : RSSI %d dBm | SNR %d dB\n", rssi, snr);
     Serial.println(F("--------------------------------------------------"));
 
     // Redraw LCD screen with new measurements
     updateDisplay();
 
-    // Re-arm radio to guarantee it stays in continuous RX mode
+    // Re-arm radio IMMEDIATELY to guarantee it stays in continuous RX mode
     radio.startRx();
 
-    // Trigger Cloud Logging to Google Sheets
-    postToGoogleSheets(lastPondID, lastDistCM, lastBatV);
-    updateDisplay(); // Refresh to show cloud upload result
+    // Queue cloud upload in background task (NON-BLOCKING)
+    queueCloudUpload(lastPondID, lastDistCM, lastBatV);
   }
 
   // -------------------------------------------------------------
@@ -424,6 +493,15 @@ void loop() {
       Serial.println(F("[WIFI] Reconnecting to Wi-Fi..."));
       WiFi.reconnect();
     }
+
+    // HARD WATCHDOG: If we've been running and no packet for RX_HARD_WATCHDOG_MS, reboot
+    if (hasReceivedData && (millis() - lastPacketMillis > RX_HARD_WATCHDOG_MS)) {
+      Serial.printf("\n[WATCHDOG] No LoRa packet for %d minutes! Rebooting ESP32...\n",
+                    (int)(RX_HARD_WATCHDOG_MS / 60000UL));
+      Serial.flush();
+      delay(100);
+      ESP.restart();
+    }
   }
 
   // -------------------------------------------------------------
@@ -445,8 +523,10 @@ void loop() {
     if (hasReceivedData) {
       unsigned long elapsedSec = (millis() - lastPacketMillis) / 1000;
       unsigned long elapsedMin = elapsedSec / 60;
-      Serial.printf("[STATUS] Last packet #%s received %lu min %lu sec ago (Total: %lu, WiFi: %s)\n", 
-                    lastPktNum.c_str(), elapsedMin, elapsedSec % 60, totalPacketsRecv,
+      uint32_t pktVal = lastPktNum.toInt();
+      const char *nextExp = (pktVal == 1) ? "~2m" : (pktVal == 2) ? "~3m" : "~6m";
+      Serial.printf("[STATUS] Last packet #%s received %lu min %lu sec ago (Next in %s | Total: %lu, WiFi: %s)\n", 
+                    lastPktNum.c_str(), elapsedMin, elapsedSec % 60, nextExp, totalPacketsRecv,
                     WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
 
       if (millis() - lastPacketMillis > PACKET_WARN_TIMEOUT_MS) {

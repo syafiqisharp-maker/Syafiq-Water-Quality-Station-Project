@@ -7,11 +7,21 @@
  * Pond ID: 01.02.12
  * ============================================================================
  *
- * Modes:
- *  - TRIAL_MODE = true : Onboard 0.96" TFT LCD stays ALWAYS ON, deep sleep is
- *                        DISABLED, live measurements update every 3 seconds.
- *  - TRIAL_MODE = false: Ultra-low power field mode. LCD off, sleeps 10
- * minutes.
+ * Transmission Schedule:
+ *  - Power-on (Cold boot) : 1 minute initial warmup (countdown shown on LCD).
+ *  - Packet #1            : Sent at 1-minute mark  -> Sleeps 2 minutes.
+ *  - Packet #2            : Sent at 3-minute mark  -> Sleeps 3 minutes.
+ *  - Packet #3            : Sent at 6-minute mark  -> Sleeps 6 minutes.
+ *  - Packet #4, #5, ...   : Resumes every 6 minutes indefinitely.
+ *
+ * Power Optimization & Fail-Safe Features:
+ *  1. LoRa SX1262 deep sleep via radio.deepSleepMs() reduces sleep draw to ~15-20uA.
+ *  2. LCD display is ONLY powered on during cold boot warmup. On deep-sleep
+ *     wakeups, LCD stays completely OFF to conserve battery.
+ *  3. Low-battery brownout protection: skips TX if battery < 3.2V to prevent
+ *     voltage collapse and flash corruption.
+ *  4. 10-sample ADC averaging for stable, noise-free battery telemetry.
+ *  5. Hard wake-execution timeout prevents the board from ever hanging awake.
  */
 
 #include "Config.h"
@@ -20,7 +30,7 @@
 // Onboard 0.96" TFT Screen
 LCD_OnBoard screen;
 
-// Retain packet counter across deep sleep reboots
+// Retain packet counter across deep sleep reboots in RTC Slow Memory
 RTC_DATA_ATTR uint32_t packetCounter = 0;
 
 // LoRa Radio instance
@@ -35,11 +45,17 @@ void loraTxDone(void) {
 
 /**
  * Reads battery voltage from internal GPIO 1 (BAT_ADC).
+ * Averages BATTERY_SAMPLE_COUNT readings to eliminate ESP32 ADC switching noise.
  */
 float readBatteryVoltage() {
 #if ENABLE_BATTERY_MONITOR
-  uint32_t mv = analogReadMilliVolts(BATTERY_ADC_PIN);
-  return (mv * BATTERY_DIVIDER_RATIO) / 1000.0f;
+  uint32_t totalMv = 0;
+  for (uint8_t i = 0; i < BATTERY_SAMPLE_COUNT; i++) {
+    totalMv += analogReadMilliVolts(BATTERY_ADC_PIN);
+    delay(2);
+  }
+  uint32_t avgMv = totalMv / BATTERY_SAMPLE_COUNT;
+  return (avgMv * BATTERY_DIVIDER_RATIO) / 1000.0f;
 #else
   return -1.0f;
 #endif
@@ -48,7 +64,7 @@ float readBatteryVoltage() {
 /**
  * Reads distance from A02YYUW ultrasonic sensor via Hardware Serial1.
  * Gathers multiple samples and returns the median distance in centimeters (cm).
- * Returns NAN if sensor communication fails.
+ * Returns NAN if sensor communication fails or times out.
  */
 float readUltrasonicDistance() {
   Serial1.begin(SENSOR_BAUD, SERIAL_8N1, SENSOR_RX_PIN, SENSOR_TX_PIN);
@@ -113,7 +129,7 @@ float readUltrasonicDistance() {
 }
 
 /**
- * Updates the onboard 0.96" TFT LCD (160x80) with live trial data.
+ * Updates the onboard 0.96" TFT LCD (160x80) with live trial data (TRIAL_MODE only).
  */
 void updateTrialDisplay(float distanceCM, float batVoltage, uint32_t pkt) {
   screen.fillScreen(COLOR_RGB565_BLACK);
@@ -150,7 +166,7 @@ void updateTrialDisplay(float distanceCM, float batVoltage, uint32_t pkt) {
 }
 
 /**
- * Sends single LoRa telemetry packet
+ * Sends a single LoRa telemetry packet with transmission timeout protection.
  */
 void sendTelemetryPacket(float distanceCM, float batVoltage, uint32_t pkt) {
   char payload[80];
@@ -177,38 +193,116 @@ void sendTelemetryPacket(float distanceCM, float batVoltage, uint32_t pkt) {
   txCompleted = false;
   radio.sendData((uint8_t *)payload, strlen(payload));
 
+  // Wait for transmission completion with 2000ms safety timeout
   unsigned long txStart = millis();
   while (!txCompleted && (millis() - txStart < 2000)) {
     delay(10);
   }
+
+  if (!txCompleted) {
+    Serial.println(F("[LORA TX WARNING] TX Done callback timed out. Proceeding."));
+  }
+}
+
+/**
+ * Puts both LCD, LoRa SX1262, and ESP32-S3 into deep sleep.
+ * Uses library's radio.deepSleepMs() for ultra-low power consumption (~15-20uA).
+ */
+void enterDeepSleep(uint32_t sleepMinutes) {
+  // Ensure LCD backlight and power are shut off
+  pinMode(16, OUTPUT); // LCD_BL
+  digitalWrite(16, LOW);
+  pinMode(48, OUTPUT); // LCD_PWR
+  digitalWrite(48, LOW);
+
+  Serial.flush();
+  Serial.printf("[SLEEP] Entering Deep Sleep for %lu minutes...\n", (unsigned long)sleepMinutes);
+
+  // Put SX1262 LoRa radio into sleep mode and enter ESP32 deep sleep
+  uint32_t sleepMs = sleepMinutes * 60UL * 1000UL;
+  radio.deepSleepMs(sleepMs);
+
+  // Fallback if radio.deepSleepMs() ever returns
+  esp_sleep_enable_timer_wakeup((uint64_t)sleepMinutes * 60ULL * 1000000ULL);
+  esp_deep_sleep_start();
 }
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+
+  // Check wake reset reason
+  esp_reset_reason_t reason = esp_reset_reason();
+  bool isColdBoot = (reason != ESP_RST_DEEPSLEEP);
+
+  // Allow USB serial time to attach only on cold boot
+  if (isColdBoot) {
+    delay(1000);
+  }
 
   Serial.println(F("=============================================="));
   Serial.printf("  FEED BARREL TRANSMITTER - POND %s\n", DEVICE_ID);
 #if TRIAL_MODE
   Serial.println(F("  MODE: TRIAL BENCH TEST (LCD ALWAYS ON)"));
 #else
-  Serial.println(F("  MODE: FIELD DEEP SLEEP (10 MIN CYCLE)"));
+  Serial.printf("  MODE: FIELD DEEP SLEEP (Reason: %s)\n",
+                isColdBoot ? "COLD BOOT" : "DEEP SLEEP WAKE");
 #endif
   Serial.println(F("=============================================="));
 
-  // Initialize onboard 0.96" TFT LCD
-  screen.begin();
-  screen.fillScreen(COLOR_RGB565_BLACK);
-  screen.setFont(&FreeMono9pt7b);
-  screen.setTextSize(1);
-  screen.setTextColor(COLOR_RGB565_CYAN);
-  screen.setCursor(0, 25);
-  screen.printf("FEED BARREL");
-  screen.setTextColor(COLOR_RGB565_YELLOW);
-  screen.setCursor(0, 50);
-  screen.printf("Pond: %s", DEVICE_ID);
+  // ==========================================================
+  // COLD BOOT INITIALIZATION & SCREEN COUNTDOWN
+  // ==========================================================
+  if (isColdBoot) {
+    // Reset packet counter on fresh power-on or manual reset
+    packetCounter = 0;
 
-  // Initialize LoRa SX1262
+    // Initialize onboard 0.96" TFT LCD for field setup feedback
+    screen.begin();
+    screen.fillScreen(COLOR_RGB565_BLACK);
+    screen.setFont(&FreeMono9pt7b);
+    screen.setTextSize(1);
+    screen.setTextColor(COLOR_RGB565_CYAN);
+    screen.setCursor(0, 22);
+    screen.printf("POND %s", DEVICE_ID);
+    screen.setTextColor(COLOR_RGB565_YELLOW);
+    screen.setCursor(0, 44);
+    screen.printf("Feed Sensor");
+
+#if !TRIAL_MODE
+    // Live countdown during the 1-minute initial boot warmup
+    if (INITIAL_BOOT_DELAY_MINUTES > 0) {
+      int totalSec = INITIAL_BOOT_DELAY_MINUTES * 60;
+      Serial.printf("[INIT] Waiting %d minute(s) before first reading...\n",
+                    INITIAL_BOOT_DELAY_MINUTES);
+
+      while (totalSec > 0) {
+        // Redraw countdown on line 3 of LCD
+        screen.fillRect(0, 52, 160, 28, COLOR_RGB565_BLACK);
+        screen.setFont(&FreeMono9pt7b);
+        screen.setTextSize(1);
+        screen.setTextColor(COLOR_RGB565_GREEN);
+        screen.setCursor(0, 72);
+        screen.printf("Warmup: %ds", totalSec);
+
+        if (totalSec % 15 == 0 || totalSec <= 5) {
+          Serial.printf("  [WARMUP] %d seconds left...\n", totalSec);
+        }
+        delay(1000);
+        totalSec--;
+      }
+
+      screen.fillRect(0, 52, 160, 28, COLOR_RGB565_BLACK);
+      screen.setFont(&FreeMono9pt7b);
+      screen.setTextColor(COLOR_RGB565_WHITE);
+      screen.setCursor(0, 72);
+      screen.printf("Sending Pkt #1");
+    }
+#endif
+  }
+
+  // ==========================================================
+  // INITIALIZE LORA SX1262 RADIO
+  // ==========================================================
   Serial.println(F("[LORA TX] Initializing SX1262 Radio..."));
   radio.init();
   radio.setTxCB(loraTxDone);
@@ -218,47 +312,60 @@ void setup() {
   radio.setBW(LORA_BANDWIDTH);
 
 #if !TRIAL_MODE
-  // Check if cold boot: wait 3 minutes before first reading in real deployment
-  esp_reset_reason_t reason = esp_reset_reason();
-  if (reason != ESP_RST_DEEPSLEEP && INITIAL_BOOT_DELAY_MINUTES > 0) {
-    Serial.printf("[INIT] Waiting %d minutes before first reading...\n",
-                  INITIAL_BOOT_DELAY_MINUTES);
-    int totalSec = INITIAL_BOOT_DELAY_MINUTES * 60;
-    while (totalSec > 0) {
-      if (totalSec % 30 == 0 || totalSec <= 10) {
-        Serial.printf("  [WARMUP] %d seconds left...\n", totalSec);
-      }
-      delay(1000);
-      totalSec--;
-    }
+  // ==========================================================
+  // FIELD MODE: SINGLE SHOT MEASUREMENT & TIERED DEEP SLEEP
+  // ==========================================================
+  packetCounter++;
+  Serial.printf("\n[CYCLE #%lu] Waking execution...\n", (unsigned long)packetCounter);
+
+  // 1. Measure Battery Voltage
+  float bat = readBatteryVoltage();
+  Serial.printf("[BATTERY] Voltage: %.2f V\n", bat);
+
+  // IoT Fail-Safe: Low Battery Brownout Protection
+  // If battery is severely depleted (< 3.2V), skip high-current LoRa TX
+  // and sleep 15 mins to protect battery and allow solar trickle-charging.
+  if (bat > 0.0f && bat < LOW_BATTERY_CUTOFF_V) {
+    Serial.printf("[WARNING] Low battery (%.2fV < %.2fV)! Sleeping %d mins for solar charge...\n",
+                  bat, LOW_BATTERY_CUTOFF_V, LOW_BATTERY_SLEEP_MIN);
+    enterDeepSleep(LOW_BATTERY_SLEEP_MIN);
   }
 
-  // Field Mode single shot:
-  packetCounter++;
+  // 2. Measure Distance
   float dist = readUltrasonicDistance();
-  float bat = readBatteryVoltage();
+
+  // 3. Send LoRa Telemetry Packet
   sendTelemetryPacket(dist, bat, packetCounter);
 
-  // Turn off LCD screen & backlight to save power during sleep
-  screen.fillScreen(COLOR_RGB565_BLACK);
-  pinMode(16, OUTPUT); // LCD_BL (Backlight pin)
-  digitalWrite(16, LOW);
-  pinMode(48, OUTPUT); // LCD_PWR
-  digitalWrite(48, LOW);
+  // 4. Determine Tiered Sleep Duration based on Packet Counter:
+  //    - Packet #1 (T = 1 min mark) -> Sleep 2 minutes (wakes at T = 3 min mark)
+  //    - Packet #2 (T = 3 min mark) -> Sleep 3 minutes (wakes at T = 6 min mark)
+  //    - Packet #3 (T = 6 min mark) -> Sleep 6 minutes (wakes at T = 12 min mark)
+  //    - Packet #4+                -> Resumes every 6 minutes thereafter
+  uint32_t sleepMinutes = DEEP_SLEEP_MINUTES;
+  if (packetCounter == 1) {
+    sleepMinutes = SLEEP_AFTER_PKT1_MINUTES;
+    Serial.printf("[SCHEDULE] Packet #1 sent. Next packet at 3-min mark (sleeping %lu min).\n",
+                  (unsigned long)sleepMinutes);
+  } else if (packetCounter == 2) {
+    sleepMinutes = SLEEP_AFTER_PKT2_MINUTES;
+    Serial.printf("[SCHEDULE] Packet #2 sent. Next packet at 6-min mark (sleeping %lu min).\n",
+                  (unsigned long)sleepMinutes);
+  } else {
+    sleepMinutes = DEEP_SLEEP_MINUTES;
+    Serial.printf("[SCHEDULE] Steady state. Next packet in %lu min.\n",
+                  (unsigned long)sleepMinutes);
+  }
 
-  Serial.flush();
-  Serial.printf("[SLEEP] Entering Deep Sleep for %d minutes...\n",
-                DEEP_SLEEP_MINUTES);
-  esp_sleep_enable_timer_wakeup((uint64_t)DEEP_SLEEP_MINUTES * 60ULL *
-                                1000000ULL);
-  esp_deep_sleep_start();
+  // 5. Enter Deep Sleep
+  enterDeepSleep(sleepMinutes);
 #endif
 }
 
 void loop() {
 #if TRIAL_MODE
   packetCounter++;
-  Serial.printf("\n[TRIAL CYCLE #%lu]\n", packetCounter);
+  Serial.printf("\n[TRIAL CYCLE #%lu]\n", (unsigned long)packetCounter);
 
   // 1. Measure Distance
   float distanceCM = readUltrasonicDistance();
