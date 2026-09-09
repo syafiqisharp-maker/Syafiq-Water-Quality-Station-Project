@@ -61,11 +61,11 @@ bool hasReceivedData = false;
 enum CloudStatus { CLOUD_IDLE, CLOUD_OK, CLOUD_FAIL };
 CloudStatus cloudStatus = CLOUD_IDLE;
 
-// Periodic Timers
-unsigned long lastWiFiCheck  = 0;
-unsigned long lastStatusLog  = 0;
-unsigned long lastRxKeeper   = 0;
-unsigned long lastSpoolDrain = 0;
+// Periodic Timers & Guards (Aligned with WQS architecture)
+unsigned long lastWiFiCheck   = 0;
+unsigned long lastStatusLog   = 0;
+unsigned long lastSpoolDrain  = 0;
+unsigned long lastPostTime    = 0; // Guard against background spool colliding with live packets
 
 // ==========================================
 // DE-DUPLICATION CACHE (Up to 32 Ponds)
@@ -204,7 +204,7 @@ bool hasOfflineSpool() {
 }
 
 // ==========================================
-// ZERO-LEAK GOOGLE SHEETS HTTPS UPLOADER
+// ZERO-LEAK GOOGLE SHEETS HTTPS UPLOADER (WQS Single-Socket Architecture)
 // ==========================================
 bool postToGoogleSheets(const String &pondId, const String &distCM, const String &batV) {
   if (WiFi.status() != WL_CONNECTED) {
@@ -219,6 +219,8 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
     cloudStatus = CLOUD_FAIL;
     return false;
   }
+
+  lastPostTime = millis();
 
   // Build JSON Payload
   String jsonPayload = "{\"pond_id\":\"" + pondId + "\",";
@@ -236,65 +238,49 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
   Serial.printf("[HTTP] Heap before upload: %lu bytes\n", (unsigned long)ESP.getFreeHeap());
   Serial.printf("[HTTP POST] Payload: %s\n", jsonPayload.c_str());
 
+  WiFiClientSecure client;
+  client.setInsecure(); // Skip TLS certificate validation for Google Script endpoint
+  HTTPClient http;
+
+  if (!http.begin(client, scriptUrl)) {
+    Serial.println(F("[HTTP] Error: HTTP begin failed."));
+    cloudStatus = CLOUD_FAIL;
+    return false;
+  }
+
+  http.addHeader("Content-Type", "application/json");
+  http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
+  http.setTimeout(HTTP_TIMEOUT_MS);
+
+  int httpCode = http.POST(jsonPayload);
+  Serial.printf("[HTTP POST] Code: %d\n", httpCode);
+
+  // Handle HTTP 301/302 Redirect (Google Script redirect pattern - WQS single-client reuse)
+  if (httpCode == 301 || httpCode == 302) {
+    String redirectUrl = http.getLocation();
+    http.end(); // Cleanly close previous HTTP session without destroying client
+    if (http.begin(client, redirectUrl)) { // Re-use the SAME client SSL socket!
+      http.setTimeout(HTTP_TIMEOUT_MS);
+      httpCode = http.GET();
+      Serial.printf("[HTTP Redirect GET] Code: %d\n", httpCode);
+    }
+  }
+
   bool success = false;
-  String redirectUrl = "";
-
-  // Step 1: Initial POST
-  {
-    WiFiClientSecure client;
-    client.setInsecure();
-    HTTPClient http;
-    http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-    http.setTimeout(HTTP_TIMEOUT_MS);
-
-    if (http.begin(client, scriptUrl)) {
-      http.addHeader("Content-Type", "application/json");
-      int httpCode = http.POST(jsonPayload);
-      Serial.printf("[HTTP POST] Response code: %d\n", httpCode);
-
-      if (httpCode == 301 || httpCode == 302) {
-        redirectUrl = http.getLocation();
-      } else if (httpCode == 200) {
-        success = true;
-      } else {
-        Serial.printf("[HTTP POST] Error: %s\n", http.errorToString(httpCode).c_str());
-      }
-      http.end();
+  if (httpCode > 0) {
+    String response = http.getString();
+    response.trim();
+    if (response.indexOf("success") >= 0 || httpCode == 200) {
+      success = true;
+      Serial.println(F("[HTTP POST] Logged to Google Sheets successfully!"));
     } else {
-      Serial.println(F("[HTTP] Failed to connect to Google Script endpoint."));
+      Serial.printf("[HTTP POST] Response body: %s\n", response.c_str());
     }
-    client.stop();
+  } else {
+    Serial.printf("[HTTP POST] Connection failed: %s\n", http.errorToString(httpCode).c_str());
   }
 
-  // Step 2: Follow 302 Redirect
-  if (redirectUrl.length() > 0) {
-    Serial.println(F("[HTTP] Following 302 redirect with clean SSL socket..."));
-    WiFiClientSecure client2;
-    client2.setInsecure();
-    HTTPClient http2;
-    http2.setTimeout(HTTP_TIMEOUT_MS);
-
-    if (http2.begin(client2, redirectUrl)) {
-      int getCode = http2.GET();
-      Serial.printf("[HTTP REDIRECT] Response code: %d\n", getCode);
-
-      if (getCode > 0) {
-        String resp = http2.getString();
-        resp.trim();
-        if (getCode == 200 || resp.indexOf("success") >= 0) {
-          Serial.println(F("[HTTP] Logged to Google Sheets successfully!"));
-          success = true;
-        } else {
-          Serial.printf("[HTTP] Response body: %s\n", resp.c_str());
-        }
-      } else {
-        Serial.printf("[HTTP REDIRECT] Error: %s\n", http2.errorToString(getCode).c_str());
-      }
-      http2.end();
-    }
-    client2.stop();
-  }
-
+  http.end();
   cloudStatus = success ? CLOUD_OK : CLOUD_FAIL;
   Serial.printf("[HTTP] Heap after upload : %lu bytes (Result: %s)\n",
                 (unsigned long)ESP.getFreeHeap(), success ? "SUCCESS" : "FAIL");
@@ -350,6 +336,7 @@ bool drainOneSpoolRecord() {
         temp.println(line);
         hasRemaining = true;
       }
+      yield();
     }
     f.close();
     temp.close();
@@ -360,10 +347,10 @@ bool drainOneSpoolRecord() {
       LittleFS.remove("/spool_tmp.txt");
     }
     Serial.println(F("[SPOOL SYNC] Record successfully uploaded to Google Sheets!"));
-    return hasRemaining;
+    return true;
   } else {
     f.close();
-    Serial.println(F("[SPOOL SYNC] Upload failed. Will retry next interval."));
+    Serial.println(F("[SPOOL SYNC] Upload failed. Will back off before retrying."));
     return false;
   }
 }
@@ -451,7 +438,6 @@ void setup() {
 
   // 5. Start Continuous Listening
   radio.startRx();
-  lastRxKeeper = millis();
   Serial.println(F("[LORA RX] Listening for incoming barrel packets..."));
 }
 
@@ -530,18 +516,28 @@ void loop() {
   }
 
   // -------------------------------------------------------------
-  // 3. PERSISTENT SPOOL DRAINER (Runs every 5s if Wi-Fi connected and spool has records)
+  // 3. PERSISTENT SPOOL DRAINER (Runs every 8s if Wi-Fi connected, no recent live post, and backoff expired)
   // -------------------------------------------------------------
-  if (WiFi.status() == WL_CONNECTED && hasOfflineSpool() && (millis() - lastSpoolDrain >= 5000)) {
-    lastSpoolDrain = millis();
-    drainOneSpoolRecord();
-    updateDisplay();
+  if (WiFi.status() == WL_CONNECTED && hasOfflineSpool()) {
+    unsigned long curMs = millis();
+    // Guard against colliding with live packet processing (WQS pattern)
+    if ((curMs - lastPostTime >= POST_COLLISION_GUARD_MS) &&
+        (curMs - lastSpoolDrain >= QUEUE_FLUSH_INTERVAL_MS)) {
+      lastSpoolDrain = curMs;
+      bool ok = drainOneSpoolRecord();
+      if (!ok) {
+        // Apply 30-second backoff penalty on failure to prevent hammering Wi-Fi
+        lastSpoolDrain = curMs + QUEUE_RETRY_BACKOFF_MS;
+        Serial.println(F("[SPOOL SYNC] Backing off queue flushes for 30 seconds."));
+      }
+      updateDisplay();
+    }
   }
 
   // -------------------------------------------------------------
-  // 4. NON-BLOCKING WI-FI MONITOR (Every 15s)
+  // 4. NON-BLOCKING WI-FI MONITOR (Every 30s aligned with WQS)
   // -------------------------------------------------------------
-  if (millis() - lastWiFiCheck >= WIFI_RECONNECT_INTERVAL_MS) {
+  if (millis() - lastWiFiCheck >= WIFI_CHECK_INTERVAL_MS) {
     lastWiFiCheck = millis();
     if (WiFi.status() != WL_CONNECTED) {
       Serial.println(F("[WIFI] Disconnected. Reconnecting in background..."));
@@ -550,13 +546,9 @@ void loop() {
     }
   }
 
-  // -------------------------------------------------------------
-  // 5. HARDWARE RX WATCHDOG (Re-arm continuous RX every 30s)
-  // -------------------------------------------------------------
-  if (millis() - lastRxKeeper >= RX_KEEPER_INTERVAL_MS) {
-    lastRxKeeper = millis();
-    radio.startRx();
-  }
+  // NOTE: Hardware RX watchdog removed! Repetitive 30-second calls to radio.startRx()
+  // leaked Semtech Ticker timer slots, which froze SX1262 SPI communication after ~30 min.
+  // Continuous RX is armed in setup() and re-armed upon ACK completion / CRC errors.
 
   // -------------------------------------------------------------
   // 6. PERIODIC SERIAL HEARTBEAT (Every 15s)
