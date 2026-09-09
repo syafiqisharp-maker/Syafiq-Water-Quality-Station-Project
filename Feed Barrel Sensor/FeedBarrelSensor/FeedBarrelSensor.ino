@@ -43,6 +43,19 @@ void loraTxDone(void) {
   Serial.println(F("[LORA TX] Packet transmitted successfully!"));
 }
 
+// ACK buffer for targeted handshake response
+static char ackRxBuffer[64];
+static volatile bool ackReceivedFlag = false;
+
+// Reception callback for receiver's targeted ACK
+void loraRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
+  if (size == 0) return;
+  uint16_t copyLen = (size < sizeof(ackRxBuffer) - 1) ? size : sizeof(ackRxBuffer) - 1;
+  memcpy(ackRxBuffer, payload, copyLen);
+  ackRxBuffer[copyLen] = '\0';
+  ackReceivedFlag = true;
+}
+
 /**
  * Reads battery voltage from internal GPIO 1 (BAT_ADC).
  * Averages BATTERY_SAMPLE_COUNT readings to eliminate ESP32 ADC switching noise.
@@ -166,42 +179,95 @@ void updateTrialDisplay(float distanceCM, float batVoltage, uint32_t pkt) {
 }
 
 /**
- * Sends a single LoRa telemetry packet with transmission timeout protection.
+ * Sends LoRa telemetry packet and waits for targeted personal ACK from receiver.
+ * Retries up to MAX_HANDSHAKE_RETRIES times with randomized backoff jitter.
+ * Returns true if ACK was received, false if retries exhausted.
  */
-void sendTelemetryPacket(float distanceCM, float batVoltage, uint32_t pkt) {
+bool sendTelemetryWithHandshake(float distanceCM, float batVoltage, uint32_t pkt) {
   char payload[80];
 #if ENABLE_BATTERY_MONITOR
   if (isnan(distanceCM)) {
     snprintf(payload, sizeof(payload), "ID:%s,Dist_cm:ERR,Bat_V:%.2f,Pkt:%lu",
-             DEVICE_ID, batVoltage, pkt);
+             DEVICE_ID, batVoltage, (unsigned long)pkt);
   } else {
     snprintf(payload, sizeof(payload), "ID:%s,Dist_cm:%.1f,Bat_V:%.2f,Pkt:%lu",
-             DEVICE_ID, distanceCM, batVoltage, pkt);
+             DEVICE_ID, distanceCM, batVoltage, (unsigned long)pkt);
   }
 #else
   if (isnan(distanceCM)) {
     snprintf(payload, sizeof(payload), "ID:%s,Dist_cm:ERR,Pkt:%lu", DEVICE_ID,
-             pkt);
+             (unsigned long)pkt);
   } else {
     snprintf(payload, sizeof(payload), "ID:%s,Dist_cm:%.1f,Pkt:%lu", DEVICE_ID,
-             distanceCM, pkt);
+             distanceCM, (unsigned long)pkt);
   }
 #endif
 
-  Serial.printf("[LORA TX] Sending: \"%s\"\n", payload);
+  // Expected ACK specifically addressed to this pond and packet sequence
+  char expectedAck[32];
+  snprintf(expectedAck, sizeof(expectedAck), "ACK:%s,Pkt:%lu", DEVICE_ID, (unsigned long)pkt);
 
-  txCompleted = false;
-  radio.sendData((uint8_t *)payload, strlen(payload));
+  bool ackSuccess = false;
 
-  // Wait for transmission completion with 2000ms safety timeout
-  unsigned long txStart = millis();
-  while (!txCompleted && (millis() - txStart < 2000)) {
-    delay(10);
+  for (uint8_t attempt = 0; attempt <= MAX_HANDSHAKE_RETRIES; attempt++) {
+    if (attempt == 0) {
+      Serial.printf("[LORA TX] Sending (Attempt 1/%d): \"%s\"\n", MAX_HANDSHAKE_RETRIES + 1, payload);
+    } else {
+      Serial.printf("[LORA RETRY] Retrying (Attempt %d/%d): \"%s\"\n", attempt + 1, MAX_HANDSHAKE_RETRIES + 1, payload);
+    }
+
+    // 1. Transmit packet
+    txCompleted = false;
+    radio.sendData((uint8_t *)payload, strlen(payload));
+
+    unsigned long txStart = millis();
+    while (!txCompleted && (millis() - txStart < 1500)) {
+      delay(5);
+    }
+
+    // 2. Switch to RX mode to listen for the receiver's addressed ACK
+    ackReceivedFlag = false;
+    radio.startRx();
+
+    unsigned long rxStart = millis();
+    while ((millis() - rxStart < ACK_TIMEOUT_MS)) {
+      if (ackReceivedFlag) {
+        ackReceivedFlag = false;
+        // Check if ACK matches our specific Pond ID & Packet No
+        if (strstr(ackRxBuffer, expectedAck) != NULL) {
+          Serial.printf("[HANDSHAKE SUCCESS] Received personal ACK: \"%s\" (Attempt %d)\n",
+                        ackRxBuffer, attempt + 1);
+          ackSuccess = true;
+          break;
+        } else {
+          Serial.printf("[HANDSHAKE] Other packet heard: \"%s\" (ignoring)\n", ackRxBuffer);
+        }
+      }
+      delay(5);
+    }
+
+    if (ackSuccess) {
+      break;
+    }
+
+    // 3. If no matching ACK received, stop RX and apply randomized backoff
+    radio.stopRx();
+    if (attempt < MAX_HANDSHAKE_RETRIES) {
+      uint32_t jitter = random(0, RETRY_JITTER_MAX_MS);
+      uint32_t backoff = RETRY_BACKOFF_BASE_MS + jitter;
+      Serial.printf("[HANDSHAKE TIMEOUT] No ACK received. Waiting %lu ms backoff before retry...\n", (unsigned long)backoff);
+      delay(backoff);
+    }
   }
 
-  if (!txCompleted) {
-    Serial.println(F("[LORA TX WARNING] TX Done callback timed out. Proceeding."));
+  radio.stopRx();
+
+  if (!ackSuccess) {
+    Serial.printf("[HANDSHAKE FAILED] No ACK after %d attempts. Proceeding to sleep to preserve battery.\n",
+                  MAX_HANDSHAKE_RETRIES + 1);
   }
+
+  return ackSuccess;
 }
 
 /**
@@ -218,7 +284,7 @@ void enterDeepSleep(uint32_t sleepMinutes) {
   Serial.flush();
   Serial.printf("[SLEEP] Entering Deep Sleep for %lu minutes...\n", (unsigned long)sleepMinutes);
 
-  // Put SX1262 LoRa radio into sleep mode and enter ESP32 deep sleep
+  delay(50); // Settle RF front-end before putting SX1262 to sleep
   uint32_t sleepMs = sleepMinutes * 60UL * 1000UL;
   radio.deepSleepMs(sleepMs);
 
@@ -306,6 +372,7 @@ void setup() {
   Serial.println(F("[LORA TX] Initializing SX1262 Radio..."));
   radio.init();
   radio.setTxCB(loraTxDone);
+  radio.setRxCB(loraRxDone);
   radio.setFreq(RF_FREQUENCY);
   radio.setEIRP(TX_EIRP);
   radio.setSF(LORA_SPREADING_FACTOR);
@@ -334,8 +401,8 @@ void setup() {
   // 2. Measure Distance
   float dist = readUltrasonicDistance();
 
-  // 3. Send LoRa Telemetry Packet
-  sendTelemetryPacket(dist, bat, packetCounter);
+  // 3. Send LoRa Telemetry Packet with Targeted Handshake
+  sendTelemetryWithHandshake(dist, bat, packetCounter);
 
   // 4. Determine Tiered Sleep Duration based on Packet Counter:
   //    - Packet #1 (T = 1 min mark) -> Sleep 2 minutes (wakes at T = 3 min mark)
@@ -376,8 +443,8 @@ void loop() {
   // 3. Update the onboard 0.96" TFT Screen (Always ON!)
   updateTrialDisplay(distanceCM, batVoltage, packetCounter);
 
-  // 4. Send LoRa packet to receiver
-  sendTelemetryPacket(distanceCM, batVoltage, packetCounter);
+  // 4. Send LoRa packet to receiver with Targeted Handshake
+  sendTelemetryWithHandshake(distanceCM, batVoltage, packetCounter);
 
   // 5. Wait TRIAL_INTERVAL_SEC seconds before next reading
   delay(TRIAL_INTERVAL_SEC * 1000UL);

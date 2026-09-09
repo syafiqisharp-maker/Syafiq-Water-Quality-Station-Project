@@ -79,4 +79,12 @@
 #define LORA_SPREADING_FACTOR       7           // SF7 (Fast & reliable)
 #define LORA_BANDWIDTH              BW_125      // 125 kHz Bandwidth
 
+// ==========================================
+// HANDSHAKE & RETRY PROTOCOL (24-NODE READY)
+// ==========================================
+#define ACK_TIMEOUT_MS              450         // Time to wait for addressed ACK from receiver (ms)
+#define MAX_HANDSHAKE_RETRIES       4           // 1 initial attempt + 4 retries = 5 attempts max
+#define RETRY_BACKOFF_BASE_MS       250         // Base wait before retry (ms)
+#define RETRY_JITTER_MAX_MS         250         // Random backoff jitter (0-250ms) to avoid node collisions
+
 #endif // CONFIG_H

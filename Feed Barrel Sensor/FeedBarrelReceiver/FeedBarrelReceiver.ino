@@ -6,14 +6,17 @@
  * ============================================================================
  * 
  * Clean, Non-Bloated Architecture:
- *  1. Single-threaded & Linear: No extra FreeRTOS tasks or queues.
- *  2. SPI-Safe: Display is only redrawn when new telemetry arrives or status
- *     changes. No 1-second screen hammering that collides with SX1262 SPI.
- *  3. Zero-Leak HTTPS: Both HTTPClient and WiFiClientSecure are explicitly
- *     ended and stopped (http.end() + client.stop()). Clean teardown on 302
- *     redirects. Logs ESP.getFreeHeap() to guarantee memory stability.
- *  4. Event-driven LoRa: Radio is armed in setup() and re-armed once per packet.
- *     No aggressive 30-second timer prodding that destabilizes the SX1262.
+ *  1. Multi-Node Support: Receives telemetry from up to 24 distinct ponds.
+ *  2. Addressed Handshake: Instantly replies with targeted ACK (<40ms) so
+ *     senders confirm receipt and immediately enter deep sleep.
+ *  3. De-Duplication: Recognizes retransmitted packets and re-ACKs them to
+ *     silence the sender, but avoids duplicate entries in Google Sheets.
+ *  4. Persistent LittleFS Flash Spool: If farm Wi-Fi drops, telemetry is
+ *     saved to non-volatile Flash storage (survives power cuts & reboots).
+ *     Automatically drains and syncs to Google Sheets once Wi-Fi recovers.
+ *  5. Always-On LoRa Watchdog: 30-second hardware keeper guarantees continuous RX.
+ *  6. Zero-Leak HTTPS: Clean SSL teardown on Google Script 302 redirects.
+ *  7. Clean 4-Line Display: High-contrast, uncrowded readout of vital telemetry.
  */
 
 #include "Config.h"
@@ -21,6 +24,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <LittleFS.h>
 
 // ==========================================
 // HARDWARE INSTANCES
@@ -37,6 +41,7 @@ static volatile int16_t rxRawRSSI = 0;
 static volatile int8_t rxRawSNR = 0;
 static volatile bool newPacketFlag = false;
 static volatile bool rxErrorFlag = false;
+static volatile bool ackTxDone = false;
 
 // ==========================================
 // TELEMETRY STATE
@@ -56,13 +61,40 @@ bool hasReceivedData = false;
 enum CloudStatus { CLOUD_IDLE, CLOUD_OK, CLOUD_FAIL };
 CloudStatus cloudStatus = CLOUD_IDLE;
 
-// Periodic timers
-unsigned long lastWiFiCheck = 0;
-unsigned long lastStatusLog = 0;
+// Periodic Timers
+unsigned long lastWiFiCheck  = 0;
+unsigned long lastStatusLog  = 0;
+unsigned long lastRxKeeper   = 0;
+unsigned long lastSpoolDrain = 0;
 
 // ==========================================
-// HELPER FUNCTIONS
+// DE-DUPLICATION CACHE (Up to 32 Ponds)
 // ==========================================
+struct PondCache {
+  char pondId[16];
+  uint32_t lastPkt;
+};
+static PondCache pondCache[MAX_POND_CACHE];
+static uint8_t pondCacheCount = 0;
+
+bool checkAndRecordPkt(const char *pondId, uint32_t pkt) {
+  for (uint8_t i = 0; i < pondCacheCount; i++) {
+    if (strcmp(pondCache[i].pondId, pondId) == 0) {
+      if (pondCache[i].lastPkt == pkt) {
+        return true; // Duplicate!
+      }
+      pondCache[i].lastPkt = pkt; // New packet
+      return false;
+    }
+  }
+  if (pondCacheCount < MAX_POND_CACHE) {
+    strncpy(pondCache[pondCacheCount].pondId, pondId, sizeof(pondCache[0].pondId) - 1);
+    pondCache[pondCacheCount].pondId[sizeof(pondCache[0].pondId) - 1] = '\0';
+    pondCache[pondCacheCount].lastPkt = pkt;
+    pondCacheCount++;
+  }
+  return false;
+}
 
 // Extract a substring value by key from "key:value,key:value"
 String extractValue(const String &data, const String &key) {
@@ -76,43 +108,38 @@ String extractValue(const String &data, const String &key) {
   return val;
 }
 
-// Update the 0.96" TFT LCD Screen (160x80 pixels)
-// ALL LINES STRICTLY CAPPED AT 14 CHARACTERS to prevent text clipping
+// Clean 4-Line Display (160x80 pixels)
 void updateDisplay() {
   screen.fillScreen(COLOR_RGB565_BLACK);
   screen.setFont(&FreeMono9pt7b);
   screen.setTextSize(1);
   screen.setTextWrap(false);
 
-  if (!hasReceivedData) {
-    char wait1[15] = "FEED BARREL RX";
-    char wait2[15];
-    snprintf(wait2, sizeof(wait2), "Pond: %-.8s", TARGET_POND_ID);
-    char wait3[15];
-    snprintf(wait3, sizeof(wait3), "WiFi: %s", (WiFi.status() == WL_CONNECTED) ? "OK" : "Conn..");
+  bool wifiOk = (WiFi.status() == WL_CONNECTED);
 
+  if (!hasReceivedData) {
     screen.setTextColor(COLOR_RGB565_CYAN);
     screen.setCursor(0, 20);
-    screen.print(wait1);
+    screen.print(F("FEED BARREL RX"));
+
+    screen.setTextColor(COLOR_RGB565_GREEN);
+    screen.setCursor(0, 42);
+    screen.print(F("Waiting LoRa.."));
 
     screen.setTextColor(COLOR_RGB565_YELLOW);
-    screen.setCursor(0, 42);
-    screen.print(wait2);
-
-    screen.setTextColor(COLOR_RGB565_WHITE);
     screen.setCursor(0, 65);
-    screen.print(wait3);
+    screen.printf("WiFi: %s", wifiOk ? "OK" : "Conn..");
     return;
   }
 
-  // Row 1: Header / Pond ID
+  // Row 1 (Cyan): Pond ID
   char line1[15];
   snprintf(line1, sizeof(line1), "POND %-.8s", lastPondID.c_str());
   screen.setTextColor(COLOR_RGB565_CYAN);
   screen.setCursor(0, 16);
   screen.print(line1);
 
-  // Row 2: Distance Reading
+  // Row 2 (Green): Distance Reading
   char line2[15];
   if (lastDistCM == "ERR") {
     snprintf(line2, sizeof(line2), "Dist: SENS ERR");
@@ -123,22 +150,19 @@ void updateDisplay() {
   screen.setCursor(0, 36);
   screen.print(line2);
 
-  // Row 3: Battery Voltage & Google Sheets Status
+  // Row 3 (Yellow): Battery & WiFi Status
   char line3[15];
-  const char *cStatusStr = "";
-  if (cloudStatus == CLOUD_OK)        cStatusStr = " [G:OK]";
-  else if (cloudStatus == CLOUD_FAIL) cStatusStr = " [G:ERR]";
-
+  const char *wifiStr = wifiOk ? "OK" : "Offline";
   if (lastBatV != "---") {
-    snprintf(line3, sizeof(line3), "%-.4sV%s", lastBatV.c_str(), cStatusStr);
+    snprintf(line3, sizeof(line3), "%-.4sV WiFi:%s", lastBatV.c_str(), wifiStr);
   } else {
-    snprintf(line3, sizeof(line3), "Bat:---%s", cStatusStr);
+    snprintf(line3, sizeof(line3), "Bat:--- WiFi:%s", wifiStr);
   }
   screen.setTextColor(COLOR_RGB565_YELLOW);
   screen.setCursor(0, 56);
   screen.print(line3);
 
-  // Row 4: Signal Strength & Packet Number
+  // Row 4 (White): Signal Strength & Packet Number
   char line4[15];
   snprintf(line4, sizeof(line4), "%ddBm #%s", lastRSSI, lastPktNum.c_str());
   screen.setTextColor(COLOR_RGB565_WHITE);
@@ -147,13 +171,44 @@ void updateDisplay() {
 }
 
 // ==========================================
+// PERSISTENT LITTLEFS FLASH SPOOLING
+// ==========================================
+void initLittleFS() {
+  if (!LittleFS.begin(true)) {
+    Serial.println(F("[FS] LittleFS mount failed!"));
+  } else {
+    Serial.println(F("[FS] LittleFS mounted successfully."));
+    if (LittleFS.exists(OFFLINE_SPOOL_PATH)) {
+      File f = LittleFS.open(OFFLINE_SPOOL_PATH, "r");
+      if (f) {
+        Serial.printf("[FS] Found existing spool file (%d bytes). Resuming sync...\n", f.size());
+        f.close();
+      }
+    }
+  }
+}
+
+void appendOfflineSpool(const String &pondId, const String &distCM, const String &batV, const String &pkt) {
+  File f = LittleFS.open(OFFLINE_SPOOL_PATH, "a");
+  if (!f) {
+    Serial.println(F("[SPOOL] Error opening spool file for appending!"));
+    return;
+  }
+  f.printf("%s,%s,%s,%s\n", pondId.c_str(), distCM.c_str(), batV.c_str(), pkt.c_str());
+  f.close();
+  Serial.printf("[SPOOL] Buffered offline record to Flash: Pond %s #%s\n", pondId.c_str(), pkt.c_str());
+}
+
+bool hasOfflineSpool() {
+  return LittleFS.exists(OFFLINE_SPOOL_PATH);
+}
+
+// ==========================================
 // ZERO-LEAK GOOGLE SHEETS HTTPS UPLOADER
 // ==========================================
-// Explicitly shuts down SSL connections (client.stop() + http.end())
-// and prints free heap memory before and after every upload.
 bool postToGoogleSheets(const String &pondId, const String &distCM, const String &batV) {
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println(F("[HTTP] Wi-Fi offline. Skipping Google Sheets upload."));
+    Serial.println(F("[HTTP] Wi-Fi offline. Skipping upload."));
     cloudStatus = CLOUD_FAIL;
     return false;
   }
@@ -184,12 +239,10 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
   bool success = false;
   String redirectUrl = "";
 
-  // -------------------------------------------------------------
-  // Step 1: Initial POST request to script.google.com
-  // -------------------------------------------------------------
+  // Step 1: Initial POST
   {
     WiFiClientSecure client;
-    client.setInsecure(); // Google uses valid CA certs; insecure avoids embedding massive root CA bundle
+    client.setInsecure();
     HTTPClient http;
     http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
     http.setTimeout(HTTP_TIMEOUT_MS);
@@ -210,14 +263,10 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
     } else {
       Serial.println(F("[HTTP] Failed to connect to Google Script endpoint."));
     }
-
-    client.stop(); // CRITICAL: Release TCP socket & mbedTLS SSL heap memory
+    client.stop();
   }
 
-  // -------------------------------------------------------------
-  // Step 2: Follow 302 Redirect with clean new SSL client
-  // (Redirect host is script.googleusercontent.com - needs fresh SSL context)
-  // -------------------------------------------------------------
+  // Step 2: Follow 302 Redirect
   if (redirectUrl.length() > 0) {
     Serial.println(F("[HTTP] Following 302 redirect with clean SSL socket..."));
     WiFiClientSecure client2;
@@ -243,8 +292,7 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
       }
       http2.end();
     }
-
-    client2.stop(); // CRITICAL: Release TCP socket & mbedTLS SSL heap memory
+    client2.stop();
   }
 
   cloudStatus = success ? CLOUD_OK : CLOUD_FAIL;
@@ -254,9 +302,79 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
   return success;
 }
 
+// Drain 1 record from offline Flash spool
+bool drainOneSpoolRecord() {
+  if (!LittleFS.exists(OFFLINE_SPOOL_PATH)) return false;
+
+  File f = LittleFS.open(OFFLINE_SPOOL_PATH, "r");
+  if (!f || !f.available()) {
+    if (f) f.close();
+    LittleFS.remove(OFFLINE_SPOOL_PATH);
+    return false;
+  }
+
+  String firstLine = f.readStringUntil('\n');
+  firstLine.trim();
+  if (firstLine.length() == 0) {
+    f.close();
+    LittleFS.remove(OFFLINE_SPOOL_PATH);
+    return false;
+  }
+
+  int c1 = firstLine.indexOf(',');
+  int c2 = firstLine.indexOf(',', c1 + 1);
+  int c3 = firstLine.indexOf(',', c2 + 1);
+  if (c1 == -1 || c2 == -1) {
+    f.close();
+    LittleFS.remove(OFFLINE_SPOOL_PATH);
+    return false;
+  }
+
+  String sPond = firstLine.substring(0, c1);
+  String sDist = firstLine.substring(c1 + 1, c2);
+  String sBat  = (c3 != -1) ? firstLine.substring(c2 + 1, c3) : firstLine.substring(c2 + 1);
+  String sPkt  = (c3 != -1) ? firstLine.substring(c3 + 1) : "";
+
+  Serial.printf("[SPOOL SYNC] Draining backlog: Pond %s, Dist %s cm, Bat %s V #%s\n",
+                sPond.c_str(), sDist.c_str(), sBat.c_str(), sPkt.c_str());
+
+  bool success = postToGoogleSheets(sPond, sDist, sBat);
+
+  if (success) {
+    File temp = LittleFS.open("/spool_tmp.txt", "w");
+    bool hasRemaining = false;
+    while (f.available()) {
+      String line = f.readStringUntil('\n');
+      line.trim();
+      if (line.length() > 0) {
+        temp.println(line);
+        hasRemaining = true;
+      }
+    }
+    f.close();
+    temp.close();
+    LittleFS.remove(OFFLINE_SPOOL_PATH);
+    if (hasRemaining) {
+      LittleFS.rename("/spool_tmp.txt", OFFLINE_SPOOL_PATH);
+    } else {
+      LittleFS.remove("/spool_tmp.txt");
+    }
+    Serial.println(F("[SPOOL SYNC] Record successfully uploaded to Google Sheets!"));
+    return hasRemaining;
+  } else {
+    f.close();
+    Serial.println(F("[SPOOL SYNC] Upload failed. Will retry next interval."));
+    return false;
+  }
+}
+
 // ==========================================
 // LORA ISR CALLBACKS (Runs in radio context)
 // ==========================================
+void loraTxDone(void) {
+  ackTxDone = true;
+}
+
 void loraRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr) {
   if (size == 0) return;
 
@@ -275,6 +393,23 @@ void loraRxError(void) {
 }
 
 // ==========================================
+// INSTANT TARGETED HANDSHAKE ACK
+// ==========================================
+void sendAddressedAck(const String &pondId, const String &pktNum) {
+  String ackPayload = "ACK:" + pondId + ",Pkt:" + pktNum;
+  ackTxDone = false;
+  radio.sendData((uint8_t *)ackPayload.c_str(), ackPayload.length());
+
+  unsigned long start = millis();
+  while (!ackTxDone && (millis() - start < 1000)) {
+    delay(2);
+  }
+  // Immediately return to continuous RX mode
+  radio.startRx();
+  Serial.printf("[LORA ACK] Sent targeted ACK: \"%s\"\n", ackPayload.c_str());
+}
+
+// ==========================================
 // SETUP
 // ==========================================
 void setup() {
@@ -283,9 +418,8 @@ void setup() {
 
   Serial.println(F("=============================================="));
   Serial.println(F("  FEED BARREL LORA RECEIVER (DFR1195)"));
-  Serial.println(F("  Clean Single-Threaded Architecture"));
-  Serial.printf("  Listening on Freq: %lu Hz\n", RF_FREQUENCY);
-  Serial.printf("  Target Pond ID   : %s\n", TARGET_POND_ID);
+  Serial.println(F("  Multi-Node Handshake & Flash Spool Station"));
+  Serial.printf("  Listening on Freq: %lu Hz (SF%d)\n", RF_FREQUENCY, LORA_SPREADING_FACTOR);
   Serial.printf("  Initial Free Heap: %lu bytes\n", (unsigned long)ESP.getFreeHeap());
   Serial.println(F("=============================================="));
 
@@ -294,22 +428,30 @@ void setup() {
   screen.setTextWrap(false);
   updateDisplay();
 
-  // 2. Initialize Wi-Fi (Non-blocking background connection)
+  // 2. Initialize LittleFS Flash Storage
+  initLittleFS();
+
+  // 3. Initialize Wi-Fi with persistent auto-reconnect
   Serial.printf("[WIFI] Connecting to SSID: %s\n", WIFI_SSID);
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   lastWiFiCheck = millis();
 
-  // 3. Initialize LoRa SX1262 Radio
+  // 4. Initialize LoRa Radio for Bidirectional Handshake (RX + TX ACK)
   radio.init();
+  radio.setTxCB(loraTxDone);
   radio.setRxCB(loraRxDone);
   radio.setRxErrorCB(loraRxError);
   radio.setFreq(RF_FREQUENCY);
+  radio.setEIRP(TX_EIRP);
   radio.setSF(LORA_SPREADING_FACTOR);
   radio.setBW(LORA_BANDWIDTH);
 
-  // 4. Start Continuous Listening
+  // 5. Start Continuous Listening
   radio.startRx();
+  lastRxKeeper = millis();
   Serial.println(F("[LORA RX] Listening for incoming barrel packets..."));
 }
 
@@ -318,7 +460,7 @@ void setup() {
 // ==========================================
 void loop() {
   // -------------------------------------------------------------
-  // 1. PROCESS NEW PACKET WHEN RECEIVED
+  // 1. PROCESS INCOMING PACKET
   // -------------------------------------------------------------
   if (newPacketFlag) {
     newPacketFlag = false;
@@ -347,32 +489,35 @@ void loop() {
     Serial.printf("  -> Distance  : %s cm\n", lastDistCM.c_str());
     Serial.printf("  -> Battery   : %s V\n", lastBatV.c_str());
     Serial.printf("  -> Packet No : %s\n", lastPktNum.c_str());
-
-    uint32_t pktVal = lastPktNum.toInt();
-    if (pktVal == 1) {
-      Serial.println(F("  -> Schedule  : Warmup Pkt #1. Next expected in ~2 min (at 3-min mark)"));
-    } else if (pktVal == 2) {
-      Serial.println(F("  -> Schedule  : Warmup Pkt #2. Next expected in ~3 min (at 6-min mark)"));
-    } else if (pktVal == 3) {
-      Serial.println(F("  -> Schedule  : Warmup Pkt #3. Next expected in ~6 min (at 12-min mark)"));
-    } else {
-      Serial.printf("  -> Schedule  : Steady-state (Pkt #%s). Next expected in ~6 min\n", lastPktNum.c_str());
-    }
-
     Serial.printf("  -> Signal    : RSSI %d dBm | SNR %d dB\n", rssi, snr);
+
+    // CRITICAL: Immediately send targeted ACK (< 40ms) so sender sleeps
+    sendAddressedAck(lastPondID, lastPktNum);
+
+    // Check de-duplication cache
+    bool isDuplicate = checkAndRecordPkt(lastPondID.c_str(), (uint32_t)lastPktNum.toInt());
+
+    // Redraw screen with latest readings
+    updateDisplay();
+
+    if (isDuplicate) {
+      Serial.printf("  -> [DE-DUP] Duplicate Pkt #%s from Pond %s. Re-ACKed; skipped cloud upload.\n",
+                    lastPktNum.c_str(), lastPondID.c_str());
+    } else {
+      // If Wi-Fi is connected and spool is empty: try direct upload
+      if (WiFi.status() == WL_CONNECTED && !hasOfflineSpool()) {
+        bool uploaded = postToGoogleSheets(lastPondID, lastDistCM, lastBatV);
+        if (!uploaded) {
+          Serial.println(F("  -> [FALLBACK] Direct upload failed. Buffering to Flash spool."));
+          appendOfflineSpool(lastPondID, lastDistCM, lastBatV, lastPktNum);
+        }
+      } else {
+        // Wi-Fi is offline or spool already has backlog: buffer to Flash
+        appendOfflineSpool(lastPondID, lastDistCM, lastBatV, lastPktNum);
+      }
+      updateDisplay();
+    }
     Serial.println(F("--------------------------------------------------"));
-
-    // Redraw screen with latest readings (SPI safe, done outside ISR)
-    updateDisplay();
-
-    // Re-arm radio for the next packet
-    radio.startRx();
-
-    // Post to Google Sheets (synchronous, fully cleans up SSL sockets)
-    postToGoogleSheets(lastPondID, lastDistCM, lastBatV);
-
-    // Refresh screen to show [G:OK] or [G:ERR]
-    updateDisplay();
   }
 
   // -------------------------------------------------------------
@@ -385,32 +530,50 @@ void loop() {
   }
 
   // -------------------------------------------------------------
-  // 3. NON-BLOCKING WI-FI MONITOR (Every 20 seconds)
+  // 3. PERSISTENT SPOOL DRAINER (Runs every 5s if Wi-Fi connected and spool has records)
+  // -------------------------------------------------------------
+  if (WiFi.status() == WL_CONNECTED && hasOfflineSpool() && (millis() - lastSpoolDrain >= 5000)) {
+    lastSpoolDrain = millis();
+    drainOneSpoolRecord();
+    updateDisplay();
+  }
+
+  // -------------------------------------------------------------
+  // 4. NON-BLOCKING WI-FI MONITOR (Every 15s)
   // -------------------------------------------------------------
   if (millis() - lastWiFiCheck >= WIFI_RECONNECT_INTERVAL_MS) {
     lastWiFiCheck = millis();
     if (WiFi.status() != WL_CONNECTED) {
       Serial.println(F("[WIFI] Disconnected. Reconnecting in background..."));
       WiFi.reconnect();
+      updateDisplay();
     }
   }
 
   // -------------------------------------------------------------
-  // 4. PERIODIC SERIAL HEARTBEAT (Every 15 seconds)
+  // 5. HARDWARE RX WATCHDOG (Re-arm continuous RX every 30s)
+  // -------------------------------------------------------------
+  if (millis() - lastRxKeeper >= RX_KEEPER_INTERVAL_MS) {
+    lastRxKeeper = millis();
+    radio.startRx();
+  }
+
+  // -------------------------------------------------------------
+  // 6. PERIODIC SERIAL HEARTBEAT (Every 15s)
   // -------------------------------------------------------------
   if (millis() - lastStatusLog >= STATUS_LOG_INTERVAL_MS) {
     lastStatusLog = millis();
+    bool hasSpool = hasOfflineSpool();
     if (hasReceivedData) {
       unsigned long elapsedSec = (millis() - lastPacketMillis) / 1000;
-      unsigned long elapsedMin = elapsedSec / 60;
-      uint32_t pktVal = lastPktNum.toInt();
-      const char *nextExp = (pktVal == 1) ? "~2m" : (pktVal == 2) ? "~3m" : "~6m";
-      Serial.printf("[STATUS] Last Pkt #%s was %lu min %lu sec ago (Next in %s | Total: %lu | Heap: %lu B | WiFi: %s)\n",
-                    lastPktNum.c_str(), elapsedMin, elapsedSec % 60, nextExp, totalPacketsRecv,
+      Serial.printf("[STATUS] Last Pkt from Pond %s (%lu sec ago) | Total: %lu | Spool: %s | Heap: %lu B | WiFi: %s\n",
+                    lastPondID.c_str(), elapsedSec, totalPacketsRecv,
+                    hasSpool ? "PENDING" : "EMPTY",
                     (unsigned long)ESP.getFreeHeap(),
                     WiFi.status() == WL_CONNECTED ? "OK" : "Offline");
     } else {
-      Serial.printf("[STATUS] Waiting for LoRa packet... (Heap: %lu B | WiFi: %s)\n",
+      Serial.printf("[STATUS] Listening for barrel nodes... | Spool: %s | Heap: %lu B | WiFi: %s\n",
+                    hasSpool ? "PENDING" : "EMPTY",
                     (unsigned long)ESP.getFreeHeap(),
                     WiFi.status() == WL_CONNECTED ? "OK" : "Offline");
     }
