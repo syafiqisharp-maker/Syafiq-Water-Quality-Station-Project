@@ -338,6 +338,89 @@ class SvgSparklineService {
             </svg>
         `;
     }
+
+    /**
+     * Renders a 14-day discrete column/bar chart with 25kg increment gridlines (0, 25, 50, 75, 100, 125 kg)
+     */
+    static renderDiscrete14DayColumns(past14Days, colorHex = '#0284c7', width = 640, height = 150) {
+        if (!past14Days || !Array.isArray(past14Days) || past14Days.length === 0) {
+            return `<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.85rem;">No feeding data available</div>`;
+        }
+
+        const paddingLeft = 44;
+        const paddingRight = 16;
+        const paddingTop = 22;
+        const paddingBottom = 26;
+        const maxVal = 125; // Standard barrel capacity in 25kg increments
+        const usableWidth = width - paddingLeft - paddingRight;
+        const usableHeight = height - paddingTop - paddingBottom;
+
+        // 25kg Grid steps
+        const gridSteps = [25, 50, 75, 100, 125];
+        let gridSvg = `<line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#cbd5e1" stroke-width="1.2" />`;
+        gridSvg += `<text x="${paddingLeft - 8}" y="${height - paddingBottom + 3.5}" text-anchor="end" font-size="9.5" fill="#94a3b8" font-weight="600">0</text>`;
+
+        gridSteps.forEach(stepVal => {
+            const y = paddingTop + usableHeight - (stepVal / maxVal) * usableHeight;
+            gridSvg += `
+                <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="#f1f5f9" stroke-dasharray="3 3" stroke-width="1" />
+                <text x="${paddingLeft - 8}" y="${y + 3.5}" text-anchor="end" font-size="9.5" fill="#94a3b8" font-weight="600">${stepVal}</text>
+            `;
+        });
+
+        // 14 Columns
+        const count = past14Days.length;
+        const slotWidth = usableWidth / count;
+        const barWidth = Math.min(24, slotWidth * 0.65);
+
+        let barsSvg = '';
+        let xLabelsSvg = '';
+
+        past14Days.forEach((item, idx) => {
+            const val = Math.max(0, Math.min(maxVal, item.consumed || 0));
+            const centerX = paddingLeft + (idx + 0.5) * slotWidth;
+            const barX = centerX - (barWidth / 2);
+            const barH = (val / maxVal) * usableHeight;
+            const barY = paddingTop + usableHeight - barH;
+
+            const isToday = !!item.isToday;
+            const hasFeed = val > 0;
+            const barColor = isToday ? '#0284c7' : (hasFeed ? '#38bdf8' : '#e2e8f0');
+
+            if (hasFeed) {
+                barsSvg += `
+                    <rect x="${barX.toFixed(1)}" y="${barY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barH.toFixed(1)}" rx="3" fill="${barColor}">
+                        <title>${item.displayDate}: ${val} kg (${val / 25} bags)</title>
+                    </rect>
+                    <text x="${centerX.toFixed(1)}" y="${Math.max(12, barY - 5).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="800" fill="${isToday ? '#0369a1' : '#0284c7'}">${val}</text>
+                `;
+            } else {
+                barsSvg += `
+                    <rect x="${barX.toFixed(1)}" y="${(height - paddingBottom - 3).toFixed(1)}" width="${barWidth.toFixed(1)}" height="3" rx="1.5" fill="#e2e8f0">
+                        <title>${item.displayDate}: 0 kg</title>
+                    </rect>
+                `;
+            }
+
+            // X-axis label
+            const labelColor = isToday ? '#0284c7' : '#64748b';
+            const labelWeight = isToday ? '800' : '600';
+            const dayPart = item.displayDate ? item.displayDate.split(' ')[0] : (idx + 1);
+            xLabelsSvg += `
+                <text x="${centerX.toFixed(1)}" y="${height - 7}" text-anchor="middle" font-size="9" font-weight="${labelWeight}" fill="${labelColor}">
+                    ${dayPart}
+                </text>
+            `;
+        });
+
+        return `
+            <svg class="feed-discrete-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="14-Day Daily Feed Consumption Chart">
+                ${gridSvg}
+                ${barsSvg}
+                ${xLabelsSvg}
+            </svg>
+        `;
+    }
 }
 
 
@@ -851,6 +934,92 @@ class FeedingActionRenderer {
                 </div>
                 <div class="why-list">
                     ${reasonItemsHtml}
+                </div>
+            </div>
+        `;
+    }
+}
+
+/**
+ * 4.35 Feeding Activity Renderer (Feed Barrel Sonar Telemetry)
+ */
+class FeedingActivityRenderer {
+    static render(feedingActivity, pondDetails) {
+        const container = document.getElementById('feeding-activity-container');
+        if (!container) return;
+
+        const pondIdBadge = document.getElementById('feed-pond-id');
+        const targetPond = (pondDetails && pondDetails.pondId) || (feedingActivity && feedingActivity.pondId) || '01.02.12';
+        if (pondIdBadge) {
+            pondIdBadge.textContent = targetPond;
+        }
+
+        const fa = feedingActivity || {};
+        const remainingKg = (fa.currentRemainingKg !== undefined && fa.currentRemainingKg !== null)
+            ? Number(fa.currentRemainingKg)
+            : 0;
+
+        const todayConsumedKg = (fa.todayTotalConsumedKg !== undefined && fa.todayTotalConsumedKg !== null)
+            ? Number(fa.todayTotalConsumedKg)
+            : 0;
+
+        const currentRate = (fa.currentFeedRate !== undefined && fa.currentFeedRate !== null)
+            ? Number(fa.currentFeedRate)
+            : 0;
+
+        const past14Days = Array.isArray(fa.past14Days) && fa.past14Days.length === 14
+            ? fa.past14Days
+            : [];
+
+        const chartSvg = SvgSparklineService.renderDiscrete14DayColumns(past14Days);
+
+        container.innerHTML = `
+            <!-- 3 Primary KPIs -->
+            <div class="feed-kpis-grid">
+                <!-- 1. Current Remaining Feed -->
+                <div class="feed-kpi-card">
+                    <div class="feed-kpi-header">
+                        <span class="feed-kpi-label">Remaining Feed</span>
+                    </div>
+                    <div class="feed-kpi-main">
+                        <span class="feed-kpi-value">${Formatters.number(remainingKg, 1)}</span>
+                        <span class="feed-kpi-unit">kg</span>
+                    </div>
+                </div>
+
+                <!-- 2. Today's Total Feed Consumed -->
+                <div class="feed-kpi-card">
+                    <div class="feed-kpi-header">
+                        <span class="feed-kpi-label">Today's Feed Consumed</span>
+                    </div>
+                    <div class="feed-kpi-main">
+                        <span class="feed-kpi-value">${Formatters.number(todayConsumedKg, 0)}</span>
+                        <span class="feed-kpi-unit">kg</span>
+                    </div>
+                </div>
+
+                <!-- 3. Current Feed Rate -->
+                <div class="feed-kpi-card">
+                    <div class="feed-kpi-header">
+                        <span class="feed-kpi-label">Current Feed Rate</span>
+                    </div>
+                    <div class="feed-kpi-main">
+                        <span class="feed-kpi-value">${Formatters.number(currentRate, 1)}</span>
+                        <span class="feed-kpi-unit">kg/h</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 14-Day Discrete Column Bar Chart -->
+            <div class="feed-chart-card">
+                <div class="feed-chart-header">
+                    <div class="feed-chart-title">
+                        <span>📊 14-Day Daily Feed Consumption</span>
+                    </div>
+                    <span class="feed-chart-badge">25 kg Increments (Bags)</span>
+                </div>
+                <div class="feed-svg-container">
+                    ${chartSvg}
                 </div>
             </div>
         `;
@@ -1809,6 +1978,14 @@ class DataService {
 
             const result = await response.json();
             if (result.status === 'success' && result.data) {
+                // If backend does not yet include feedingActivity, fetch from live public Google Sheet gviz
+                if (!result.data.feedingActivity) {
+                    try {
+                        result.data.feedingActivity = await DataService.fetchFeedingGviz('01.02.12');
+                    } catch (e) {
+                        result.data.feedingActivity = DataService.getMockData().feedingActivity;
+                    }
+                }
                 DataService.lastFetchTimestamp = Date.now();
                 DataService.setLocalCache(result.data);
                 return { status: 'success', data: result.data };
@@ -1821,10 +1998,109 @@ class DataService {
             if (cached) {
                 return { status: 'cached_fallback', data: cached.data };
             }
-            return { status: 'mock_fallback', data: DataService.getMockData() };
+            // Try live sheet fetch before mock
+            try {
+                const mock = DataService.getMockData();
+                mock.feedingActivity = await DataService.fetchFeedingGviz('01.02.12');
+                return { status: 'mock_live_feed', data: mock };
+            } catch (e) {
+                return { status: 'mock_fallback', data: DataService.getMockData() };
+            }
         } finally {
             DataService.isFetching = false;
         }
+    }
+
+    /**
+     * Directly queries Feed Barrel public Google Sheet gviz CSV endpoint
+     */
+    static async fetchFeedingGviz(targetPondId = '01.02.12') {
+        const url = 'https://docs.google.com/spreadsheets/d/19lHzaW6WengVOE1N-zNk-trIGwLduU7rDfaZGGLwSuM/gviz/tq?tqx=out:csv&sheet=RawData&t=' + Date.now();
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Sheet gviz error ' + res.status);
+        const text = await res.text();
+        const lines = text.trim().split('\n');
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const past14Days = [];
+        const toDateKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+        for (let i = 13; i >= 0; i--) {
+            const d = new Date(today.getTime() - i * 86400000);
+            past14Days.push({
+                dateKey: toDateKey(d),
+                displayDate: `${d.getDate()} ${monthNames[d.getMonth()]}`,
+                consumed: 0,
+                isToday: (i === 0)
+            });
+        }
+
+        const rowsForPond = [];
+        const pondLower = String(targetPondId || '').trim().toLowerCase();
+
+        for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(',').map(s => s.replace(/^"|"$/g, '').trim());
+            if (parts.length < 5) continue;
+            if (String(parts[1] || '').trim().toLowerCase() !== pondLower) continue;
+
+            const tsStr = (parts[0] || '').replace(' ', 'T');
+            const withTz = (tsStr.indexOf('+') === -1 && tsStr.indexOf('Z') === -1) ? tsStr + '+08:00' : tsStr;
+            const rowDate = new Date(withTz);
+            if (isNaN(rowDate.getTime())) continue;
+
+            rowsForPond.push({
+                date: rowDate,
+                dateKey: toDateKey(rowDate),
+                weight: parseFloat(parts[4]) || 0,
+                consumed: parseFloat(parts[5]) || 0,
+                rate: parseFloat(parts[6]) || 0,
+                eventType: String(parts[7] || '').trim().toUpperCase()
+            });
+        }
+
+        if (rowsForPond.length === 0) {
+            return DataService.getMockData().feedingActivity;
+        }
+
+        rowsForPond.sort((a, b) => a.date.getTime() - b.date.getTime());
+        const latest = rowsForPond[rowsForPond.length - 1];
+
+        const dayRefillMap = {};
+        past14Days.forEach(d => { dayRefillMap[d.dateKey] = 0; });
+
+        let prevWeight = 0;
+        for (let i = 0; i < rowsForPond.length; i++) {
+            const r = rowsForPond[i];
+            const weightDelta = r.weight - prevWeight;
+
+            if (r.eventType === 'REFILL' || weightDelta >= 20.0) {
+                const rawRefillAmount = (weightDelta > 0) ? weightDelta : r.weight;
+                const quantizedRefill = Math.round(rawRefillAmount / 25.0) * 25;
+                if (dayRefillMap[r.dateKey] !== undefined) {
+                    dayRefillMap[r.dateKey] += quantizedRefill;
+                }
+            }
+            prevWeight = r.weight;
+        }
+
+        past14Days.forEach(dayItem => {
+            dayItem.consumed = dayRefillMap[dayItem.dateKey] || 0;
+        });
+
+        const todayKey = toDateKey(today);
+        return {
+            pondId: targetPondId,
+            currentRemainingKg: Math.min(125, Math.max(0, Math.round(latest.weight * 100) / 100)),
+            percentRemaining: Math.min(100, Math.max(0, Math.round((Math.min(125, Math.max(0, latest.weight)) / 125.0) * 100))),
+            currentFeedRate: Math.max(0, Math.round(latest.rate * 100) / 100),
+            todayTotalConsumedKg: dayRefillMap[todayKey] || 0,
+            lastTimestamp: latest.date.toISOString(),
+            sparkline14d: past14Days.map(d => d.consumed),
+            past14Days: past14Days,
+            formulaSheets: `=SPARKLINE(MAP(SEQUENCE(14,1,TODAY()-13,1), LAMBDA(d, IFERROR(ROUND(SUMIFS(RawData!E:E, RawData!B:B, "${targetPondId}", RawData!H:H, "REFILL", INDEX(INT(RawData!A:A)), d)/25)*25, 0))), {"charttype","column";"color","#0284c7"})`
+        };
     }
 
     /**
@@ -1844,6 +2120,32 @@ class DataService {
                 sr: 87.5,
                 biomass: 4500,
                 sampleFCR: 1.22
+            },
+            feedingActivity: {
+                pondId: '01.02.12',
+                currentRemainingKg: 1.28,
+                percentRemaining: 1.0,
+                currentFeedRate: 25.66,
+                todayTotalConsumedKg: 100,
+                lastTimestamp: new Date().toISOString(),
+                sparkline14d: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 100],
+                past14Days: [
+                    { dateKey: '2026-08-28', displayDate: '28 Aug', consumed: 0, isToday: false },
+                    { dateKey: '2026-08-29', displayDate: '29 Aug', consumed: 0, isToday: false },
+                    { dateKey: '2026-08-30', displayDate: '30 Aug', consumed: 0, isToday: false },
+                    { dateKey: '2026-08-31', displayDate: '31 Aug', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-01', displayDate: '1 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-02', displayDate: '2 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-03', displayDate: '3 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-04', displayDate: '4 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-05', displayDate: '5 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-06', displayDate: '6 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-07', displayDate: '7 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-08', displayDate: '8 Sep', consumed: 0, isToday: false },
+                    { dateKey: '2026-09-09', displayDate: '9 Sep', consumed: 100, isToday: false },
+                    { dateKey: '2026-09-10', displayDate: '10 Sep', consumed: 100, isToday: true }
+                ],
+                formulaSheets: `=SPARKLINE(MAP(SEQUENCE(14,1,TODAY()-13,1), LAMBDA(d, IFERROR(ROUND(SUMIFS(RawData!E:E, RawData!B:B, "01.02.12", RawData!H:H, "REFILL", INDEX(INT(RawData!A:A)), d)/25)*25, 0))), {"charttype","column";"color","#0284c7"})`
             },
             raw: {
                 timestamp: new Date().toISOString(),
@@ -2065,6 +2367,7 @@ class AppController {
         // Batch component rendering
         PondDetailsRenderer.render(data.pondDetails);
         FeedingActionRenderer.render(analysis, data.raw, data.weeklyMetrics);
+        FeedingActivityRenderer.render(data.feedingActivity, data.pondDetails);
         DailyWqRenderer.render(analysis, data.raw);
         WeatherRenderer.render(analysis, data.raw);
         RecentReadingsRenderer.render(data.raw, analysis);

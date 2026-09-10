@@ -1,17 +1,19 @@
 /**
  * ============================================================================
- * Feed Barrel LoRa Telemetry - Google Apps Script Webhook (Enhanced v2.1)
+ * Feed Barrel LoRa Telemetry - Google Apps Script Webhook (Enhanced v2.2)
  * ============================================================================
  * 
  * Target Google Sheet:
- * https://docs.google.com/spreadsheets/d/19lHzaW6WengVOE1N-zNk-trIGwLduU7rDfaZGGLwSuM/edit?gid=0#gid=0
+ * https://docs.google.com/spreadsheets/d/19lHzaW6WengVOE1N-zNk-trIGwLduU7rDfaZGGLwSuM/edit?gid=1939861399#gid=1939861399
  * 
- * Target Tab: "RawData"
+ * Target Tab: "RawData" (GID: 1939861399 fallback)
  * 
  * Features:
  *  - Supports both single record and batch array uploads ([ {...}, {...} ])
- *  - Respects true capture timestamp from ESP32 RTC/NTP for offline backlogs
- *  - Prevents time-distortion in rolling rate and refill window checks
+ *  - Timezone-safe Date parsing (+08:00 explicit) to prevent GAS server timezone shifts
+ *  - Direct local hour extraction for rock-solid 06:00 - 19:00 refill window evaluation
+ *  - Strict nighttime bounce protection (rejects any upward shifts outside 06:00 - 19:00)
+ *  - Automatic fallback to sheet tab GID 1939861399
  *  - Atomic write lock handling up to 30s
  *  - 100% backward compatible with existing single-object format
  * ============================================================================
@@ -29,7 +31,9 @@ function doPost(e) {
 
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("RawData") || ss.getActiveSheet();
+    var sheet = ss.getSheetByName("RawData") || 
+                ss.getSheets().find(function(s) { return s.getSheetId() === 1939861399; }) || 
+                ss.getActiveSheet();
     var payload;
 
     if (e.postData && e.postData.contents) {
@@ -114,14 +118,18 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
     return { status: "error", message: "Invalid distance reading: " + data.distance };
   }
 
-  // Determine true record date
+  // Determine true record date with explicit GMT+8 offset
   var recordDate = fallbackNow;
   var timestampStr = "";
 
   if (data.timestamp && String(data.timestamp).trim().length >= 10 && String(data.timestamp).indexOf("N/A") === -1) {
     timestampStr = String(data.timestamp).trim();
-    // Parse "YYYY-MM-DD HH:MM:SS" or ISO
-    var parsed = new Date(timestampStr.replace(/-/g, "/"));
+    // Parse "YYYY-MM-DD HH:MM:SS" with explicit GMT+8 offset (+08:00) to prevent GAS server timezone shifts
+    var isoStr = timestampStr.replace(" ", "T");
+    if (isoStr.indexOf("+") === -1 && isoStr.indexOf("Z") === -1) {
+      isoStr += "+08:00";
+    }
+    var parsed = new Date(isoStr);
     if (!isNaN(parsed.getTime())) {
       recordDate = parsed;
     }
@@ -132,7 +140,7 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
   var pondId = String(data.pondId || data.pond_id || data.id || "01.02.12").trim();
   var battery = (data.battery !== undefined && data.battery !== null) ? parseFloat(data.battery) : "---";
 
-  // Hardware Calibration & Clamping
+  // Hardware Calibration & Clamping (69cm empty, 30cm full = 125kg)
   var isFullZone = (rawDistance <= 30.0);
   var currentWeight;
 
@@ -144,9 +152,14 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
     currentWeight = Math.round((69.0 - rawDistance) * (125.0 / 39.0) * 100) / 100;
   }
 
-  // Refill Window Check based on recordDate (06:00 to 19:00 local time)
-  var hourStr = Utilities.formatDate(recordDate, timeZone, "HH");
-  var recordHour = parseInt(hourStr, 10);
+  // Refill Window Check based on local time (06:00 to 19:00 Malaysia time)
+  // Extract hour directly from local timestamp string to eliminate any server timezone round-trip skew
+  var recordHour;
+  if (timestampStr.length >= 13 && (timestampStr.charAt(10) === ' ' || timestampStr.charAt(10) === 'T')) {
+    recordHour = parseInt(timestampStr.substring(11, 13), 10);
+  } else {
+    recordHour = parseInt(Utilities.formatDate(recordDate, timeZone, "HH"), 10);
+  }
   var isRefillWindow = (recordHour >= 6 && recordHour < 19);
 
   // Retrieve Previous Entries for this Pond ID (up to last 100 rows scan)
@@ -161,7 +174,16 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
     for (var i = rangeValues.length - 1; i >= 0; i--) {
       var rowPondId = String(rangeValues[i][1]).trim();
       if (rowPondId.toLowerCase() === pondId.toLowerCase()) {
-        var rowDate = rangeValues[i][0] instanceof Date ? rangeValues[i][0] : new Date(String(rangeValues[i][0]).replace(/-/g, "/"));
+        var cellVal = rangeValues[i][0];
+        var rowDate;
+        if (cellVal instanceof Date) {
+          rowDate = cellVal;
+        } else {
+          var cellStr = String(cellVal).trim().replace(" ", "T");
+          if (cellStr.indexOf("+") === -1 && cellStr.indexOf("Z") === -1) cellStr += "+08:00";
+          rowDate = new Date(cellStr);
+        }
+
         historyForPond.unshift({
           timestamp: rowDate,
           weight: parseFloat(rangeValues[i][4]) || 0.0,
@@ -188,12 +210,15 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
     var weightDrop = prevEntry.weight - currentWeight;         // Positive = weight dropped
 
     // Outlier Filter (Sonic Bounce Gate)
-    if (!isFullZone && weightDelta > 0) {
-      var isOutlier = (weightDelta < 25.0) || (!isRefillWindow);
+    // 1. Outside refill window (19:00 - 06:00): Any upward weight jump is rejected
+    //    (nobody refills at night, preventing false full-zone readings from ultrasonic echoes)
+    // 2. During refill window (06:00 - 19:00): Rejects upward jumps < 25 kg unless entering full zone
+    if (weightDelta > 0) {
+      var isOutlier = (!isRefillWindow) || (!isFullZone && weightDelta < 25.0);
       if (isOutlier) {
         return {
           status: "outlier_rejected",
-          message: "Sonic bounce or refill outside window rejected (Delta: " + weightDelta + " kg)"
+          message: "Sonic bounce or refill outside window rejected (Delta: " + weightDelta + " kg, RefillWindow: " + isRefillWindow + ")"
         };
       }
     }
@@ -265,7 +290,7 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
 
 function doGet(e) {
   return ContentService.createTextOutput(
-    "Feed Barrel Google Sheets Webhook is active and listening for POST requests (v2.1 Batch-Ready).\n" +
+    "Feed Barrel Google Sheets Webhook is active and listening for POST requests (v2.2 Production).\n" +
     "Timestamp: " + Utilities.formatDate(new Date(), "Asia/Kuala_Lumpur", "yyyy-MM-dd HH:mm:ss")
   );
 }

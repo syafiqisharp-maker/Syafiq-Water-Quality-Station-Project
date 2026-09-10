@@ -15,6 +15,7 @@ class AppConfig {
   static get POND_OPERATIONAL_SHEET_ID() { return '1pUrjGBmOmDHjZdzYUz6kfV5aBxAi1zABBjF0rLWeHkQ'; }
   static get WQS_SHEET_ID() { return '1zVXbhakvH8kFIcV_YL-YS89dsAF0eDNE-eeTxV-IWuY'; }
   static get WEATHER_SHEET_ID() { return '1xhWN6yg5u229HS-LbCDL2qVKs2b2v16XxGlklKR63BQ'; }
+  static get FEED_BARREL_SHEET_ID() { return '19lHzaW6WengVOE1N-zNk-trIGwLduU7rDfaZGGLwSuM'; }
   static get CACHE_DURATION_SECONDS() { return 180; } // 3 minutes cache for sub-second responses
   static get DEFAULT_HISTORY_DAYS() { return 120; }
 }
@@ -914,6 +915,146 @@ class WaterQualityProcessor {
 
 
 // =========================================================================
+// 5.5. FEED BARREL PROCESSOR
+// =========================================================================
+
+/**
+ * Processes automated feed barrel sonar telemetry:
+ * - Current Remaining Feed (kg) (0 to 125 kg capacity)
+ * - Today's Total Feed Consumed (kg) based on daily sum of 25kg quantized refills
+ * - Current Feed Rate (kg/h)
+ * - 14-Day Discrete Daily Consumption (in discrete 25kg increments)
+ */
+class FeedBarrelProcessor {
+  /**
+   * Processes feed barrel telemetry data for target pond
+   * @param {string} targetPondId - e.g. '01.02.12'
+   * @param {Date} today - Today's date object at 00:00:00
+   * @returns {Object} Feeding activity payload
+   */
+  static process(targetPondId, today) {
+    const result = {
+      pondId: targetPondId,
+      currentRemainingKg: 0,
+      percentRemaining: 0,
+      currentFeedRate: 0,
+      todayTotalConsumedKg: 0,
+      lastTimestamp: null,
+      sparkline14d: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+      past14Days: [],
+      formulaSheets: `=SPARKLINE(MAP(SEQUENCE(14,1,TODAY()-13,1), LAMBDA(d, IFERROR(ROUND(SUMIFS(RawData!E:E, RawData!B:B, "${targetPondId}", RawData!H:H, "REFILL", INDEX(INT(RawData!A:A)), d)/25)*25, 0))), {"charttype","column";"color","#0284c7"})`,
+      rawFound: false
+    };
+
+    // Pre-populate past 14 days
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today.getTime() - i * 86400000);
+      const key = DateUtils.toDateKey(d);
+      result.past14Days.push({
+        dateKey: key,
+        displayDate: `${d.getDate()} ${monthNames[d.getMonth()]}`,
+        consumed: 0,
+        isToday: (i === 0)
+      });
+    }
+
+    try {
+      const feedSs = SpreadsheetApp.openById(AppConfig.FEED_BARREL_SHEET_ID);
+      const sheet = feedSs.getSheetByName("RawData") ||
+                    feedSs.getSheets().find(s => s.getSheetId() === 1939861399) ||
+                    feedSs.getSheets()[0];
+      const data = sheet.getDataRange().getValues();
+
+      if (!data || data.length < 2) {
+        return result;
+      }
+
+      result.rawFound = true;
+      const targetPondLower = String(targetPondId || '').trim().toLowerCase();
+      const rowsForPond = [];
+
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        const rowPond = String(row[1] || '').trim().toLowerCase();
+        if (rowPond !== targetPondLower) continue;
+
+        let rowDate = null;
+        if (row[0] instanceof Date) {
+          rowDate = row[0];
+        } else if (row[0]) {
+          const str = String(row[0]).trim().replace(' ', 'T');
+          const withTz = (str.indexOf('+') === -1 && str.indexOf('Z') === -1) ? str + '+08:00' : str;
+          const parsed = new Date(withTz);
+          if (!isNaN(parsed.getTime())) rowDate = parsed;
+        }
+
+        if (!rowDate) continue;
+
+        rowsForPond.push({
+          date: rowDate,
+          dateKey: DateUtils.toDateKey(rowDate),
+          weight: SensorUtils.parseFloatSafe(row[4], 0),
+          consumed: SensorUtils.parseFloatSafe(row[5], 0),
+          rate: SensorUtils.parseFloatSafe(row[6], 0),
+          eventType: String(row[7] || '').trim().toUpperCase()
+        });
+      }
+
+      if (rowsForPond.length === 0) {
+        return result;
+      }
+
+      // Sort chronologically
+      rowsForPond.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+      // 1. Latest telemetry row
+      const latest = rowsForPond[rowsForPond.length - 1];
+      result.currentRemainingKg = Math.min(125, Math.max(0, Math.round(latest.weight * 100) / 100));
+      result.percentRemaining = Math.min(100, Math.max(0, Math.round((result.currentRemainingKg / 125.0) * 100)));
+      result.currentFeedRate = Math.max(0, Math.round(latest.rate * 100) / 100);
+      result.lastTimestamp = latest.date.toISOString();
+
+      // 2. Refill detection & 25kg quantization across history
+      const dayRefillMap = {};
+      result.past14Days.forEach(d => { dayRefillMap[d.dateKey] = 0; });
+
+      let prevWeight = 0;
+      for (let i = 0; i < rowsForPond.length; i++) {
+        const r = rowsForPond[i];
+        const weightDelta = r.weight - prevWeight;
+
+        if (r.eventType === 'REFILL' || weightDelta >= 20.0) {
+          const rawRefillAmount = (weightDelta > 0) ? weightDelta : r.weight;
+          // Quantize to nearest 25 kg increment (e.g. 108.44 kg -> 100 kg)
+          const quantizedRefill = Math.round(rawRefillAmount / 25.0) * 25;
+          if (dayRefillMap[r.dateKey] !== undefined) {
+            dayRefillMap[r.dateKey] += quantizedRefill;
+          }
+        }
+        prevWeight = r.weight;
+      }
+
+      // 3. Map into 14-day history and sparkline array
+      result.past14Days.forEach(dayItem => {
+        dayItem.consumed = dayRefillMap[dayItem.dateKey] || 0;
+      });
+      result.sparkline14d = result.past14Days.map(d => d.consumed);
+
+      // Today's total consumed is sum of quantized refills today
+      const todayKey = DateUtils.toDateKey(today);
+      result.todayTotalConsumedKg = dayRefillMap[todayKey] || 0;
+
+      return result;
+    } catch (err) {
+      console.warn("FeedBarrelProcessor error:", err);
+      return result;
+    }
+  }
+}
+
+
+// =========================================================================
 // 6. ALERT & ADVISORY ENGINE
 // =========================================================================
 
@@ -1284,7 +1425,10 @@ class AppController {
         today
       );
 
-      // 7. Construct Final Response Payload
+      // 7. Process Feed Barrel Sonar Telemetry
+      const feedingActivity = FeedBarrelProcessor.process(targetPond, today);
+
+      // 8. Construct Final Response Payload
       const payload = {
         status: "success",
         data: {
@@ -1315,6 +1459,7 @@ class AppController {
           },
           weeklyMetrics: wqsResult.weeklyMetrics,
           analysis: analysis,
+          feedingActivity: feedingActivity,
           config: AlertConfig.toClientConfig(),
           history: {
             totalAbnormalDays: abnormalities.length,
