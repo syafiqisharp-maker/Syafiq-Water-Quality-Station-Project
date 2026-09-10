@@ -19,9 +19,9 @@
  *  - Column H: EventType (FEEDING | IDLE | REFILL | FULL_SATURATED)
  * 
  * Calibration & Logic Specs:
- *  - Empty barrel: 70.0 cm = 0.0 kg
+ *  - Empty barrel: 69.0 cm = 0.0 kg
  *  - Full barrel: <= 30.0 cm = 125.0 kg (Mound Filter)
- *  - Conversion factor: Weight (kg) = (70.0 - distance_cm) * 3.125
+ *  - Conversion factor: Weight (kg) = (69.0 - distance_cm) * (125.0 / (69.0 - 30.0)) = (69.0 - distance_cm) * 3.205128
  *  - Sonic Bounce Gate (Outlier): Discard if weight increases < 25 kg or outside 06:00-19:00
  *  - Refill: Weight increase >= 25 kg strictly between 06:00 and 19:00 (covers morning 50-125kg & afternoon refills)
  *  - 3-Point Rolling Hourly Rate: (Weight_N-2 - Weight_N) / (Time_N - Time_N-2 in hours)
@@ -75,10 +75,10 @@ function doPost(e) {
 
     if (isFullZone) {
       currentWeight = 125.0; // Upper Mound Filter clamp
-    } else if (rawDistance >= 70.0) {
+    } else if (rawDistance >= 69.0) {
       currentWeight = 0.0;   // Empty barrel clamp
     } else {
-      currentWeight = Math.round((70.0 - rawDistance) * 3.125 * 100) / 100;
+      currentWeight = Math.round((69.0 - rawDistance) * (125.0 / 39.0) * 100) / 100;
     }
 
     // 3. Check Asia/Kuala_Lumpur Refill Window (Daytime Operating Hours: 06:00 to 19:00)

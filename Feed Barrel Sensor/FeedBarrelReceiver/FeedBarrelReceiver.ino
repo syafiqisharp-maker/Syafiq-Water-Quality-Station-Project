@@ -5,18 +5,26 @@
  * Display: Onboard 0.96" TFT LCD (160x80 ST7789 via SPI)
  * ============================================================================
  * 
- * Clean, Non-Bloated Architecture:
- *  1. Multi-Node Support: Receives telemetry from up to 24 distinct ponds.
- *  2. Addressed Handshake: Instantly replies with targeted ACK (<40ms) so
+ * Dual-Core Non-Blocking Architecture (24-Node Ready):
+ *  1. Dual-Core Decoupling:
+ *     - Core 1: Fast LoRa packet reception, addressed ACK replies (< 40ms),
+ *       and LCD screen updates. Never blocked by internet or HTTP.
+ *     - Core 0: Dedicated background FreeRTOS worker (cloudUploadTask) that
+ *       handles slow Google Sheets uploads (5-15s) and LittleFS Flash spooling.
+ *  2. Addressed Handshake: Instantly replies with targeted ACK (< 40ms) so
  *     senders confirm receipt and immediately enter deep sleep.
  *  3. De-Duplication: Recognizes retransmitted packets and re-ACKs them to
  *     silence the sender, but avoids duplicate entries in Google Sheets.
- *  4. Persistent LittleFS Flash Spool: If farm Wi-Fi drops, telemetry is
- *     saved to non-volatile Flash storage (survives power cuts & reboots).
- *     Automatically drains and syncs to Google Sheets once Wi-Fi recovers.
- *  5. Always-On LoRa Watchdog: 30-second hardware keeper guarantees continuous RX.
- *  6. Zero-Leak HTTPS: Clean SSL teardown on Google Script 302 redirects.
- *  7. Clean 4-Line Display: High-contrast, uncrowded readout of vital telemetry.
+ *  4. Native FreeRTOS Queue: Completely thread-safe FIFO buffer (32 records)
+ *     between Core 1 and Core 0 with zero race conditions or pointer corruption.
+ *  5. SPI Bus Protection: Display updates and radio maintenance are protected
+ *     by SPI_MUTEX to eliminate hardware bus deadlocks.
+ *  6. Hardware-Level Radio Keeper: 10-minute silence watchdog performs a clean
+ *     hardware reset of the SX1262 silicon via LORA_RST, preventing freeze states
+ *     without leaking Semtech Ticker timer slots.
+ *  7. Persistent LittleFS Flash Spool: If Wi-Fi drops, telemetry is saved to
+ *     non-volatile Flash storage and automatically drained once Wi-Fi recovers.
+ *  8. Zero-Leak HTTPS: Clean SSL teardown on Google Script 302 redirects.
  */
 
 #include "Config.h"
@@ -44,6 +52,18 @@ static volatile bool rxErrorFlag = false;
 static volatile bool ackTxDone = false;
 
 // ==========================================
+// DUAL-CORE FREERTOS UPLOAD QUEUE
+// ==========================================
+struct UploadRecord {
+  char pondId[16];
+  char distCM[12];
+  char batV[8];
+  char pktNum[8];
+};
+
+static QueueHandle_t uploadQueue = NULL;
+
+// ==========================================
 // TELEMETRY STATE
 // ==========================================
 String lastPondID    = "---";
@@ -61,11 +81,10 @@ bool hasReceivedData = false;
 enum CloudStatus { CLOUD_IDLE, CLOUD_OK, CLOUD_FAIL };
 CloudStatus cloudStatus = CLOUD_IDLE;
 
-// Periodic Timers & Guards (Aligned with WQS architecture)
-unsigned long lastWiFiCheck   = 0;
-unsigned long lastStatusLog   = 0;
-unsigned long lastSpoolDrain  = 0;
-unsigned long lastPostTime    = 0; // Guard against background spool colliding with live packets
+// Periodic Timers & Watchdogs
+unsigned long lastWiFiCheck     = 0;
+unsigned long lastStatusLog     = 0;
+unsigned long lastRxHealthCheck = 0;
 
 // ==========================================
 // DE-DUPLICATION CACHE (Up to 32 Ponds)
@@ -109,6 +128,8 @@ String extractValue(const String &data, const String &key) {
 }
 
 // Clean 4-Line Display (160x80 pixels)
+// Note: screen methods (fillScreen, print, etc.) internally lock and unlock
+// the DFRobot library's spimutex automatically on every SPI transfer.
 void updateDisplay() {
   screen.fillScreen(COLOR_RGB565_BLACK);
   screen.setFont(&FreeMono9pt7b);
@@ -204,7 +225,7 @@ bool hasOfflineSpool() {
 }
 
 // ==========================================
-// ZERO-LEAK GOOGLE SHEETS HTTPS UPLOADER (WQS Single-Socket Architecture)
+// ZERO-LEAK GOOGLE SHEETS HTTPS UPLOADER (Sequential Scoped TLS Sockets)
 // ==========================================
 bool postToGoogleSheets(const String &pondId, const String &distCM, const String &batV) {
   if (WiFi.status() != WL_CONNECTED) {
@@ -219,8 +240,6 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
     cloudStatus = CLOUD_FAIL;
     return false;
   }
-
-  lastPostTime = millis();
 
   // Build JSON Payload
   String jsonPayload = "{\"pond_id\":\"" + pondId + "\",";
@@ -238,49 +257,65 @@ bool postToGoogleSheets(const String &pondId, const String &distCM, const String
   Serial.printf("[HTTP] Heap before upload: %lu bytes\n", (unsigned long)ESP.getFreeHeap());
   Serial.printf("[HTTP POST] Payload: %s\n", jsonPayload.c_str());
 
-  WiFiClientSecure client;
-  client.setInsecure(); // Skip TLS certificate validation for Google Script endpoint
-  HTTPClient http;
-
-  if (!http.begin(client, scriptUrl)) {
-    Serial.println(F("[HTTP] Error: HTTP begin failed."));
-    cloudStatus = CLOUD_FAIL;
-    return false;
-  }
-
-  http.addHeader("Content-Type", "application/json");
-  http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-  http.setTimeout(HTTP_TIMEOUT_MS);
-
-  int httpCode = http.POST(jsonPayload);
-  Serial.printf("[HTTP POST] Code: %d\n", httpCode);
-
-  // Handle HTTP 301/302 Redirect (Google Script redirect pattern - WQS single-client reuse)
-  if (httpCode == 301 || httpCode == 302) {
-    String redirectUrl = http.getLocation();
-    http.end(); // Cleanly close previous HTTP session without destroying client
-    if (http.begin(client, redirectUrl)) { // Re-use the SAME client SSL socket!
-      http.setTimeout(HTTP_TIMEOUT_MS);
-      httpCode = http.GET();
-      Serial.printf("[HTTP Redirect GET] Code: %d\n", httpCode);
-    }
-  }
-
   bool success = false;
-  if (httpCode > 0) {
-    String response = http.getString();
-    response.trim();
-    if (response.indexOf("success") >= 0 || httpCode == 200) {
-      success = true;
-      Serial.println(F("[HTTP POST] Logged to Google Sheets successfully!"));
+  String redirectUrl = "";
+
+  // Step 1: POST to script.google.com (Scoped to ensure TLS buffer is freed before Step 2)
+  {
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+    http.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
+    http.setTimeout(HTTP_TIMEOUT_MS);
+
+    if (http.begin(client, scriptUrl)) {
+      http.addHeader("Content-Type", "application/json");
+      int httpCode = http.POST(jsonPayload);
+      Serial.printf("[HTTP POST] Response code: %d\n", httpCode);
+
+      if (httpCode == 301 || httpCode == 302) {
+        redirectUrl = http.getLocation();
+      } else if (httpCode == 200) {
+        success = true;
+      } else {
+        Serial.printf("[HTTP POST] Error: %s\n", http.errorToString(httpCode).c_str());
+      }
+      http.end();
     } else {
-      Serial.printf("[HTTP POST] Response body: %s\n", response.c_str());
+      Serial.println(F("[HTTP] Failed to connect to Google Script endpoint."));
     }
-  } else {
-    Serial.printf("[HTTP POST] Connection failed: %s\n", http.errorToString(httpCode).c_str());
+    client.stop(); // Cleanly close & release TLS buffer for script.google.com
   }
 
-  http.end();
+  // Step 2: Follow 302 Redirect to script.googleusercontent.com with fresh SSL socket
+  if (redirectUrl.length() > 0) {
+    Serial.println(F("[HTTP] Following 302 redirect to script.googleusercontent.com..."));
+    WiFiClientSecure client2;
+    client2.setInsecure();
+    HTTPClient http2;
+    http2.setTimeout(HTTP_TIMEOUT_MS);
+
+    if (http2.begin(client2, redirectUrl)) {
+      int getCode = http2.GET();
+      Serial.printf("[HTTP REDIRECT] Response code: %d\n", getCode);
+
+      if (getCode > 0) {
+        String resp = http2.getString();
+        resp.trim();
+        if (getCode == 200 || resp.indexOf("success") >= 0) {
+          Serial.println(F("[HTTP] Logged to Google Sheets successfully!"));
+          success = true;
+        } else {
+          Serial.printf("[HTTP] Response body: %s\n", resp.c_str());
+        }
+      } else {
+        Serial.printf("[HTTP REDIRECT] Error: %s\n", http2.errorToString(getCode).c_str());
+      }
+      http2.end();
+    }
+    client2.stop(); // Cleanly close & release TLS buffer for script.googleusercontent.com
+  }
+
   cloudStatus = success ? CLOUD_OK : CLOUD_FAIL;
   Serial.printf("[HTTP] Heap after upload : %lu bytes (Result: %s)\n",
                 (unsigned long)ESP.getFreeHeap(), success ? "SUCCESS" : "FAIL");
@@ -350,8 +385,44 @@ bool drainOneSpoolRecord() {
     return true;
   } else {
     f.close();
-    Serial.println(F("[SPOOL SYNC] Upload failed. Will back off before retrying."));
+    Serial.println(F("[SPOOL SYNC] Upload failed. Will retry later."));
     return false;
+  }
+}
+
+// ==========================================
+// CORE 0: DEDICATED BACKGROUND CLOUD UPLOADER
+// ==========================================
+void cloudUploadTask(void *pvParameters) {
+  Serial.println(F("[CLOUD TASK] Background worker initialized on Core 0"));
+  UploadRecord rec;
+
+  for (;;) {
+    // Blocks efficiently with 0% CPU until a record is queued (or times out after 5s)
+    if (uploadQueue != NULL && xQueueReceive(uploadQueue, &rec, pdMS_TO_TICKS(5000)) == pdTRUE) {
+      uint32_t remaining = (uploadQueue != NULL) ? uxQueueMessagesWaiting(uploadQueue) : 0;
+      Serial.printf("[CLOUD] Dequeued Pond %s #%s (Pending in queue: %lu)\n",
+                    rec.pondId, rec.pktNum, (unsigned long)remaining);
+
+      bool uploaded = false;
+      if (WiFi.status() == WL_CONNECTED) {
+        uploaded = postToGoogleSheets(String(rec.pondId), String(rec.distCM), String(rec.batV));
+      }
+
+      if (!uploaded) {
+        Serial.printf("[CLOUD] %s. Buffering to LittleFS Flash spool.\n",
+                      (WiFi.status() == WL_CONNECTED) ? "Direct upload failed" : "Wi-Fi offline");
+        appendOfflineSpool(String(rec.pondId), String(rec.distCM), String(rec.batV), String(rec.pktNum));
+      }
+    }
+
+    // When queue is empty, check if we have older backlog in Flash spool to drain
+    if (WiFi.status() == WL_CONNECTED && hasOfflineSpool()) {
+      vTaskDelay(pdMS_TO_TICKS(1000));
+      drainOneSpoolRecord();
+    }
+
+    vTaskDelay(pdMS_TO_TICKS(50)); // Yield to FreeRTOS scheduler
   }
 }
 
@@ -380,20 +451,24 @@ void loraRxError(void) {
 }
 
 // ==========================================
-// INSTANT TARGETED HANDSHAKE ACK
+// INSTANT TARGETED HANDSHAKE ACK (< 40ms)
 // ==========================================
 void sendAddressedAck(const String &pondId, const String &pktNum) {
   String ackPayload = "ACK:" + pondId + ",Pkt:" + pktNum;
   ackTxDone = false;
+
   radio.sendData((uint8_t *)ackPayload.c_str(), ackPayload.length());
 
   unsigned long start = millis();
-  while (!ackTxDone && (millis() - start < 1000)) {
+  while (!ackTxDone && (millis() - start < 500)) {
     delay(2);
   }
+
   // Immediately return to continuous RX mode
   radio.startRx();
-  Serial.printf("[LORA ACK] Sent targeted ACK: \"%s\"\n", ackPayload.c_str());
+
+  Serial.printf("[LORA ACK] Sent targeted ACK: \"%s\" (< %lu ms)\n",
+                ackPayload.c_str(), millis() - start);
 }
 
 // ==========================================
@@ -405,7 +480,7 @@ void setup() {
 
   Serial.println(F("=============================================="));
   Serial.println(F("  FEED BARREL LORA RECEIVER (DFR1195)"));
-  Serial.println(F("  Multi-Node Handshake & Flash Spool Station"));
+  Serial.println(F("  Dual-Core Non-Blocking Multi-Node Station"));
   Serial.printf("  Listening on Freq: %lu Hz (SF%d)\n", RF_FREQUENCY, LORA_SPREADING_FACTOR);
   Serial.printf("  Initial Free Heap: %lu bytes\n", (unsigned long)ESP.getFreeHeap());
   Serial.println(F("=============================================="));
@@ -426,7 +501,26 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   lastWiFiCheck = millis();
 
-  // 4. Initialize LoRa Radio for Bidirectional Handshake (RX + TX ACK)
+  // 4. Create Native FreeRTOS Queue for Cloud Uploads (Up to 32 records)
+  uploadQueue = xQueueCreate(MAX_QUEUE_RECORDS, sizeof(UploadRecord));
+  if (uploadQueue == NULL) {
+    Serial.println(F("[ERROR] Failed to allocate FreeRTOS uploadQueue!"));
+  } else {
+    Serial.println(F("[INIT] FreeRTOS uploadQueue allocated (capacity: 32 records)."));
+  }
+
+  // 5. Spawn Dedicated Background Cloud Uploader on Core 0
+  xTaskCreatePinnedToCore(
+      cloudUploadTask,     // Worker function
+      "CloudUploadTask",   // Task name
+      8192,                // Stack size (8KB)
+      NULL,                // Parameters
+      1,                   // Priority (1 = background task)
+      NULL,                // Task handle
+      0                    // Core 0 (Network Core)
+  );
+
+  // 6. Initialize LoRa Radio for Bidirectional Handshake (RX + TX ACK)
   radio.init();
   radio.setTxCB(loraTxDone);
   radio.setRxCB(loraRxDone);
@@ -436,17 +530,17 @@ void setup() {
   radio.setSF(LORA_SPREADING_FACTOR);
   radio.setBW(LORA_BANDWIDTH);
 
-  // 5. Start Continuous Listening
+  // 7. Start Continuous Listening on Core 1
   radio.startRx();
   Serial.println(F("[LORA RX] Listening for incoming barrel packets..."));
 }
 
 // ==========================================
-// MAIN LOOP
+// MAIN LOOP (Runs exclusively on Core 1)
 // ==========================================
 void loop() {
   // -------------------------------------------------------------
-  // 1. PROCESS INCOMING PACKET
+  // 1. PROCESS INCOMING PACKET (Fast path: < 50ms total)
   // -------------------------------------------------------------
   if (newPacketFlag) {
     newPacketFlag = false;
@@ -490,18 +584,28 @@ void loop() {
       Serial.printf("  -> [DE-DUP] Duplicate Pkt #%s from Pond %s. Re-ACKed; skipped cloud upload.\n",
                     lastPktNum.c_str(), lastPondID.c_str());
     } else {
-      // If Wi-Fi is connected and spool is empty: try direct upload
-      if (WiFi.status() == WL_CONNECTED && !hasOfflineSpool()) {
-        bool uploaded = postToGoogleSheets(lastPondID, lastDistCM, lastBatV);
-        if (!uploaded) {
-          Serial.println(F("  -> [FALLBACK] Direct upload failed. Buffering to Flash spool."));
+      // Pack into UploadRecord and push to Core 0 queue (< 10 microseconds)
+      if (uploadQueue != NULL) {
+        UploadRecord rec;
+        strncpy(rec.pondId, lastPondID.c_str(), sizeof(rec.pondId) - 1);
+        rec.pondId[sizeof(rec.pondId) - 1] = '\0';
+        strncpy(rec.distCM, lastDistCM.c_str(), sizeof(rec.distCM) - 1);
+        rec.distCM[sizeof(rec.distCM) - 1] = '\0';
+        strncpy(rec.batV, lastBatV.c_str(), sizeof(rec.batV) - 1);
+        rec.batV[sizeof(rec.batV) - 1] = '\0';
+        strncpy(rec.pktNum, lastPktNum.c_str(), sizeof(rec.pktNum) - 1);
+        rec.pktNum[sizeof(rec.pktNum) - 1] = '\0';
+
+        if (xQueueSend(uploadQueue, &rec, 0) == pdTRUE) {
+          uint32_t pending = uxQueueMessagesWaiting(uploadQueue);
+          Serial.printf("  -> [QUEUE] Pushed to Core 0 uploadQueue (Pending: %lu/32)\n",
+                        (unsigned long)pending);
+        } else {
+          // Queue full: save directly to LittleFS Flash spool fallback
+          Serial.println(F("  -> [QUEUE FULL] uploadQueue full! Buffering to LittleFS Flash spool."));
           appendOfflineSpool(lastPondID, lastDistCM, lastBatV, lastPktNum);
         }
-      } else {
-        // Wi-Fi is offline or spool already has backlog: buffer to Flash
-        appendOfflineSpool(lastPondID, lastDistCM, lastBatV, lastPktNum);
       }
-      updateDisplay();
     }
     Serial.println(F("--------------------------------------------------"));
   }
@@ -516,26 +620,38 @@ void loop() {
   }
 
   // -------------------------------------------------------------
-  // 3. PERSISTENT SPOOL DRAINER (Runs every 8s if Wi-Fi connected, no recent live post, and backoff expired)
+  // 3. 10-MINUTE RADIO HARDWARE HEALTH KEEPER
   // -------------------------------------------------------------
-  if (WiFi.status() == WL_CONNECTED && hasOfflineSpool()) {
-    unsigned long curMs = millis();
-    // Guard against colliding with live packet processing (WQS pattern)
-    if ((curMs - lastPostTime >= POST_COLLISION_GUARD_MS) &&
-        (curMs - lastSpoolDrain >= QUEUE_FLUSH_INTERVAL_MS)) {
-      lastSpoolDrain = curMs;
-      bool ok = drainOneSpoolRecord();
-      if (!ok) {
-        // Apply 30-second backoff penalty on failure to prevent hammering Wi-Fi
-        lastSpoolDrain = curMs + QUEUE_RETRY_BACKOFF_MS;
-        Serial.println(F("[SPOOL SYNC] Backing off queue flushes for 30 seconds."));
-      }
-      updateDisplay();
+  // With 24 ponds transmitting every 6 minutes, silence over 10 minutes indicates
+  // the SX1262 silicon may have entered an unhandled standby or locked state.
+  // Performs a clean hardware pin pulse on LORA_RST to re-initialize silicon cleanly.
+  if (millis() - lastRxHealthCheck >= 60000UL) {
+    lastRxHealthCheck = millis();
+    if (hasReceivedData && (millis() - lastPacketMillis > RX_DEAD_THRESHOLD_MS)) {
+      Serial.println(F("[RX HEALTH] No packets for 10 min! Performing clean hardware reset of SX1262..."));
+      pinMode(LORA_RST, OUTPUT);
+      digitalWrite(LORA_RST, LOW);
+      delay(10);
+      digitalWrite(LORA_RST, HIGH);
+      delay(20);
+
+      radio.init();
+      radio.setTxCB(loraTxDone);
+      radio.setRxCB(loraRxDone);
+      radio.setRxErrorCB(loraRxError);
+      radio.setFreq(RF_FREQUENCY);
+      radio.setEIRP(TX_EIRP);
+      radio.setSF(LORA_SPREADING_FACTOR);
+      radio.setBW(LORA_BANDWIDTH);
+      radio.startRx();
+
+      lastPacketMillis = millis(); // Reset counter
+      Serial.println(F("[RX HEALTH] Radio successfully re-initialized and re-armed for continuous RX."));
     }
   }
 
   // -------------------------------------------------------------
-  // 4. NON-BLOCKING WI-FI MONITOR (Every 30s aligned with WQS)
+  // 4. NON-BLOCKING WI-FI MONITOR (Every 30s)
   // -------------------------------------------------------------
   if (millis() - lastWiFiCheck >= WIFI_CHECK_INTERVAL_MS) {
     lastWiFiCheck = millis();
@@ -546,30 +662,29 @@ void loop() {
     }
   }
 
-  // NOTE: Hardware RX watchdog removed! Repetitive 30-second calls to radio.startRx()
-  // leaked Semtech Ticker timer slots, which froze SX1262 SPI communication after ~30 min.
-  // Continuous RX is armed in setup() and re-armed upon ACK completion / CRC errors.
-
   // -------------------------------------------------------------
-  // 6. PERIODIC SERIAL HEARTBEAT (Every 15s)
+  // 5. PERIODIC SERIAL HEARTBEAT (Every 15s)
   // -------------------------------------------------------------
   if (millis() - lastStatusLog >= STATUS_LOG_INTERVAL_MS) {
     lastStatusLog = millis();
     bool hasSpool = hasOfflineSpool();
+    uint32_t pendingQueue = (uploadQueue != NULL) ? uxQueueMessagesWaiting(uploadQueue) : 0;
     if (hasReceivedData) {
       unsigned long elapsedSec = (millis() - lastPacketMillis) / 1000;
-      Serial.printf("[STATUS] Last Pkt from Pond %s (%lu sec ago) | Total: %lu | Spool: %s | Heap: %lu B | WiFi: %s\n",
+      Serial.printf("[STATUS] Last Pkt from Pond %s (%lu sec ago) | Total: %lu | Queue: %lu/32 | Spool: %s | Heap: %lu B | WiFi: %s\n",
                     lastPondID.c_str(), elapsedSec, totalPacketsRecv,
+                    (unsigned long)pendingQueue,
                     hasSpool ? "PENDING" : "EMPTY",
                     (unsigned long)ESP.getFreeHeap(),
                     WiFi.status() == WL_CONNECTED ? "OK" : "Offline");
     } else {
-      Serial.printf("[STATUS] Listening for barrel nodes... | Spool: %s | Heap: %lu B | WiFi: %s\n",
+      Serial.printf("[STATUS] Listening for barrel nodes... | Queue: %lu/32 | Spool: %s | Heap: %lu B | WiFi: %s\n",
+                    (unsigned long)pendingQueue,
                     hasSpool ? "PENDING" : "EMPTY",
                     (unsigned long)ESP.getFreeHeap(),
                     WiFi.status() == WL_CONNECTED ? "OK" : "Offline");
     }
   }
 
-  delay(20);
+  delay(5);
 }

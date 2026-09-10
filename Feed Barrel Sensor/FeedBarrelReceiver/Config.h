@@ -15,6 +15,8 @@
 // MULTI-NODE & PROTOCOL SETTINGS (24 PONDS)
 // ==========================================
 #define MAX_POND_CACHE             32          // Maximum distinct ponds tracked for de-duplication
+#define MAX_QUEUE_RECORDS          32          // FreeRTOS upload queue capacity (RAM)
+#define RX_DEAD_THRESHOLD_MS       600000UL    // 10-minute silence threshold before hardware radio reset
 #define STATUS_LOG_INTERVAL_MS     15000UL     // Serial heartbeat log interval
 
 // ==========================================
