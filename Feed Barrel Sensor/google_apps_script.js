@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * Feed Barrel LoRa Telemetry - Google Apps Script Webhook (Enhanced v2.2)
+ * Feed Barrel LoRa Telemetry - Google Apps Script Webhook (Enhanced v2.3)
  * ============================================================================
  * 
  * Target Google Sheet:
@@ -31,9 +31,9 @@ function doPost(e) {
 
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("RawData") || 
-                ss.getSheets().find(function(s) { return s.getSheetId() === 1939861399; }) || 
-                ss.getActiveSheet();
+    var sheet = ss.getSheetByName("RawData") ||
+      ss.getSheets().find(function (s) { return s.getSheetId() === 1939861399; }) ||
+      ss.getActiveSheet();
     var payload;
 
     if (e.postData && e.postData.contents) {
@@ -162,7 +162,7 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
   }
   var isRefillWindow = (recordHour >= 6 && recordHour < 19);
 
-  // Retrieve Previous Entries for this Pond ID (up to last 100 rows scan)
+  // Retrieve Previous Entries for this Pond ID (scan up to last 100 rows)
   var lastRow = sheet.getLastRow();
   var historyForPond = [];
 
@@ -189,9 +189,9 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
           weight: parseFloat(rangeValues[i][4]) || 0.0,
           consumed: parseFloat(rangeValues[i][5]) || 0.0,
           rate: parseFloat(rangeValues[i][6]) || 0.0,
-          eventType: String(rangeValues[i][7] || "")
+          eventType: String(rangeValues[i][7] || "").trim()
         });
-        if (historyForPond.length >= 2) break; // Need at most 2 previous entries (N-2, N-1)
+        if (historyForPond.length >= 8) break; // Keep last several entries for 3-ping state machine
       }
     }
   }
@@ -206,57 +206,132 @@ function processSingleRecord(sheet, data, timeZone, fallbackNow) {
     rate = 0.0;
   } else {
     var prevEntry = historyForPond[historyForPond.length - 1]; // Row N-1
-    var weightDelta = currentWeight - prevEntry.weight;        // Positive = weight increased
-    var weightDrop = prevEntry.weight - currentWeight;         // Positive = weight dropped
+    var prevEv = prevEntry.eventType.toUpperCase();
 
-    // Outlier Filter (Sonic Bounce Gate)
-    // 1. Outside refill window (19:00 - 06:00): Any upward weight jump is rejected
-    //    (nobody refills at night, preventing false full-zone readings from ultrasonic echoes)
-    // 2. During refill window (06:00 - 19:00): Rejects upward jumps < 25 kg unless entering full zone
-    if (weightDelta > 0) {
-      var isOutlier = (!isRefillWindow) || (!isFullZone && weightDelta < 25.0);
-      if (isOutlier) {
-        return {
-          status: "outlier_rejected",
-          message: "Sonic bounce or refill outside window rejected (Delta: " + weightDelta + " kg, RefillWindow: " + isRefillWindow + ")"
-        };
+    // Find the last confirmed stable entry (excluding transient bounces)
+    var stableEntry = null;
+    for (var h = historyForPond.length - 1; h >= 0; h--) {
+      var ev = historyForPond[h].eventType.toUpperCase();
+      if (ev !== "BOUNCE_CRATER" && ev !== "BOUNCE_NIGHT" && ev !== "OUTLIER_REJECTED" && ev !== "REFILL_ABORTED") {
+        stableEntry = historyForPond[h];
+        break;
       }
     }
+    if (!stableEntry) {
+      stableEntry = prevEntry;
+    }
+    var stableWeight = stableEntry.weight;
 
-    // Determine EventType & Consumed kg
-    if (isFullZone) {
-      eventType = "FULL_SATURATED";
-      consumed = 0.0;
-    } else if (weightDelta >= 25.0 && isRefillWindow) {
-      eventType = "REFILL";
-      consumed = 0.0;
-    } else if (weightDrop > 1.0) {
-      eventType = "FEEDING";
-      consumed = Math.round(weightDrop * 100) / 100;
-    } else {
-      eventType = "IDLE";
-      consumed = 0.0;
+    // FULL-ZONE HYSTERESIS / LATCH:
+    // When the barrel is confirmed full (stableWeight >= 115 kg), readings between 23cm and 34.5cm
+    // are physical cone mound / transducer blind-zone reflections, NOT genuine 10 kg feeding drops.
+    if (stableWeight >= 115.0 && rawDistance <= 34.5) {
+      currentWeight = 125.0;
+      isFullZone = true;
     }
 
-    // 3-Point Rolling Hourly Feed Rate using recordDate
-    if (isFullZone || eventType === "REFILL") {
-      rate = 0.0;
-    } else if (historyForPond.length >= 2) {
-      var prev2Entry = historyForPond[0]; // Row N-2
-      var hadRefill = (prevEntry.eventType === "REFILL" || prev2Entry.eventType === "REFILL");
+    var weightDelta = currentWeight - stableWeight; // Positive = gain vs baseline
+    var weightDrop = stableWeight - currentWeight;  // Positive = drop vs baseline
 
-      if (hadRefill) {
-        rate = 0.0;
-      } else {
-        var timeDiffHours = (recordDate.getTime() - prev2Entry.timestamp.getTime()) / (1000 * 60 * 60);
-        if (timeDiffHours > 0.01) {
-          var calculatedRate = (prev2Entry.weight - currentWeight) / timeDiffHours;
-          rate = Math.max(0, Math.round(calculatedRate * 100) / 100);
-        } else {
-          rate = 0.0;
+    // Compute elapsed minutes since last stable reading
+    var elapsedMinutes = (recordDate.getTime() - stableEntry.timestamp.getTime()) / (1000 * 60);
+    if (isNaN(elapsedMinutes) || elapsedMinutes <= 0) elapsedMinutes = 6.0;
+
+    // PILLAR 1: Physical Feeder Ceiling Gate (Max 20 kg/h ≈ 2 kg per 6 min ping)
+    // Drops > 5.0 kg in <= 15 min are physically impossible for autofeeders (acoustic crater bounces)
+    var maxAllowedDrop = (elapsedMinutes <= 15.0) ? 5.0 : Math.max(5.0, (elapsedMinutes / 60.0) * 20.0 * 1.25);
+
+    if (weightDrop > maxAllowedDrop && !(stableWeight >= 115.0 && rawDistance <= 34.5)) {
+      // Acoustic crater/funnel bounce
+      eventType = "BOUNCE_CRATER";
+      consumed = 0.0;
+      rate = 0.0;
+    }
+    // PILLAR 2 & 3: 3-Ping Refill State Machine with Peak Tracking
+    else if (prevEv === "REFILL_VERIFY") {
+      // PING 3: Final confirmation check
+      var initialRefillWeight = prevEntry.weight;
+      var peakWeight = Math.max(currentWeight, prevEntry.weight);
+      for (var k = historyForPond.length - 1; k >= 0; k--) {
+        if (historyForPond[k].eventType.toUpperCase() === "REFILL_PENDING") {
+          initialRefillWeight = historyForPond[k].weight;
+          peakWeight = Math.max(peakWeight, historyForPond[k].weight);
+          break;
         }
       }
-    } else {
+
+      // Allow up to 10 kg drop across 12-18 min for active feeding
+      if (currentWeight >= (initialRefillWeight - 10.0)) {
+        eventType = "REFILL"; // 3-PING REFILL OFFICIALLY CONFIRMED!
+        if (peakWeight >= 110.0 || isFullZone) {
+          currentWeight = 125.0; // Confirmed at full capacity
+        }
+      } else {
+        eventType = "REFILL_ABORTED";
+      }
+      consumed = 0.0;
+      rate = 0.0;
+    }
+    else if (prevEv === "REFILL_PENDING") {
+      // PING 2: First verification check (allow up to 5 kg drop for active feeding)
+      if (currentWeight >= (prevEntry.weight - 5.0)) {
+        eventType = "REFILL_VERIFY"; // Verification 1 passed!
+        if (currentWeight >= 110.0 || isFullZone) {
+          currentWeight = 125.0;
+        }
+      } else {
+        eventType = "REFILL_ABORTED";
+      }
+      consumed = 0.0;
+      rate = 0.0;
+    }
+    else if (weightDelta >= 20.0 || (isFullZone && stableWeight < 115.0)) {
+      // Candidate Refill (covers both standard jumps and transitions into Full Zone)
+      if (!isRefillWindow) {
+        // Upward shift outside 06:00-19:00 is rejected (nighttime acoustic echo)
+        eventType = "BOUNCE_NIGHT";
+        consumed = 0.0;
+        rate = 0.0;
+      } else {
+        // PING 1: Enter Refill Verification state
+        eventType = "REFILL_PENDING";
+        consumed = 0.0;
+        rate = 0.0;
+      }
+    }
+    else if (isFullZone || (stableWeight >= 115.0 && rawDistance <= 34.5)) {
+      // Steady-state in Full Zone (barrel already full, sitting idle or slowly feeding)
+      eventType = "FULL_SATURATED";
+      consumed = 0.0;
+      rate = 0.0;
+    }
+    else if (weightDelta > 0) {
+      // Minor upward fluctuation (< 20 kg) due to pellet surface settling or sensor noise
+      if (!isRefillWindow) {
+        eventType = "BOUNCE_NIGHT";
+      } else {
+        eventType = "IDLE";
+      }
+      consumed = 0.0;
+      rate = 0.0;
+    }
+    else if (weightDrop > 1.0) {
+      // Normal feeding within physical dispenser boundaries
+      eventType = "FEEDING";
+      consumed = Math.round(weightDrop * 100) / 100;
+
+      // Calculate hourly rate against stable baseline
+      var timeDiffHours = elapsedMinutes / 60.0;
+      if (timeDiffHours > 0.05 && timeDiffHours <= 3.0) {
+        var calculatedRate = weightDrop / timeDiffHours;
+        rate = Math.max(0, Math.round(calculatedRate * 100) / 100);
+      } else {
+        rate = 0.0;
+      }
+    }
+    else {
+      eventType = "IDLE";
+      consumed = 0.0;
       rate = 0.0;
     }
   }

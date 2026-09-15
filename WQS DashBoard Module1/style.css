@@ -818,13 +818,21 @@ h2 {
     border: 1px solid #bae6fd;
 }
 
+.feed-chart-badge.badge-emerald {
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+}
+
 .feed-svg-container {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
 
-.feed-discrete-chart {
+.feed-discrete-chart,
+.feed-live-chart,
+.feed-trend-chart {
     display: block;
     width: 100%;
     min-width: 580px;

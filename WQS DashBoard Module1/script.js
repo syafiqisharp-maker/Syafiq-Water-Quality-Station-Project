@@ -340,86 +340,364 @@ class SvgSparklineService {
     }
 
     /**
-     * Renders a 14-day discrete column/bar chart with 25kg increment gridlines (0, 25, 50, 75, 100, 125 kg)
+     * Renders a live 24-hour feed barrel sparkline (30-min moving mean) with dual Y-axis:
+     * - Left Y-axis: Distance in cm (30 cm Full to 69 cm Empty)
+     * - Right Y-axis: Feed weight range bands: (100-125), (75-100), (50-75), (25-50), (0-25)
+     * - X-axis: Rolling 2-digit hours (e.g. 15, 19, 23, 03, 07, 11, 15)
+     * - Supports gaps for telemetry dropouts
      */
-    static renderDiscrete14DayColumns(past14Days, colorHex = '#0284c7', width = 640, height = 150) {
+    static renderLive24HourFeedSparkline(liveSparkline24h, width = 640, height = 195) {
+        const points = (liveSparkline24h && Array.isArray(liveSparkline24h.points)) ? liveSparkline24h.points : [];
+        if (points.length === 0) {
+            return `<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.85rem;">No 24-hour feed telemetry available</div>`;
+        }
+
+        const paddingLeft = 56;
+        const paddingRight = 78;
+        const paddingTop = 26;
+        const paddingBottom = 32;
+        const maxKg = 125.0;
+        const usableWidth = width - paddingLeft - paddingRight;
+        const usableHeight = height - paddingTop - paddingBottom;
+        const baseY = paddingTop + usableHeight;
+
+        // 1. Gridlines and Dual Y-Axis Labels
+        const gridKgSteps = [125, 100, 75, 50, 25, 0];
+        let gridSvg = '';
+
+        // Column Titles
+        gridSvg += `<text x="${paddingLeft - 8}" y="${paddingTop - 11}" text-anchor="end" font-size="8.5" fill="#94a3b8" font-weight="700">DIST (cm)</text>`;
+        gridSvg += `<text x="${width - paddingRight + 8}" y="${paddingTop - 11}" text-anchor="start" font-size="8.5" fill="#94a3b8" font-weight="700">BAND (kg)</text>`;
+
+        gridKgSteps.forEach(stepKg => {
+            const y = paddingTop + usableHeight - (stepKg / maxKg) * usableHeight;
+            const isBase = (stepKg === 0);
+            gridSvg += `<line x1="${paddingLeft}" y1="${y.toFixed(1)}" x2="${width - paddingRight}" y2="${y.toFixed(1)}" stroke="${isBase ? '#cbd5e1' : '#f1f5f9'}" stroke-dasharray="${isBase ? 'none' : '3 3'}" stroke-width="${isBase ? 1.2 : 1}" />`;
+
+            // Left Axis: Distance in cm (25 cm = Full 125 kg, 69 cm = Empty 0 kg)
+            const cmVal = Math.round(69.0 - (stepKg / maxKg) * (69.0 - 25.0));
+            gridSvg += `<text x="${paddingLeft - 8}" y="${(y + 3.5).toFixed(1)}" text-anchor="end" font-size="9" fill="#64748b" font-weight="600">${cmVal} cm</text>`;
+        });
+
+        // Right Axis: kg range bands centered in each 25 kg corridor
+        const bands = [
+            { midKg: 112.5, text: '(100-125)' },
+            { midKg: 87.5, text: '(75-100)' },
+            { midKg: 62.5, text: '(50-75)' },
+            { midKg: 37.5, text: '(25-50)' },
+            { midKg: 12.5, text: '(0-25)' }
+        ];
+
+        bands.forEach(b => {
+            const yMid = paddingTop + usableHeight - (b.midKg / maxKg) * usableHeight;
+            gridSvg += `<text x="${width - paddingRight + 8}" y="${(yMid + 3.5).toFixed(1)}" text-anchor="start" font-size="8.5" fill="#0284c7" font-weight="700">${b.text}</text>`;
+        });
+
+        // 2. Data Segments & Gap Handling
+        const count = points.length;
+        const segments = [];
+        let currentSegment = [];
+
+        points.forEach((p, idx) => {
+            const x = paddingLeft + (idx / Math.max(1, count - 1)) * usableWidth;
+            if (p.hasData && p.kg !== null && !isNaN(p.kg)) {
+                const clampedKg = Math.max(0, Math.min(maxKg, p.kg));
+                const y = paddingTop + usableHeight - (clampedKg / maxKg) * usableHeight;
+                currentSegment.push({ x, y, kg: clampedKg, cm: p.cm, timeStr: p.timeStr, idx });
+            } else {
+                if (currentSegment.length > 0) {
+                    segments.push(currentSegment);
+                    currentSegment = [];
+                }
+            }
+        });
+        if (currentSegment.length > 0) {
+            segments.push(currentSegment);
+        }
+
+        let pathsSvg = '';
+        let dotsSvg = '';
+
+        segments.forEach(seg => {
+            if (seg.length >= 2) {
+                const polylinePts = seg.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+                const areaPts = `${seg[0].x.toFixed(1)},${baseY.toFixed(1)} ${polylinePts} ${seg[seg.length - 1].x.toFixed(1)},${baseY.toFixed(1)}`;
+                pathsSvg += `
+                    <polygon points="${areaPts}" fill="url(#grad-feed-24h)" />
+                    <polyline points="${polylinePts}" fill="none" stroke="#0284c7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+                `;
+            } else if (seg.length === 1) {
+                const p = seg[0];
+                dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.5" fill="#0284c7" stroke="#ffffff" stroke-width="1.5" />`;
+            }
+        });
+
+        // Highlight latest valid point with live indicator
+        const allValid = segments.flat();
+        if (allValid.length > 0) {
+            const last = allValid[allValid.length - 1];
+            dotsSvg += `
+                <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="4.5" fill="#0284c7" stroke="#ffffff" stroke-width="2">
+                    <title>Live Level: ${last.kg} kg (${last.cm} cm) at ${last.timeStr}</title>
+                </circle>
+                <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="8.5" fill="none" stroke="#38bdf8" stroke-width="1.5" opacity="0.6" />
+            `;
+        }
+
+        // 3. X-Axis Rolling Hour Labels
+        let xLabelsSvg = '';
+        const xLabels = (liveSparkline24h && Array.isArray(liveSparkline24h.xLabels)) ? liveSparkline24h.xLabels : [];
+        if (xLabels.length > 0) {
+            xLabels.forEach(lbl => {
+                const x = paddingLeft + (lbl.index / Math.max(1, count - 1)) * usableWidth;
+                xLabelsSvg += `
+                    <line x1="${x.toFixed(1)}" y1="${baseY.toFixed(1)}" x2="${x.toFixed(1)}" y2="${(baseY + 4).toFixed(1)}" stroke="#cbd5e1" stroke-width="1" />
+                    <text x="${x.toFixed(1)}" y="${height - 8}" text-anchor="middle" font-size="9" font-weight="600" fill="#64748b">${lbl.hour}:00</text>
+                `;
+            });
+        }
+
+        return `
+            <svg class="feed-live-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="Live 24-Hour Feed Barrel Level Chart">
+                <defs>
+                    <linearGradient id="grad-feed-24h" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#0284c7" stop-opacity="0.30" />
+                        <stop offset="100%" stop-color="#0284c7" stop-opacity="0.0" />
+                    </linearGradient>
+                </defs>
+                ${gridSvg}
+                ${pathsSvg}
+                ${dotsSvg}
+                ${xLabelsSvg}
+            </svg>
+        `;
+    }
+
+    /**
+     * Renders a 14-day daily feed trend line graph with prominent circular dots and band range Y-axis
+     * Theme: Emerald Green (#059669 / #10b981) for contrast with the 24h Live chart
+     */
+    static render14DayFeedTrendLine(past14Days, width = 640, height = 195) {
         if (!past14Days || !Array.isArray(past14Days) || past14Days.length === 0) {
             return `<div style="text-align:center;padding:2rem;color:#94a3b8;font-size:0.85rem;">No feeding data available</div>`;
         }
 
-        const paddingLeft = 44;
-        const paddingRight = 16;
-        const paddingTop = 22;
-        const paddingBottom = 26;
-        const maxVal = 125; // Standard barrel capacity in 25kg increments
+        const paddingLeft = 36;
+        const paddingRight = 92;
+        const paddingTop = 26;
+        const paddingBottom = 32;
         const usableWidth = width - paddingLeft - paddingRight;
         const usableHeight = height - paddingTop - paddingBottom;
+        const baseY = paddingTop + usableHeight;
 
-        // 25kg Grid steps
-        const gridSteps = [25, 50, 75, 100, 125];
-        let gridSvg = `<line x1="${paddingLeft}" y1="${height - paddingBottom}" x2="${width - paddingRight}" y2="${height - paddingBottom}" stroke="#cbd5e1" stroke-width="1.2" />`;
-        gridSvg += `<text x="${paddingLeft - 8}" y="${height - paddingBottom + 3.5}" text-anchor="end" font-size="9.5" fill="#94a3b8" font-weight="600">0</text>`;
+        // Fixed scale: Up to 200 kg with 50 kg intermittent broad range bands
+        const maxScale = 200;
 
+        // 1. Gridlines and Right Y-Axis Range Bands (50 kg broad bands up to 200 kg)
+        let gridSvg = '';
+        gridSvg += `<text x="${width - paddingRight + 10}" y="${paddingTop - 11}" text-anchor="start" font-size="8.5" fill="#94a3b8" font-weight="700">FEED BAND</text>`;
+
+        const gridSteps = [200, 150, 100, 50, 0];
         gridSteps.forEach(stepVal => {
-            const y = paddingTop + usableHeight - (stepVal / maxVal) * usableHeight;
-            gridSvg += `
-                <line x1="${paddingLeft}" y1="${y}" x2="${width - paddingRight}" y2="${y}" stroke="#f1f5f9" stroke-dasharray="3 3" stroke-width="1" />
-                <text x="${paddingLeft - 8}" y="${y + 3.5}" text-anchor="end" font-size="9.5" fill="#94a3b8" font-weight="600">${stepVal}</text>
-            `;
+            const y = paddingTop + usableHeight - (stepVal / maxScale) * usableHeight;
+            const isBase = (stepVal === 0);
+            gridSvg += `<line x1="${paddingLeft}" y1="${y.toFixed(1)}" x2="${width - paddingRight}" y2="${y.toFixed(1)}" stroke="${isBase ? '#cbd5e1' : '#f1f5f9'}" stroke-dasharray="${isBase ? 'none' : '3 3'}" stroke-width="${isBase ? 1.2 : 1}" />`;
         });
 
-        // 14 Columns
-        const count = past14Days.length;
-        const slotWidth = usableWidth / count;
-        const barWidth = Math.min(24, slotWidth * 0.65);
+        // Right Y-axis bands: 4 broad corridors: (150-200), (100-150), (50-100), (0-50)
+        const bands50 = [
+            { midKg: 175, text: '(150-200)' },
+            { midKg: 125, text: '(100-150)' },
+            { midKg: 75,  text: '(50-100)' },
+            { midKg: 25,  text: '(0-50)' }
+        ];
 
-        let barsSvg = '';
+        bands50.forEach(b => {
+            const yMid = paddingTop + usableHeight - (b.midKg / maxScale) * usableHeight;
+            gridSvg += `<text x="${width - paddingRight + 10}" y="${(yMid + 3.5).toFixed(1)}" text-anchor="start" font-size="9" fill="#059669" font-weight="700">${b.text}</text>`;
+        });
+
+        // 2. 14 Daily Points with Missing Telemetry Detection
+        const count = past14Days.length;
+        const rawPoints = past14Days.map((item, idx) => {
+            const hasData = (item.hasData !== false && item.consumed !== null && item.consumed !== undefined && !isNaN(item.consumed));
+            const val = hasData ? Math.max(0, item.consumed) : null;
+            const x = paddingLeft + (idx / Math.max(1, count - 1)) * usableWidth;
+            return {
+                idx,
+                x,
+                y: 0,
+                val,
+                hasData,
+                displayDate: item.displayDate,
+                isToday: !!item.isToday
+            };
+        });
+
+        // Compute Y positions with linear interpolation across missing telemetry intervals
+        const points = rawPoints.map((p, idx) => {
+            if (p.hasData) {
+                const y = (p.val === 0) ? baseY : (paddingTop + usableHeight - (p.val / maxScale) * usableHeight);
+                return { ...p, y };
+            }
+
+            // Find nearest previous valid and next valid point for smooth bridging
+            let prevValid = null;
+            for (let i = idx - 1; i >= 0; i--) {
+                if (rawPoints[i].hasData) { prevValid = rawPoints[i]; break; }
+            }
+            let nextValid = null;
+            for (let i = idx + 1; i < count; i++) {
+                if (rawPoints[i].hasData) { nextValid = rawPoints[i]; break; }
+            }
+
+            let y;
+            if (prevValid && nextValid) {
+                const prevY = (prevValid.val === 0) ? baseY : (paddingTop + usableHeight - (prevValid.val / maxScale) * usableHeight);
+                const nextY = (nextValid.val === 0) ? baseY : (paddingTop + usableHeight - (nextValid.val / maxScale) * usableHeight);
+                const ratio = (p.x - prevValid.x) / (nextValid.x - prevValid.x);
+                y = prevY + ratio * (nextY - prevY);
+            } else if (prevValid) {
+                y = (prevValid.val === 0) ? baseY : (paddingTop + usableHeight - (prevValid.val / maxScale) * usableHeight);
+            } else if (nextValid) {
+                y = (nextValid.val === 0) ? baseY : (paddingTop + usableHeight - (nextValid.val / maxScale) * usableHeight);
+            } else {
+                y = baseY;
+            }
+            return { ...p, y };
+        });
+
+        // 3. Path Generation: Solid curves for valid runs, Broken/Dashed lines for missing data
+        let solidSegmentsSvg = '';
+        let dashedSegmentsSvg = '';
+        let areaSvg = '';
+
+        // Identify contiguous valid runs for gradient fill underneath
+        let currentValidRun = [];
+        const validRuns = [];
+        points.forEach(p => {
+            if (p.hasData) {
+                currentValidRun.push(p);
+            } else {
+                if (currentValidRun.length >= 2) {
+                    validRuns.push(currentValidRun);
+                }
+                currentValidRun = [];
+            }
+        });
+        if (currentValidRun.length >= 2) {
+            validRuns.push(currentValidRun);
+        }
+
+        // Render gradient area under valid runs
+        validRuns.forEach(run => {
+            let runPathD = `M ${run[0].x.toFixed(1)} ${run[0].y.toFixed(1)}`;
+            for (let i = 0; i < run.length - 1; i++) {
+                const p0 = run[Math.max(0, i - 1)];
+                const p1 = run[i];
+                const p2 = run[i + 1];
+                const p3 = run[Math.min(run.length - 1, i + 2)];
+
+                const cp1x = p1.x + (p2.x - p0.x) / 6;
+                let cp1y = p1.y + (p2.y - p0.y) / 6;
+                const cp2x = p2.x - (p3.x - p1.x) / 6;
+                let cp2y = p2.y - (p3.y - p1.y) / 6;
+                cp1y = Math.min(baseY, Math.max(paddingTop, cp1y));
+                cp2y = Math.min(baseY, Math.max(paddingTop, cp2y));
+
+                runPathD += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+            }
+            const runAreaD = `${runPathD} L ${run[run.length - 1].x.toFixed(1)} ${baseY.toFixed(1)} L ${run[0].x.toFixed(1)} ${baseY.toFixed(1)} Z`;
+            areaSvg += `<path d="${runAreaD}" fill="url(#grad-feed-14d)" />`;
+        });
+
+        // Draw curves between each consecutive pair [i, i+1]
+        for (let i = 0; i < points.length - 1; i++) {
+            const p0 = points[Math.max(0, i - 1)];
+            const p1 = points[i];
+            const p2 = points[i + 1];
+            const p3 = points[Math.min(points.length - 1, i + 2)];
+
+            const cp1x = p1.x + (p2.x - p0.x) / 6;
+            let cp1y = p1.y + (p2.y - p0.y) / 6;
+            const cp2x = p2.x - (p3.x - p1.x) / 6;
+            let cp2y = p2.y - (p3.y - p1.y) / 6;
+            cp1y = Math.min(baseY, Math.max(paddingTop, cp1y));
+            cp2y = Math.min(baseY, Math.max(paddingTop, cp2y));
+
+            const segD = `M ${p1.x.toFixed(1)} ${p1.y.toFixed(1)} C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+
+            if (p1.hasData && p2.hasData) {
+                solidSegmentsSvg += `<path d="${segD}" fill="none" stroke="#059669" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />`;
+            } else {
+                // Missing data bridge: broken / dashed line
+                dashedSegmentsSvg += `<path d="${segD}" fill="none" stroke="#10b981" stroke-width="2.2" stroke-dasharray="5 4" stroke-linecap="round" stroke-linejoin="round" opacity="0.8" />`;
+            }
+        }
+
+        // 4. Prominent Circular Nodes (Solid for valid feed, Hollow/Dashed for missing data)
+        let dotsSvg = '';
         let xLabelsSvg = '';
 
-        past14Days.forEach((item, idx) => {
-            const val = Math.max(0, Math.min(maxVal, item.consumed || 0));
-            const centerX = paddingLeft + (idx + 0.5) * slotWidth;
-            const barX = centerX - (barWidth / 2);
-            const barH = (val / maxVal) * usableHeight;
-            const barY = paddingTop + usableHeight - barH;
+        points.forEach(p => {
+            if (p.hasData) {
+                const hasFeed = p.val > 0;
+                const dotColor = p.isToday ? '#059669' : (hasFeed ? '#10b981' : '#94a3b8');
+                const dotR = p.isToday ? 6.5 : (hasFeed ? 5.5 : 4.0);
 
-            const isToday = !!item.isToday;
-            const hasFeed = val > 0;
-            const barColor = isToday ? '#0284c7' : (hasFeed ? '#38bdf8' : '#e2e8f0');
+                if (p.isToday) {
+                    dotsSvg += `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="10" fill="none" stroke="#10b981" stroke-width="1.8" opacity="0.6" />`;
+                }
 
-            if (hasFeed) {
-                barsSvg += `
-                    <rect x="${barX.toFixed(1)}" y="${barY.toFixed(1)}" width="${barWidth.toFixed(1)}" height="${barH.toFixed(1)}" rx="3" fill="${barColor}">
-                        <title>${item.displayDate}: ${val} kg (${val / 25} bags)</title>
-                    </rect>
-                    <text x="${centerX.toFixed(1)}" y="${Math.max(12, barY - 5).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="800" fill="${isToday ? '#0369a1' : '#0284c7'}">${val}</text>
+                dotsSvg += `
+                    <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${dotR}" fill="${dotColor}" stroke="#ffffff" stroke-width="2.2">
+                        <title>${p.displayDate}: ~${p.val} kg estimated (${Math.round(p.val / 25)} bags)</title>
+                    </circle>
                 `;
             } else {
-                barsSvg += `
-                    <rect x="${barX.toFixed(1)}" y="${(height - paddingBottom - 3).toFixed(1)}" width="${barWidth.toFixed(1)}" height="3" rx="1.5" fill="#e2e8f0">
-                        <title>${item.displayDate}: 0 kg</title>
-                    </rect>
+                // Missing Telemetry: Hollow circular dot with dashed ring
+                dotsSvg += `
+                    <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="4.5" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.8" stroke-dasharray="2.5 2">
+                        <title>${p.displayDate}: No telemetry / Sensor offline</title>
+                    </circle>
                 `;
             }
 
-            // X-axis label
-            const labelColor = isToday ? '#0284c7' : '#64748b';
-            const labelWeight = isToday ? '800' : '600';
-            const dayPart = item.displayDate ? item.displayDate.split(' ')[0] : (idx + 1);
+            // X-Axis Date label
+            const labelColor = p.isToday ? '#059669' : (p.hasData ? '#64748b' : '#94a3b8');
+            const labelWeight = p.isToday ? '800' : (p.hasData ? '600' : '500');
+            const dayPart = p.displayDate ? p.displayDate.split(' ')[0] : (p.idx + 1);
             xLabelsSvg += `
-                <text x="${centerX.toFixed(1)}" y="${height - 7}" text-anchor="middle" font-size="9" font-weight="${labelWeight}" fill="${labelColor}">
-                    ${dayPart}
+                <line x1="${p.x.toFixed(1)}" y1="${baseY.toFixed(1)}" x2="${p.x.toFixed(1)}" y2="${(baseY + 4).toFixed(1)}" stroke="#cbd5e1" stroke-width="1" />
+                <text x="${p.x.toFixed(1)}" y="${height - 8}" text-anchor="middle" font-size="9" font-weight="${labelWeight}" fill="${labelColor}">
+                    ${p.isToday ? 'Today' : dayPart}
                 </text>
             `;
         });
 
         return `
-            <svg class="feed-discrete-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="14-Day Daily Feed Consumption Chart">
+            <svg class="feed-trend-chart" viewBox="0 0 ${width} ${height}" preserveAspectRatio="xMidYMid meet" aria-label="14-Day Daily Feed Trend Chart">
+                <defs>
+                    <linearGradient id="grad-feed-14d" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#059669" stop-opacity="0.25" />
+                        <stop offset="100%" stop-color="#059669" stop-opacity="0.0" />
+                    </linearGradient>
+                </defs>
                 ${gridSvg}
-                ${barsSvg}
+                ${areaSvg}
+                ${solidSegmentsSvg}
+                ${dashedSegmentsSvg}
+                ${dotsSvg}
                 ${xLabelsSvg}
             </svg>
         `;
+    }
+
+    /**
+     * Legacy adapter for backward compatibility
+     */
+    static renderDiscrete14DayColumns(past14Days, colorHex = '#0284c7', width = 640, height = 150) {
+        return SvgSparklineService.render14DayFeedTrendLine(past14Days, width, height);
     }
 }
 
@@ -955,71 +1233,36 @@ class FeedingActivityRenderer {
         }
 
         const fa = feedingActivity || {};
-        const remainingKg = (fa.currentRemainingKg !== undefined && fa.currentRemainingKg !== null)
-            ? Number(fa.currentRemainingKg)
-            : 0;
-
-        const todayConsumedKg = (fa.todayTotalConsumedKg !== undefined && fa.todayTotalConsumedKg !== null)
-            ? Number(fa.todayTotalConsumedKg)
-            : 0;
-
-        const currentRate = (fa.currentFeedRate !== undefined && fa.currentFeedRate !== null)
-            ? Number(fa.currentFeedRate)
-            : 0;
-
+        const liveSparkline24h = fa.liveSparkline24h || { points: [], xLabels: [] };
         const past14Days = Array.isArray(fa.past14Days) && fa.past14Days.length === 14
             ? fa.past14Days
             : [];
 
-        const chartSvg = SvgSparklineService.renderDiscrete14DayColumns(past14Days);
+        const live24hSvg = SvgSparklineService.renderLive24HourFeedSparkline(liveSparkline24h);
+        const trend14dSvg = SvgSparklineService.render14DayFeedTrendLine(past14Days);
 
         container.innerHTML = `
-            <!-- 3 Primary KPIs -->
-            <div class="feed-kpis-grid">
-                <!-- 1. Current Remaining Feed -->
-                <div class="feed-kpi-card">
-                    <div class="feed-kpi-header">
-                        <span class="feed-kpi-label">Remaining Feed</span>
-                    </div>
-                    <div class="feed-kpi-main">
-                        <span class="feed-kpi-value">${Formatters.number(remainingKg, 1)}</span>
-                        <span class="feed-kpi-unit">kg</span>
+            <!-- 1. Live 24-Hour Feed Barrel Level (Rolling) -->
+            <div class="feed-chart-card feed-live-card">
+                <div class="feed-chart-header">
+                    <div class="feed-chart-title">
+                        <span>📈 Live 24-Hour Feed Barrel Level (Rolling)</span>
                     </div>
                 </div>
-
-                <!-- 2. Today's Total Feed Consumed -->
-                <div class="feed-kpi-card">
-                    <div class="feed-kpi-header">
-                        <span class="feed-kpi-label">Today's Feed Consumed</span>
-                    </div>
-                    <div class="feed-kpi-main">
-                        <span class="feed-kpi-value">${Formatters.number(todayConsumedKg, 0)}</span>
-                        <span class="feed-kpi-unit">kg</span>
-                    </div>
-                </div>
-
-                <!-- 3. Current Feed Rate -->
-                <div class="feed-kpi-card">
-                    <div class="feed-kpi-header">
-                        <span class="feed-kpi-label">Current Feed Rate</span>
-                    </div>
-                    <div class="feed-kpi-main">
-                        <span class="feed-kpi-value">${Formatters.number(currentRate, 1)}</span>
-                        <span class="feed-kpi-unit">kg/h</span>
-                    </div>
+                <div class="feed-svg-container">
+                    ${live24hSvg}
                 </div>
             </div>
 
-            <!-- 14-Day Discrete Column Bar Chart -->
-            <div class="feed-chart-card">
+            <!-- 2. 14-Day Daily Feed Trend -->
+            <div class="feed-chart-card feed-trend-card">
                 <div class="feed-chart-header">
                     <div class="feed-chart-title">
-                        <span>📊 14-Day Daily Feed Consumption</span>
+                        <span>📊 14-Day Daily Feed Trend</span>
                     </div>
-                    <span class="feed-chart-badge">25 kg Increments (Bags)</span>
                 </div>
                 <div class="feed-svg-container">
-                    ${chartSvg}
+                    ${trend14dSvg}
                 </div>
             </div>
         `;
@@ -1978,8 +2221,8 @@ class DataService {
 
             const result = await response.json();
             if (result.status === 'success' && result.data) {
-                // If backend does not yet include feedingActivity, fetch from live public Google Sheet gviz
-                if (!result.data.feedingActivity) {
+                // If backend does not yet include liveSparkline24h, fetch from live public Google Sheet gviz
+                if (!result.data.feedingActivity || !result.data.feedingActivity.liveSparkline24h || !result.data.feedingActivity.liveSparkline24h.points || result.data.feedingActivity.liveSparkline24h.points.length === 0) {
                     try {
                         result.data.feedingActivity = await DataService.fetchFeedingGviz('01.02.12');
                     } catch (e) {
@@ -1995,7 +2238,7 @@ class DataService {
         } catch (error) {
             console.warn('[DataService] Network fetch failed, falling back to cache/simulation:', error.message);
             const cached = DataService.getLocalCache();
-            if (cached) {
+            if (cached && cached.data && cached.data.feedingActivity && cached.data.feedingActivity.liveSparkline24h && cached.data.feedingActivity.liveSparkline24h.points && cached.data.feedingActivity.liveSparkline24h.points.length > 0) {
                 return { status: 'cached_fallback', data: cached.data };
             }
             // Try live sheet fetch before mock
@@ -2053,6 +2296,7 @@ class DataService {
             rowsForPond.push({
                 date: rowDate,
                 dateKey: toDateKey(rowDate),
+                distance: parseFloat(parts[2]) || 0,
                 weight: parseFloat(parts[4]) || 0,
                 consumed: parseFloat(parts[5]) || 0,
                 rate: parseFloat(parts[6]) || 0,
@@ -2066,39 +2310,216 @@ class DataService {
 
         rowsForPond.sort((a, b) => a.date.getTime() - b.date.getTime());
         const latest = rowsForPond[rowsForPond.length - 1];
+        const latestValid = rowsForPond.slice().reverse().find(r => 
+            r.distance >= 15.0 && r.distance <= 85.0
+        ) || latest;
 
+        // 2. 3-Pillar Refill Detection & Discrete Bag Quantization across history (using EventType)
         const dayRefillMap = {};
-        past14Days.forEach(d => { dayRefillMap[d.dateKey] = 0; });
+        const dayPingCountMap = {};
+        past14Days.forEach(d => { 
+            dayRefillMap[d.dateKey] = 0; 
+            dayPingCountMap[d.dateKey] = 0;
+        });
 
-        let prevWeight = 0;
-        for (let i = 0; i < rowsForPond.length; i++) {
-            const r = rowsForPond[i];
-            const weightDelta = r.weight - prevWeight;
-
-            if (r.eventType === 'REFILL' || weightDelta >= 20.0) {
-                const rawRefillAmount = (weightDelta > 0) ? weightDelta : r.weight;
-                const quantizedRefill = Math.round(rawRefillAmount / 25.0) * 25;
-                if (dayRefillMap[r.dateKey] !== undefined) {
-                    dayRefillMap[r.dateKey] += quantizedRefill;
-                }
-            }
-            prevWeight = r.weight;
+        function quantizeBagKg(rawKg) {
+            if (rawKg >= 108.0) return 125; // 5 bags (Full capacity clamp)
+            if (rawKg >= 85.0) return 100;  // 4 bags
+            if (rawKg >= 60.0) return 75;   // 3 bags
+            if (rawKg >= 35.0) return 50;   // 2 bags
+            if (rawKg >= 15.0) return 25;   // 1 bag
+            return 0;
         }
 
+        let stableWeight = 0;
+        let lastStableDate = null;
+        let pendingCandidate = null;
+
+        for (let i = 0; i < rowsForPond.length; i++) {
+            const r = rowsForPond[i];
+            if (dayPingCountMap[r.dateKey] !== undefined) {
+                dayPingCountMap[r.dateKey]++;
+            }
+
+            // FULL-ZONE HYSTERESIS / LATCH:
+            // When barrel was confirmed full (stableWeight >= 115 kg), readings down to 110 kg (dist <= 34.5 cm)
+            // are physical cone mound / transducer blind-zone reflections, NOT genuine feeding drops.
+            if (stableWeight >= 115.0 && r.weight >= 110.0) {
+                r.weight = 125.0;
+            }
+
+            // Identify acoustic crater bounces (physically impossible drop > 5.0 kg in <= 15 min)
+            let isCraterGlitch = (r.eventType === 'BOUNCE_CRATER' || r.eventType === 'BOUNCE_NIGHT' || r.eventType === 'OUTLIER_REJECTED');
+            if (stableWeight > 0 && lastStableDate && !(stableWeight >= 115.0 && r.weight >= 110.0)) {
+                const weightDrop = stableWeight - r.weight;
+                const elapsedMin = (r.date.getTime() - lastStableDate.getTime()) / 60000;
+                const maxAllowedDrop = (elapsedMin <= 15.0) ? 5.0 : Math.max(5.0, (elapsedMin / 60.0) * 20.0 * 1.25);
+                if (weightDrop > maxAllowedDrop) {
+                    isCraterGlitch = true;
+                }
+            }
+
+            if (isCraterGlitch) {
+                continue;
+            }
+
+            const isFullTransition = (r.weight >= 120.0 && stableWeight < 110.0);
+            const isRefillTag = (r.eventType === 'REFILL');
+
+            // Check if row is an explicitly confirmed REFILL or a legacy FULL_SATURATED transition into Full Zone
+            if (isRefillTag || (r.eventType === 'FULL_SATURATED' && isFullTransition)) {
+                if (stableWeight === 0 || r.weight >= (stableWeight + 15.0)) {
+                    const rawRefillAmount = (pendingCandidate && pendingCandidate.baselineWeight > 0)
+                        ? (r.weight - pendingCandidate.baselineWeight)
+                        : ((stableWeight > 0) ? (r.weight - stableWeight) : r.weight);
+                    const quantizedRefill = quantizeBagKg(rawRefillAmount);
+                    if (quantizedRefill > 0 && dayRefillMap[r.dateKey] !== undefined) {
+                        dayRefillMap[r.dateKey] += quantizedRefill;
+                    }
+                }
+                pendingCandidate = null;
+                stableWeight = r.weight;
+                lastStableDate = r.date;
+                continue;
+            }
+
+            // Multi-ping state machine tracking (handles unconfirmed, top-up, or legacy rows)
+            const weightGain = r.weight - stableWeight;
+            if ((weightGain >= 20.0 || isFullTransition) && r.eventType !== 'REFILL_VERIFY') {
+                // New candidate refill ping (Ping 1)
+                pendingCandidate = {
+                    initialWeight: r.weight,
+                    baselineWeight: stableWeight,
+                    peakWeight: r.weight,
+                    pingsPassed: 1,
+                    dateKey: r.dateKey
+                };
+                stableWeight = r.weight;
+                lastStableDate = r.date;
+            } else if (pendingCandidate) {
+                // Refill candidate in progress (Ping 2 or Ping 3)
+                const toleranceDrop = pendingCandidate.pingsPassed * 5.0; // 5 kg per 6-min verification interval
+                if (r.weight >= (pendingCandidate.initialWeight - toleranceDrop)) {
+                    pendingCandidate.pingsPassed++;
+                    pendingCandidate.peakWeight = Math.max(pendingCandidate.peakWeight, r.weight);
+                    if (pendingCandidate.pingsPassed >= 3) {
+                        // 3 consecutive pings confirmed! Commit refill.
+                        const rawRefillAmount = pendingCandidate.peakWeight - pendingCandidate.baselineWeight;
+                        const quantizedRefill = quantizeBagKg(rawRefillAmount);
+                        if (quantizedRefill > 0 && dayRefillMap[pendingCandidate.dateKey] !== undefined) {
+                            dayRefillMap[pendingCandidate.dateKey] += quantizedRefill;
+                        }
+                        pendingCandidate = null;
+                    }
+                } else {
+                    // Level dropped back (mound collapsed or transient bounce) -> abort candidate
+                    pendingCandidate = null;
+                }
+                stableWeight = r.weight;
+                lastStableDate = r.date;
+            } else {
+                // Normal feeding or idle
+                stableWeight = r.weight;
+                lastStableDate = r.date;
+            }
+        }
+
+        // 3. Map into 14-day history and sparkline array (Single Source of Truth)
         past14Days.forEach(dayItem => {
-            dayItem.consumed = dayRefillMap[dayItem.dateKey] || 0;
+            const pings = dayPingCountMap[dayItem.dateKey] || 0;
+            dayItem.hasData = (pings > 0);
+            dayItem.consumed = (pings > 0) ? (dayRefillMap[dayItem.dateKey] || 0) : null;
         });
 
         const todayKey = toDateKey(today);
+
+        // 4. Generate Live 24-Hour Sparkline Data (Rolling 24 Hours with 30-min Simple Mean)
+        const nowTime = new Date().getTime();
+        const referenceTime = (rowsForPond.length > 0 && (nowTime - latestValid.date.getTime() > 48 * 3600 * 1000))
+            ? latestValid.date.getTime()
+            : nowTime;
+        const rolling24hStart = referenceTime - 24 * 3600 * 1000;
+        const bucketSizeMs = 30 * 60 * 1000; // 30 minutes
+        const totalBuckets = 48;
+
+        const livePoints = [];
+        for (let b = 0; b < totalBuckets; b++) {
+            const bucketStart = rolling24hStart + b * bucketSizeMs;
+            const bucketEnd = bucketStart + bucketSizeMs;
+            const bucketDate = new Date(bucketEnd);
+
+            const pingsInBucket = rowsForPond.filter(r => {
+                const t = r.date.getTime();
+                return t >= bucketStart && t < bucketEnd && r.distance >= 15.0 && r.distance <= 85.0;
+            });
+
+            const padZero = n => String(n).padStart(2, '0');
+            const hourStr = padZero(bucketDate.getHours());
+            const timeStr = `${hourStr}:${padZero(bucketDate.getMinutes())}`;
+
+            if (pingsInBucket.length > 0) {
+                const sumKg = pingsInBucket.reduce((acc, p) => acc + p.weight, 0);
+                const sumCm = pingsInBucket.reduce((acc, p) => acc + p.distance, 0);
+                const validCount = pingsInBucket.length;
+
+                if (validCount > 0) {
+                    livePoints.push({
+                        index: b,
+                        timeStr: timeStr,
+                        hourStr: hourStr,
+                        kg: Math.round((sumKg / validCount) * 10) / 10,
+                        cm: Math.round((sumCm / validCount) * 10) / 10,
+                        hasData: true
+                    });
+                } else {
+                    livePoints.push({
+                        index: b,
+                        timeStr: timeStr,
+                        hourStr: hourStr,
+                        kg: null,
+                        cm: null,
+                        hasData: false
+                    });
+                }
+            } else {
+                livePoints.push({
+                    index: b,
+                    timeStr: timeStr,
+                    hourStr: hourStr,
+                    kg: null,
+                    cm: null,
+                    hasData: false
+                });
+            }
+        }
+
+        const xLabels = [];
+        for (let i = 0; i < totalBuckets; i += 8) {
+            xLabels.push({
+                index: i,
+                hour: livePoints[i].hourStr
+            });
+        }
+        if (xLabels.length === 0 || xLabels[xLabels.length - 1].index !== totalBuckets - 1) {
+            xLabels.push({
+                index: totalBuckets - 1,
+                hour: livePoints[totalBuckets - 1].hourStr
+            });
+        }
+
         return {
             pondId: targetPondId,
-            currentRemainingKg: Math.min(125, Math.max(0, Math.round(latest.weight * 100) / 100)),
-            percentRemaining: Math.min(100, Math.max(0, Math.round((Math.min(125, Math.max(0, latest.weight)) / 125.0) * 100))),
-            currentFeedRate: Math.max(0, Math.round(latest.rate * 100) / 100),
+            currentRemainingKg: Math.min(125, Math.max(0, Math.round(latestValid.weight * 100) / 100)),
+            percentRemaining: Math.min(100, Math.max(0, Math.round((Math.min(125, Math.max(0, latestValid.weight)) / 125.0) * 100))),
+            currentFeedRate: Math.max(0, Math.round(latestValid.rate * 100) / 100),
             todayTotalConsumedKg: dayRefillMap[todayKey] || 0,
-            lastTimestamp: latest.date.toISOString(),
+            lastTimestamp: latestValid.date.toISOString(),
             sparkline14d: past14Days.map(d => d.consumed),
             past14Days: past14Days,
+            liveSparkline24h: {
+                points: livePoints,
+                xLabels: xLabels
+            },
             formulaSheets: `=SPARKLINE(MAP(SEQUENCE(14,1,TODAY()-13,1), LAMBDA(d, IFERROR(ROUND(SUMIFS(RawData!E:E, RawData!B:B, "${targetPondId}", RawData!H:H, "REFILL", INDEX(INT(RawData!A:A)), d)/25)*25, 0))), {"charttype","column";"color","#0284c7"})`
         };
     }
@@ -2107,6 +2528,39 @@ class DataService {
      * Fallback mock simulation data for offline testing
      */
     static getMockData() {
+        const mockNow = new Date();
+        const mockPoints = [];
+        for (let b = 0; b < 48; b++) {
+            const bDate = new Date(mockNow.getTime() - (47 - b) * 30 * 60 * 1000);
+            const hour = bDate.getHours();
+            const hourStr = String(hour).padStart(2, '0');
+            const timeStr = `${hourStr}:${String(bDate.getMinutes()).padStart(2, '0')}`;
+            let simKg = 75;
+            if (hour >= 0 && hour < 8) {
+                simKg = Math.max(30, 48 - (hour * 1.8));
+            } else if (hour >= 8 && hour < 14) {
+                simKg = Math.max(50, 125 - ((hour - 8) * 11));
+            } else if (hour >= 14 && hour < 19) {
+                simKg = Math.max(55, 100 - ((hour - 14) * 8.5));
+            } else {
+                simKg = Math.max(35, 58 - ((hour - 19) * 4.2));
+            }
+            const simCm = Math.round(69.0 - (simKg / 125.0) * 39.0);
+            mockPoints.push({
+                index: b,
+                timeStr,
+                hourStr,
+                kg: Math.round(simKg * 10) / 10,
+                cm: simCm,
+                hasData: true
+            });
+        }
+        const mockXLabels = [];
+        for (let i = 0; i < 48; i += 8) {
+            mockXLabels.push({ index: i, hour: mockPoints[i].hourStr });
+        }
+        mockXLabels.push({ index: 47, hour: mockPoints[47].hourStr });
+
         return {
             pondDetails: {
                 pondId: '01.02.12',
@@ -2145,6 +2599,10 @@ class DataService {
                     { dateKey: '2026-09-09', displayDate: '9 Sep', consumed: 100, isToday: false },
                     { dateKey: '2026-09-10', displayDate: '10 Sep', consumed: 100, isToday: true }
                 ],
+                liveSparkline24h: {
+                    points: mockPoints,
+                    xLabels: mockXLabels
+                },
                 formulaSheets: `=SPARKLINE(MAP(SEQUENCE(14,1,TODAY()-13,1), LAMBDA(d, IFERROR(ROUND(SUMIFS(RawData!E:E, RawData!B:B, "01.02.12", RawData!H:H, "REFILL", INDEX(INT(RawData!A:A)), d)/25)*25, 0))), {"charttype","column";"color","#0284c7"})`
             },
             raw: {

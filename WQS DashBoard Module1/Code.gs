@@ -942,6 +942,7 @@ class FeedBarrelProcessor {
       lastTimestamp: null,
       sparkline14d: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
       past14Days: [],
+      liveSparkline24h: { points: [], xLabels: [] },
       formulaSheets: `=SPARKLINE(MAP(SEQUENCE(14,1,TODAY()-13,1), LAMBDA(d, IFERROR(ROUND(SUMIFS(RawData!E:E, RawData!B:B, "${targetPondId}", RawData!H:H, "REFILL", INDEX(INT(RawData!A:A)), d)/25)*25, 0))), {"charttype","column";"color","#0284c7"})`,
       rawFound: false
     };
@@ -994,6 +995,7 @@ class FeedBarrelProcessor {
         rowsForPond.push({
           date: rowDate,
           dateKey: DateUtils.toDateKey(rowDate),
+          distance: SensorUtils.parseFloatSafe(row[2], 0),
           weight: SensorUtils.parseFloatSafe(row[4], 0),
           consumed: SensorUtils.parseFloatSafe(row[5], 0),
           rate: SensorUtils.parseFloatSafe(row[6], 0),
@@ -1008,42 +1010,226 @@ class FeedBarrelProcessor {
       // Sort chronologically
       rowsForPond.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-      // 1. Latest telemetry row
+      // 1. Latest telemetry row (physical sanity filter: distance 15cm to 85cm)
       const latest = rowsForPond[rowsForPond.length - 1];
-      result.currentRemainingKg = Math.min(125, Math.max(0, Math.round(latest.weight * 100) / 100));
+      const latestValid = rowsForPond.slice().reverse().find(r => 
+        r.distance >= 15.0 && r.distance <= 85.0
+      ) || latest;
+
+      result.currentRemainingKg = Math.min(125, Math.max(0, Math.round(latestValid.weight * 100) / 100));
       result.percentRemaining = Math.min(100, Math.max(0, Math.round((result.currentRemainingKg / 125.0) * 100)));
-      result.currentFeedRate = Math.max(0, Math.round(latest.rate * 100) / 100);
-      result.lastTimestamp = latest.date.toISOString();
+      result.currentFeedRate = Math.max(0, Math.round(latestValid.rate * 100) / 100);
+      result.lastTimestamp = latestValid.date.toISOString();
 
-      // 2. Refill detection & 25kg quantization across history
+      // 2. 3-Pillar Refill Detection & Discrete Bag Quantization across history (using EventType)
       const dayRefillMap = {};
-      result.past14Days.forEach(d => { dayRefillMap[d.dateKey] = 0; });
+      const dayPingCountMap = {};
+      result.past14Days.forEach(d => { 
+        dayRefillMap[d.dateKey] = 0; 
+        dayPingCountMap[d.dateKey] = 0;
+      });
 
-      let prevWeight = 0;
-      for (let i = 0; i < rowsForPond.length; i++) {
-        const r = rowsForPond[i];
-        const weightDelta = r.weight - prevWeight;
-
-        if (r.eventType === 'REFILL' || weightDelta >= 20.0) {
-          const rawRefillAmount = (weightDelta > 0) ? weightDelta : r.weight;
-          // Quantize to nearest 25 kg increment (e.g. 108.44 kg -> 100 kg)
-          const quantizedRefill = Math.round(rawRefillAmount / 25.0) * 25;
-          if (dayRefillMap[r.dateKey] !== undefined) {
-            dayRefillMap[r.dateKey] += quantizedRefill;
-          }
-        }
-        prevWeight = r.weight;
+      function quantizeBagKg(rawKg) {
+        if (rawKg >= 108.0) return 125; // 5 bags (Full capacity clamp)
+        if (rawKg >= 85.0) return 100;  // 4 bags
+        if (rawKg >= 60.0) return 75;   // 3 bags
+        if (rawKg >= 35.0) return 50;   // 2 bags
+        if (rawKg >= 15.0) return 25;   // 1 bag
+        return 0;
       }
 
-      // 3. Map into 14-day history and sparkline array
-      result.past14Days.forEach(dayItem => {
-        dayItem.consumed = dayRefillMap[dayItem.dateKey] || 0;
-      });
-      result.sparkline14d = result.past14Days.map(d => d.consumed);
+      let stableWeight = 0;
+      let lastStableDate = null;
+      let pendingCandidate = null;
 
-      // Today's total consumed is sum of quantized refills today
+      for (let i = 0; i < rowsForPond.length; i++) {
+        const r = rowsForPond[i];
+        if (dayPingCountMap[r.dateKey] !== undefined) {
+          dayPingCountMap[r.dateKey]++;
+        }
+
+        // FULL-ZONE HYSTERESIS / LATCH:
+        // When barrel was confirmed full (stableWeight >= 115 kg), readings down to 110 kg (dist <= 34.5 cm)
+        // are physical cone mound / transducer blind-zone reflections, NOT genuine feeding drops.
+        if (stableWeight >= 115.0 && r.weight >= 110.0) {
+          r.weight = 125.0;
+        }
+
+        // Identify acoustic crater bounces (physically impossible drop > 5.0 kg in <= 15 min)
+        let isCraterGlitch = (r.eventType === 'BOUNCE_CRATER' || r.eventType === 'BOUNCE_NIGHT' || r.eventType === 'OUTLIER_REJECTED');
+        if (stableWeight > 0 && lastStableDate && !(stableWeight >= 115.0 && r.weight >= 110.0)) {
+          const weightDrop = stableWeight - r.weight;
+          const elapsedMin = (r.date.getTime() - lastStableDate.getTime()) / 60000;
+          const maxAllowedDrop = (elapsedMin <= 15.0) ? 5.0 : Math.max(5.0, (elapsedMin / 60.0) * 20.0 * 1.25);
+          if (weightDrop > maxAllowedDrop) {
+            isCraterGlitch = true;
+          }
+        }
+
+        if (isCraterGlitch) {
+          continue;
+        }
+
+        const isFullTransition = (r.weight >= 120.0 && stableWeight < 110.0);
+        const isRefillTag = (r.eventType === 'REFILL');
+
+        // Check if row is an explicitly confirmed REFILL or a legacy FULL_SATURATED transition into Full Zone
+        if (isRefillTag || (r.eventType === 'FULL_SATURATED' && isFullTransition)) {
+          if (stableWeight === 0 || r.weight >= (stableWeight + 15.0)) {
+            const rawRefillAmount = (pendingCandidate && pendingCandidate.baselineWeight > 0)
+              ? (r.weight - pendingCandidate.baselineWeight)
+              : ((stableWeight > 0) ? (r.weight - stableWeight) : r.weight);
+            const quantizedRefill = quantizeBagKg(rawRefillAmount);
+            if (quantizedRefill > 0 && dayRefillMap[r.dateKey] !== undefined) {
+              dayRefillMap[r.dateKey] += quantizedRefill;
+            }
+          }
+          pendingCandidate = null;
+          stableWeight = r.weight;
+          lastStableDate = r.date;
+          continue;
+        }
+
+        // Multi-ping state machine tracking (handles unconfirmed, top-up, or legacy rows)
+        const weightGain = r.weight - stableWeight;
+        if ((weightGain >= 20.0 || isFullTransition) && r.eventType !== 'REFILL_VERIFY') {
+          // New candidate refill ping (Ping 1)
+          pendingCandidate = {
+            initialWeight: r.weight,
+            baselineWeight: stableWeight,
+            peakWeight: r.weight,
+            pingsPassed: 1,
+            dateKey: r.dateKey
+          };
+          stableWeight = r.weight;
+          lastStableDate = r.date;
+        } else if (pendingCandidate) {
+          // Refill candidate in progress (Ping 2 or Ping 3)
+          const toleranceDrop = pendingCandidate.pingsPassed * 5.0; // 5 kg per 6-min verification interval
+          if (r.weight >= (pendingCandidate.initialWeight - toleranceDrop)) {
+            pendingCandidate.pingsPassed++;
+            pendingCandidate.peakWeight = Math.max(pendingCandidate.peakWeight, r.weight);
+            if (pendingCandidate.pingsPassed >= 3) {
+              // 3 consecutive pings confirmed! Commit refill.
+              const rawRefillAmount = pendingCandidate.peakWeight - pendingCandidate.baselineWeight;
+              const quantizedRefill = quantizeBagKg(rawRefillAmount);
+              if (quantizedRefill > 0 && dayRefillMap[pendingCandidate.dateKey] !== undefined) {
+                dayRefillMap[pendingCandidate.dateKey] += quantizedRefill;
+              }
+              pendingCandidate = null;
+            }
+          } else {
+            // Level dropped back (mound collapsed or transient bounce) -> abort candidate
+            pendingCandidate = null;
+          }
+          stableWeight = r.weight;
+          lastStableDate = r.date;
+        } else {
+          // Normal feeding or idle
+          stableWeight = r.weight;
+          lastStableDate = r.date;
+        }
+      }
+
+      // 3. Map into 14-day history and sparkline array (Single Source of Truth)
+      result.past14Days.forEach(dayItem => {
+        const pings = dayPingCountMap[dayItem.dateKey] || 0;
+        dayItem.hasData = (pings > 0);
+        dayItem.consumed = (pings > 0) ? (dayRefillMap[dayItem.dateKey] || 0) : null;
+      });
+      result.sparkline14d = result.past14Days.map(d => (d.consumed !== null ? d.consumed : 0));
+
+      // Today's total consumed is sum of quantized refills today (strictly matches 14th sparkline bar)
       const todayKey = DateUtils.toDateKey(today);
       result.todayTotalConsumedKg = dayRefillMap[todayKey] || 0;
+
+      // 4. Generate Live 24-Hour Sparkline Data (Rolling 24 Hours with 30-min Simple Mean)
+      const nowTime = new Date().getTime();
+      const referenceTime = (rowsForPond.length > 0 && (nowTime - latestValid.date.getTime() > 48 * 3600 * 1000))
+        ? latestValid.date.getTime()
+        : nowTime;
+      const rolling24hStart = referenceTime - 24 * 3600 * 1000;
+      const bucketSizeMs = 30 * 60 * 1000; // 30 minutes
+      const totalBuckets = 48;
+
+      const livePoints = [];
+      for (let b = 0; b < totalBuckets; b++) {
+        const bucketStart = rolling24hStart + b * bucketSizeMs;
+        const bucketEnd = bucketStart + bucketSizeMs;
+        const bucketDate = new Date(bucketEnd);
+
+        const pingsInBucket = rowsForPond.filter(r => {
+          const t = r.date.getTime();
+          return t >= bucketStart && t < bucketEnd;
+        });
+
+        const hourStr = Utilities.formatDate(bucketDate, "Asia/Kuala_Lumpur", "HH");
+        const timeStr = Utilities.formatDate(bucketDate, "Asia/Kuala_Lumpur", "HH:mm");
+
+        if (pingsInBucket.length > 0) {
+          let sumKg = 0;
+          let sumCm = 0;
+          let validCount = 0;
+
+          for (let p = 0; p < pingsInBucket.length; p++) {
+            const item = pingsInBucket[p];
+            if (item.distance >= 15.0 && item.distance <= 85.0) {
+              sumKg += item.weight;
+              sumCm += item.distance;
+              validCount++;
+            }
+          }
+
+          if (validCount > 0) {
+            livePoints.push({
+              index: b,
+              timeStr: timeStr,
+              hourStr: hourStr,
+              kg: Math.round((sumKg / validCount) * 10) / 10,
+              cm: Math.round((sumCm / validCount) * 10) / 10,
+              hasData: true
+            });
+          } else {
+            livePoints.push({
+              index: b,
+              timeStr: timeStr,
+              hourStr: hourStr,
+              kg: null,
+              cm: null,
+              hasData: false
+            });
+          }
+        } else {
+          livePoints.push({
+            index: b,
+            timeStr: timeStr,
+            hourStr: hourStr,
+            kg: null,
+            cm: null,
+            hasData: false
+          });
+        }
+      }
+
+      // Format rolling X-axis labels (every 8 buckets = 4 hours)
+      const xLabels = [];
+      for (let i = 0; i < totalBuckets; i += 8) {
+        xLabels.push({
+          index: i,
+          hour: livePoints[i].hourStr
+        });
+      }
+      if (xLabels.length === 0 || xLabels[xLabels.length - 1].index !== totalBuckets - 1) {
+        xLabels.push({
+          index: totalBuckets - 1,
+          hour: livePoints[totalBuckets - 1].hourStr
+        });
+      }
+
+      result.liveSparkline24h = {
+        points: livePoints,
+        xLabels: xLabels
+      };
 
       return result;
     } catch (err) {
