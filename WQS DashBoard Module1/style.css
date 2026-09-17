@@ -61,6 +61,16 @@ body {
     font-size: 1.2rem;
 }
 
+.loading-subtext {
+    margin-top: 0.5rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #475569;
+    max-width: 90%;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
 .spinner {
     width: 60px;
     height: 60px;
@@ -99,21 +109,160 @@ body {
 }
 
 /* Header */
-header {
+header,
+.dashboard-header {
     background: var(--glass-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-radius: 16px;
-    padding: 1.2rem;
+    padding: 1.1rem 1.5rem;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     border: 1px solid var(--glass-border);
 }
 
-header h1 {
-    text-align: center;
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.header-content h1 {
+    margin: 0;
     font-weight: 900;
-    font-size: 1.6rem;
+    font-size: 1.55rem;
     color: #004d40;
+    letter-spacing: -0.01em;
+}
+
+.header-sync-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* Sync Status Badge */
+.sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    transition: all 0.25s ease;
+    border: 1px solid transparent;
+    user-select: none;
+}
+
+.sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Status: Live */
+.sync-badge.status-live {
+    background: rgba(16, 185, 129, 0.14);
+    color: #065f46;
+    border-color: rgba(16, 185, 129, 0.35);
+}
+.sync-badge.status-live .sync-dot {
+    background: #10b981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.65);
+}
+
+/* Status: Syncing */
+.sync-badge.status-syncing {
+    background: rgba(2, 132, 199, 0.14);
+    color: #0369a1;
+    border-color: rgba(2, 132, 199, 0.35);
+}
+.sync-badge.status-syncing .sync-dot {
+    background: #0284c7;
+    box-shadow: 0 0 8px rgba(2, 132, 199, 0.65);
+    animation: pulse-dot 1.2s infinite ease-in-out;
+}
+
+/* Status: Stale / Timeout Warning */
+.sync-badge.status-warning,
+.sync-badge.status-stale {
+    background: rgba(245, 158, 11, 0.16);
+    color: #92400e;
+    border-color: rgba(245, 158, 11, 0.4);
+    cursor: pointer;
+}
+.sync-badge.status-warning .sync-dot,
+.sync-badge.status-stale .sync-dot {
+    background: #f59e0b;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.65);
+}
+
+/* Status: Offline / Error */
+.sync-badge.status-offline,
+.sync-badge.status-error {
+    background: rgba(239, 68, 68, 0.14);
+    color: #991b1b;
+    border-color: rgba(239, 68, 68, 0.35);
+    cursor: pointer;
+}
+.sync-badge.status-offline .sync-dot,
+.sync-badge.status-error .sync-dot {
+    background: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+@keyframes pulse-dot {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.4);
+        opacity: 0.6;
+    }
+}
+
+/* Refresh Button */
+.btn-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.9rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 9999px;
+    color: #1e293b;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-refresh:hover:not(:disabled) {
+    background: #ffffff;
+    border-color: #0284c7;
+    color: #0284c7;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.18);
+    transform: translateY(-1px);
+}
+
+.btn-refresh:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn-refresh:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.btn-refresh.is-spinning .refresh-icon {
+    animation: spin 0.8s linear infinite;
 }
 
 main {
@@ -2158,5 +2307,17 @@ footer {
     .anomaly-card-top {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .header-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.85rem;
+    }
+
+    .header-sync-bar {
+        width: 100%;
+        justify-content: center;
     }
 }

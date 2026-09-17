@@ -1075,15 +1075,19 @@ class FeedBarrelProcessor {
 
         // Check if row is an explicitly confirmed REFILL or a legacy FULL_SATURATED transition into Full Zone
         if (isRefillTag || (r.eventType === 'FULL_SATURATED' && isFullTransition)) {
-          if (stableWeight === 0 || r.weight >= (stableWeight + 15.0)) {
-            const rawRefillAmount = (pendingCandidate && pendingCandidate.baselineWeight > 0)
-              ? (r.weight - pendingCandidate.baselineWeight)
-              : ((stableWeight > 0) ? (r.weight - stableWeight) : r.weight);
-            const quantizedRefill = quantizeBagKg(rawRefillAmount);
-            if (quantizedRefill > 0 && dayRefillMap[r.dateKey] !== undefined) {
-              dayRefillMap[r.dateKey] += quantizedRefill;
-            }
+          const baseline = (pendingCandidate && pendingCandidate.baselineWeight !== undefined)
+            ? pendingCandidate.baselineWeight
+            : stableWeight;
+          const finalWeight = pendingCandidate
+            ? Math.max(r.weight, pendingCandidate.peakWeight || 0)
+            : r.weight;
+          const rawRefillAmount = Math.max(0, finalWeight - baseline);
+          const quantizedRefill = quantizeBagKg(rawRefillAmount);
+
+          if (quantizedRefill > 0 && dayRefillMap[r.dateKey] !== undefined) {
+            dayRefillMap[r.dateKey] += quantizedRefill;
           }
+
           pendingCandidate = null;
           stableWeight = r.weight;
           lastStableDate = r.date;

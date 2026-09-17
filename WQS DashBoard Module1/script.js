@@ -17,8 +17,10 @@
  */
 const AppConfig = Object.freeze({
     GAS_WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbxg0g4k_1wqGGHOCFoSVETFBTJTipT-X7UJKlggySfUGqxGGE54I9wqMPe96NF8TsSIRA/exec',
-    CACHE_KEY: 'AQUA_WQS_DASHBOARD_CACHE_V2',
-    CACHE_TTL_MS: 3 * 60 * 1000, // 3 minutes fresh cache window
+    CACHE_KEY: 'AQUA_WQS_DASHBOARD_CACHE_V3',
+    CACHE_STALE_THRESHOLD_MS: 10 * 60 * 1000, // 10 minutes cache freshness window
+    INITIAL_FETCH_TIMEOUT_MS: 8000, // 8s timeout for initial blocking load
+    MANUAL_FETCH_TIMEOUT_MS: 12000, // 12s timeout for manual/background refresh
     AUTO_REFRESH_INTERVAL_MS: 60 * 1000, // 1 minute background poll
     ANIMATION_DELAY_MS: 300
 });
@@ -1242,11 +1244,11 @@ class FeedingActivityRenderer {
         const trend14dSvg = SvgSparklineService.render14DayFeedTrendLine(past14Days);
 
         container.innerHTML = `
-            <!-- 1. Live 24-Hour Feed Barrel Level (Rolling) -->
+            <!-- 1. Live 24 Hour Feed Level -->
             <div class="feed-chart-card feed-live-card">
                 <div class="feed-chart-header">
                     <div class="feed-chart-title">
-                        <span>📈 Live 24-Hour Feed Barrel Level (Rolling)</span>
+                        <span>📈 Live 24 Hour Feed Level</span>
                     </div>
                 </div>
                 <div class="feed-svg-container">
@@ -2185,8 +2187,10 @@ class DataService {
      * mobile browsers (Safari/Chrome) from serving stale disk/memory responses.
      * 
      * @param {boolean} force - If true, passes bypass parameters to backend CacheService.
+     * @param {number} timeoutMs - Timeout in milliseconds.
+     * @param {Function|null} onProgress - Callback for progressive status updates during fetch.
      */
-    static async fetchNetwork(force = false) {
+    static async fetchNetwork(force = false, timeoutMs = AppConfig.MANUAL_FETCH_TIMEOUT_MS, onProgress = null) {
         if (!AppConfig.GAS_WEB_APP_URL || AppConfig.GAS_WEB_APP_URL.includes('YOUR_DEPLOYED_WEB_APP_URL_HERE')) {
             return { status: 'mock', data: DataService.getMockData() };
         }
@@ -2198,7 +2202,34 @@ class DataService {
         DataService.isFetching = true;
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => {
+            controller.abort(new Error('TIMEOUT'));
+        }, timeoutMs);
+
+        // Progressive latency timers to reassure user during cold-starts or network lag
+        const progressiveTimers = [];
+        if (typeof onProgress === 'function') {
+            if (timeoutMs > 4000) {
+                progressiveTimers.push(setTimeout(() => {
+                    onProgress('GAS waking up, please wait...');
+                }, 4000));
+            }
+            if (timeoutMs > 8000) {
+                progressiveTimers.push(setTimeout(() => {
+                    onProgress('Slow response from Google Sheets... almost there...');
+                }, 8000));
+            }
+            if (timeoutMs > 10500) {
+                progressiveTimers.push(setTimeout(() => {
+                    onProgress('Finalizing telemetry response...');
+                }, 10500));
+            }
+        }
+
+        const clearAllTimers = () => {
+            clearTimeout(timeoutId);
+            progressiveTimers.forEach(t => clearTimeout(t));
+        };
 
         try {
             // Build cache-busted URL with dynamic timestamp
@@ -2213,7 +2244,7 @@ class DataService {
                 redirect: 'follow',
                 signal: controller.signal
             });
-            clearTimeout(timeoutId);
+            clearAllTimers();
 
             if (!response.ok) {
                 throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
@@ -2221,13 +2252,11 @@ class DataService {
 
             const result = await response.json();
             if (result.status === 'success' && result.data) {
-                // If backend does not yet include liveSparkline24h, fetch from live public Google Sheet gviz
-                if (!result.data.feedingActivity || !result.data.feedingActivity.liveSparkline24h || !result.data.feedingActivity.liveSparkline24h.points || result.data.feedingActivity.liveSparkline24h.points.length === 0) {
-                    try {
-                        result.data.feedingActivity = await DataService.fetchFeedingGviz('01.02.12');
-                    } catch (e) {
-                        result.data.feedingActivity = DataService.getMockData().feedingActivity;
-                    }
+                // Always fetch the latest feedingActivity telemetry directly via fetchFeedingGviz for accurate client-side calculation
+                try {
+                    result.data.feedingActivity = await DataService.fetchFeedingGviz('01.02.12');
+                } catch (e) {
+                    console.warn('[DataService] Direct feeding gviz fetch error, keeping backend payload:', e);
                 }
                 DataService.lastFetchTimestamp = Date.now();
                 DataService.setLocalCache(result.data);
@@ -2236,18 +2265,26 @@ class DataService {
                 throw new Error(result.message || 'Invalid API payload structure');
             }
         } catch (error) {
-            console.warn('[DataService] Network fetch failed, falling back to cache/simulation:', error.message);
+            clearAllTimers();
+            const isTimeout = error.name === 'AbortError' || error.message === 'TIMEOUT';
+            console.warn(`[DataService] Network fetch failed (${isTimeout ? 'Timeout' : error.message}), evaluating fallback.`);
+
             const cached = DataService.getLocalCache();
-            if (cached && cached.data && cached.data.feedingActivity && cached.data.feedingActivity.liveSparkline24h && cached.data.feedingActivity.liveSparkline24h.points && cached.data.feedingActivity.liveSparkline24h.points.length > 0) {
-                return { status: 'cached_fallback', data: cached.data };
+            if (cached && cached.data) {
+                return { 
+                    status: isTimeout ? 'timeout_fallback' : 'error_fallback', 
+                    data: cached.data,
+                    cacheTimestamp: cached.timestamp,
+                    error: isTimeout ? 'timeout' : error.message
+                };
             }
             // Try live sheet fetch before mock
             try {
                 const mock = DataService.getMockData();
                 mock.feedingActivity = await DataService.fetchFeedingGviz('01.02.12');
-                return { status: 'mock_live_feed', data: mock };
+                return { status: 'mock_live_feed', data: mock, error: error.message };
             } catch (e) {
-                return { status: 'mock_fallback', data: DataService.getMockData() };
+                return { status: 'mock_fallback', data: DataService.getMockData(), error: error.message };
             }
         } finally {
             DataService.isFetching = false;
@@ -2368,15 +2405,19 @@ class DataService {
 
             // Check if row is an explicitly confirmed REFILL or a legacy FULL_SATURATED transition into Full Zone
             if (isRefillTag || (r.eventType === 'FULL_SATURATED' && isFullTransition)) {
-                if (stableWeight === 0 || r.weight >= (stableWeight + 15.0)) {
-                    const rawRefillAmount = (pendingCandidate && pendingCandidate.baselineWeight > 0)
-                        ? (r.weight - pendingCandidate.baselineWeight)
-                        : ((stableWeight > 0) ? (r.weight - stableWeight) : r.weight);
-                    const quantizedRefill = quantizeBagKg(rawRefillAmount);
-                    if (quantizedRefill > 0 && dayRefillMap[r.dateKey] !== undefined) {
-                        dayRefillMap[r.dateKey] += quantizedRefill;
-                    }
+                const baseline = (pendingCandidate && pendingCandidate.baselineWeight !== undefined)
+                    ? pendingCandidate.baselineWeight
+                    : stableWeight;
+                const finalWeight = pendingCandidate
+                    ? Math.max(r.weight, pendingCandidate.peakWeight || 0)
+                    : r.weight;
+                const rawRefillAmount = Math.max(0, finalWeight - baseline);
+                const quantizedRefill = quantizeBagKg(rawRefillAmount);
+
+                if (quantizedRefill > 0 && dayRefillMap[r.dateKey] !== undefined) {
+                    dayRefillMap[r.dateKey] += quantizedRefill;
                 }
+
                 pendingCandidate = null;
                 stableWeight = r.weight;
                 lastStableDate = r.date;
@@ -2727,6 +2768,117 @@ class DataService {
 
 
 // =========================================================================
+// 5.5 SYNC STATUS MANAGER (Header Badge & User Feedback Controller)
+// =========================================================================
+
+class SyncStatusManager {
+    static badgeEl = null;
+    static textEl = null;
+    static refreshBtn = null;
+    static overlaySubtextEl = null;
+
+    static init() {
+        this.badgeEl = document.getElementById('sync-status-badge');
+        this.textEl = document.getElementById('sync-status-text');
+        this.refreshBtn = document.getElementById('btn-refresh-dashboard');
+        this.overlaySubtextEl = document.getElementById('loading-subtext');
+
+        if (this.refreshBtn) {
+            this.refreshBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                AppController.handleManualRefresh();
+            });
+        }
+
+        if (this.badgeEl) {
+            this.badgeEl.addEventListener('click', () => {
+                // If in warning, error or stale state, tapping badge also triggers refresh
+                if (this.badgeEl.classList.contains('status-warning') || 
+                    this.badgeEl.classList.contains('status-stale') || 
+                    this.badgeEl.classList.contains('status-offline') || 
+                    this.badgeEl.classList.contains('status-error')) {
+                    AppController.handleManualRefresh();
+                }
+            });
+        }
+    }
+
+    static formatTime(ts) {
+        if (!ts) return 'just now';
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return 'recently';
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
+    static setSyncing(message = 'Connecting to station...') {
+        if (!this.badgeEl) return;
+        this.badgeEl.className = 'sync-badge status-syncing';
+        if (this.textEl) this.textEl.textContent = message;
+        this.setButtonSpinning(true);
+    }
+
+    static setLive(timestamp = Date.now()) {
+        if (!this.badgeEl) return;
+        this.badgeEl.className = 'sync-badge status-live';
+        const timeStr = this.formatTime(timestamp);
+        if (this.textEl) this.textEl.textContent = `Live • Updated ${timeStr}`;
+        this.setButtonSpinning(false);
+    }
+
+    static setStale(cacheTimestamp, reason = 'timeout') {
+        if (!this.badgeEl) return;
+        this.badgeEl.className = 'sync-badge status-stale';
+        const timeStr = cacheTimestamp ? this.formatTime(cacheTimestamp) : 'earlier';
+        const label = reason === 'timeout' 
+            ? `Timeout (8s+) • Showing cache (${timeStr}) [Retry 🔄]` 
+            : `Sync issue • Showing cache (${timeStr}) [Retry 🔄]`;
+        if (this.textEl) this.textEl.textContent = label;
+        this.setButtonSpinning(false);
+    }
+
+    static setOffline(message = 'Offline • Showing saved cache [Retry 🔄]') {
+        if (!this.badgeEl) return;
+        this.badgeEl.className = 'sync-badge status-offline';
+        if (this.textEl) this.textEl.textContent = message;
+        this.setButtonSpinning(false);
+    }
+
+    static setError(message = 'Sync failed. Tap Refresh to retry.') {
+        if (!this.badgeEl) return;
+        this.badgeEl.className = 'sync-badge status-error';
+        if (this.textEl) this.textEl.textContent = message;
+        this.setButtonSpinning(false);
+    }
+
+    static setProgressText(text) {
+        if (this.textEl && this.badgeEl && this.badgeEl.classList.contains('status-syncing')) {
+            this.textEl.textContent = text;
+        }
+        if (this.overlaySubtextEl) {
+            this.overlaySubtextEl.textContent = text;
+        }
+    }
+
+    static setOverlaySubtext(text) {
+        if (this.overlaySubtextEl) {
+            this.overlaySubtextEl.textContent = text;
+        }
+    }
+
+    static setButtonSpinning(isSpinning) {
+        if (!this.refreshBtn) return;
+        if (isSpinning) {
+            this.refreshBtn.classList.add('is-spinning');
+            this.refreshBtn.disabled = true;
+        } else {
+            this.refreshBtn.classList.remove('is-spinning');
+            this.refreshBtn.disabled = false;
+        }
+    }
+}
+
+
+// =========================================================================
 // 6. MAIN APPLICATION CONTROLLER (Lifecycle & Orchestration)
 // =========================================================================
 
@@ -2734,22 +2886,103 @@ class AppController {
     static refreshTimer = null;
     static STALE_THRESHOLD_MS = 30 * 1000; // 30s throttle for visibility re-sync
 
-    static init() {
-        // 1. Instant Cache Render (Stale-While-Revalidate: < 50ms)
+    static async init() {
+        // Initialize UI status tracker & refresh button listeners
+        SyncStatusManager.init();
+
+        // 1. Evaluate cache age against 10-minute threshold
         const cached = DataService.getLocalCache();
-        if (cached && cached.data) {
+        const now = Date.now();
+        const cacheAge = (cached && cached.timestamp) ? (now - cached.timestamp) : Infinity;
+        const isCacheFresh = cached && cached.data && (cacheAge < AppConfig.CACHE_STALE_THRESHOLD_MS);
+
+        if (isCacheFresh) {
+            // Case A: Fresh Cache (< 10 minutes) -> Instant render (< 50ms)
             AppController.render(cached.data);
             AppController.hideLoader();
+            SyncStatusManager.setSyncing('Updating telemetry in background...');
+
+            // Background re-sync (12s allowance)
+            await AppController.refresh({ force: false, timeoutMs: AppConfig.MANUAL_FETCH_TIMEOUT_MS });
+        } else {
+            // Case B: Stale Cache (> 10 minutes) or No Cache -> Keep loading screen up
+            SyncStatusManager.setOverlaySubtext('Syncing latest pond telemetry from station...');
+            SyncStatusManager.setSyncing('Connecting to station (max 8s)...');
+
+            // Blocking fetch with 8-second limit
+            const result = await DataService.fetchNetwork(
+                false, 
+                AppConfig.INITIAL_FETCH_TIMEOUT_MS, 
+                (progressText) => SyncStatusManager.setProgressText(progressText)
+            );
+
+            if (result && (result.status === 'success' || result.status === 'mock' || result.status === 'mock_live_feed')) {
+                // Fresh data received within 8 seconds!
+                AppController.render(result.data);
+                AppController.hideLoader();
+                SyncStatusManager.setLive(DataService.lastFetchTimestamp || Date.now());
+            } else if (result && (result.status === 'timeout_fallback' || result.status === 'error_fallback') && result.data) {
+                // 8s timeout or network error occurred -> fallback to cached data
+                AppController.render(result.data);
+                AppController.hideLoader();
+                SyncStatusManager.setStale(result.cacheTimestamp, result.error === 'timeout' ? 'timeout' : 'error');
+            } else if (cached && cached.data) {
+                // Secondary fallback if fetchNetwork returned null or errored
+                AppController.render(cached.data);
+                AppController.hideLoader();
+                SyncStatusManager.setStale(cached.timestamp, 'timeout');
+            } else {
+                // Zero cache available (first load offline)
+                AppController.hideLoader();
+                SyncStatusManager.setError('Connection failed. No offline data available. [Retry]');
+            }
         }
 
-        // 2. Fetch fresh network data in background
-        AppController.refresh();
-
-        // 3. Set recurring background refresh (1 minute interval)
+        // 2. Set recurring background refresh (1 minute interval)
         AppController.startAutoRefresh();
 
-        // 4. Register mobile browser lifecycle listeners (Page Visibility / Tab Wake / Online)
+        // 3. Register mobile browser lifecycle listeners (Page Visibility / Tab Wake / Online)
         AppController.registerLifecycleListeners();
+    }
+
+    /**
+     * Handles manual tap on the Refresh button
+     */
+    static async handleManualRefresh() {
+        if (DataService.isFetching) {
+            return;
+        }
+
+        if (!navigator.onLine) {
+            const cached = DataService.getLocalCache();
+            SyncStatusManager.setOffline(
+                cached && cached.timestamp 
+                    ? `Offline • Saved cache (${SyncStatusManager.formatTime(cached.timestamp)}) [Retry 🔄]`
+                    : 'Offline • Reconnect Wi-Fi/4G to refresh'
+            );
+            return;
+        }
+
+        SyncStatusManager.setSyncing('Connecting to station...');
+
+        try {
+            const result = await DataService.fetchNetwork(
+                true, // bypass server cache
+                AppConfig.MANUAL_FETCH_TIMEOUT_MS, // 12 seconds
+                (progressText) => SyncStatusManager.setProgressText(progressText)
+            );
+
+            if (result && (result.status === 'success' || result.status === 'mock' || result.status === 'mock_live_feed')) {
+                AppController.render(result.data);
+                SyncStatusManager.setLive(DataService.lastFetchTimestamp || Date.now());
+            } else if (result && result.status === 'timeout_fallback') {
+                SyncStatusManager.setStale(result.cacheTimestamp, 'timeout');
+            } else {
+                SyncStatusManager.setError('Response timeout (GAS busy). [Tap to Retry]');
+            }
+        } catch (e) {
+            SyncStatusManager.setError('Network error. [Tap to Retry]');
+        }
     }
 
     /**
@@ -2760,9 +2993,9 @@ class AppController {
             clearInterval(AppController.refreshTimer);
         }
         AppController.refreshTimer = setInterval(() => {
-            // Only auto-refresh if tab is active/visible
-            if (!document.hidden) {
-                AppController.refresh();
+            // Only auto-refresh if tab is active/visible and not already fetching
+            if (!document.hidden && !DataService.isFetching) {
+                AppController.refresh({ force: false, timeoutMs: AppConfig.MANUAL_FETCH_TIMEOUT_MS });
             }
         }, AppConfig.AUTO_REFRESH_INTERVAL_MS);
     }
@@ -2772,35 +3005,71 @@ class AppController {
      * - 'visibilitychange': triggers re-fetch when user unlocks phone or switches back to tab
      * - 'pageshow': triggers re-fetch when browser restores page from bfcache (Back/Forward cache)
      * - 'online': triggers re-fetch when network reconnects
+     * - 'offline': immediately notifies user of offline status
      */
     static registerLifecycleListeners() {
         // Tab / App focus & mobile phone unlock
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 const timeSinceLastFetch = Date.now() - DataService.lastFetchTimestamp;
-                if (timeSinceLastFetch > AppController.STALE_THRESHOLD_MS) {
-                    AppController.refresh();
+                if (timeSinceLastFetch > AppController.STALE_THRESHOLD_MS && !DataService.isFetching) {
+                    AppController.refresh({ force: false, timeoutMs: AppConfig.MANUAL_FETCH_TIMEOUT_MS });
                 }
             }
         });
 
         // Mobile Back-Forward Cache (bfcache) resume
         window.addEventListener('pageshow', (event) => {
-            if (event.persisted) {
-                AppController.refresh();
+            if (event.persisted && !DataService.isFetching) {
+                AppController.refresh({ force: false, timeoutMs: AppConfig.MANUAL_FETCH_TIMEOUT_MS });
             }
         });
 
         // Network connection restoration
         window.addEventListener('online', () => {
-            AppController.refresh();
+            SyncStatusManager.setSyncing('Back online. Syncing...');
+            AppController.refresh({ force: true, timeoutMs: AppConfig.MANUAL_FETCH_TIMEOUT_MS });
+        });
+
+        // Network connection loss
+        window.addEventListener('offline', () => {
+            const cached = DataService.getLocalCache();
+            SyncStatusManager.setOffline(
+                cached && cached.timestamp 
+                    ? `Offline • Saved cache (${SyncStatusManager.formatTime(cached.timestamp)})` 
+                    : 'Offline • No internet connection'
+            );
         });
     }
 
-    static async refresh(force = false) {
-        const result = await DataService.fetchNetwork(force);
-        if (result && result.data) {
+    static async refresh({ force = false, timeoutMs = AppConfig.MANUAL_FETCH_TIMEOUT_MS } = {}) {
+        if (!navigator.onLine) {
+            const cached = DataService.getLocalCache();
+            SyncStatusManager.setOffline(
+                cached && cached.timestamp 
+                    ? `Offline • Saved cache (${SyncStatusManager.formatTime(cached.timestamp)}) [Retry 🔄]` 
+                    : 'Offline • Reconnect to refresh'
+            );
+            return;
+        }
+
+        SyncStatusManager.setSyncing('Checking telemetry...');
+        const result = await DataService.fetchNetwork(
+            force, 
+            timeoutMs, 
+            (progressText) => SyncStatusManager.setProgressText(progressText)
+        );
+
+        if (result && (result.status === 'success' || result.status === 'mock' || result.status === 'mock_live_feed')) {
             AppController.render(result.data);
+            SyncStatusManager.setLive(DataService.lastFetchTimestamp || Date.now());
+        } else if (result && result.status === 'timeout_fallback') {
+            SyncStatusManager.setStale(result.cacheTimestamp, 'timeout');
+        } else {
+            const cached = DataService.getLocalCache();
+            if (cached && cached.timestamp) {
+                SyncStatusManager.setStale(cached.timestamp, 'error');
+            }
         }
         AppController.hideLoader();
     }

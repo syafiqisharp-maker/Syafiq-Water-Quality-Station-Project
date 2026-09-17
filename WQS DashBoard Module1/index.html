@@ -20,12 +20,27 @@
 <body>
     <div id="loading-overlay" class="overlay" role="status" aria-live="polite">
         <div class="spinner"></div>
-        <p>Loading Pond Data...</p>
+        <p id="loading-title">Loading Pond Data...</p>
+        <span id="loading-subtext" class="loading-subtext">Syncing latest telemetry from station...</span>
     </div>
 
     <div class="dashboard-container">
-        <header>
-            <h1>M01L02P12 Pond Status (Field Trial)</h1>
+        <header class="dashboard-header">
+            <div class="header-content">
+                <h1>M01L02P12 Pond Status (Field Trial)</h1>
+                <div class="header-sync-bar">
+                    <div id="sync-status-badge" class="sync-badge status-syncing" role="status" aria-live="polite" title="Data synchronization status">
+                        <span class="sync-dot"></span>
+                        <span class="sync-text" id="sync-status-text">Connecting to station...</span>
+                    </div>
+                    <button id="btn-refresh-dashboard" class="btn-refresh" aria-label="Refresh pond data" title="Fetch fresh telemetry from station">
+                        <svg class="refresh-icon" viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+                        </svg>
+                        <span class="btn-refresh-label">Refresh</span>
+                    </button>
+                </div>
+            </div>
         </header>
 
         <main>
@@ -109,7 +124,6 @@
                 <div class="feeding-activity-header">
                     <div class="feeding-activity-title-group">
                         <h2>Feeding Activity</h2>
-                        <div class="feeding-activity-subtitle">Automated Feed Barrel Telemetry (Pond <span id="feed-pond-id">01.02.12</span>)</div>
                     </div>
                 </div>
                 <div id="feeding-activity-container" class="feeding-activity-content" aria-live="polite">
