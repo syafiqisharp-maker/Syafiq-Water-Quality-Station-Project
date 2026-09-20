@@ -20,7 +20,7 @@ const AppConfig = Object.freeze({
     CACHE_KEY: 'AQUA_WQS_DASHBOARD_CACHE_V3',
     CACHE_STALE_THRESHOLD_MS: 10 * 60 * 1000, // 10 minutes cache freshness window
     INITIAL_FETCH_TIMEOUT_MS: 8000, // 8s timeout for initial blocking load
-    MANUAL_FETCH_TIMEOUT_MS: 12000, // 12s timeout for manual/background refresh
+    MANUAL_FETCH_TIMEOUT_MS: 90000, // 90s generous timeout for manual forced live calculation
     AUTO_REFRESH_INTERVAL_MS: 60 * 1000, // 1 minute background poll
     ANIMATION_DELAY_MS: 300
 });
@@ -2206,29 +2206,39 @@ class DataService {
             controller.abort(new Error('TIMEOUT'));
         }, timeoutMs);
 
-        // Progressive latency timers to reassure user during cold-starts or network lag
+        // Progressive latency tracking: active second counter for forced refresh, phased text for normal
         const progressiveTimers = [];
+        let tickerInterval = null;
+        let elapsedSec = 0;
+
         if (typeof onProgress === 'function') {
-            if (timeoutMs > 4000) {
-                progressiveTimers.push(setTimeout(() => {
-                    onProgress('GAS waking up, please wait...');
-                }, 4000));
-            }
-            if (timeoutMs > 8000) {
-                progressiveTimers.push(setTimeout(() => {
-                    onProgress('Slow response from Google Sheets... almost there...');
-                }, 8000));
-            }
-            if (timeoutMs > 10500) {
-                progressiveTimers.push(setTimeout(() => {
-                    onProgress('Finalizing telemetry response...');
-                }, 10500));
+            if (force) {
+                onProgress('Calculating live data from station... (0s)');
+                tickerInterval = setInterval(() => {
+                    elapsedSec++;
+                    onProgress(`Calculating live data from station... (${elapsedSec}s)`);
+                }, 1000);
+            } else {
+                if (timeoutMs > 4000) {
+                    progressiveTimers.push(setTimeout(() => {
+                        onProgress('GAS waking up, please wait...');
+                    }, 4000));
+                }
+                if (timeoutMs > 8000) {
+                    progressiveTimers.push(setTimeout(() => {
+                        onProgress('Slow response from Google Sheets... almost there...');
+                    }, 8000));
+                }
             }
         }
 
         const clearAllTimers = () => {
             clearTimeout(timeoutId);
             progressiveTimers.forEach(t => clearTimeout(t));
+            if (tickerInterval) {
+                clearInterval(tickerInterval);
+                tickerInterval = null;
+            }
         };
 
         try {
@@ -2968,7 +2978,7 @@ class AppController {
         try {
             const result = await DataService.fetchNetwork(
                 true, // bypass server cache
-                AppConfig.MANUAL_FETCH_TIMEOUT_MS, // 12 seconds
+                AppConfig.MANUAL_FETCH_TIMEOUT_MS, // 90 seconds generous limit
                 (progressText) => SyncStatusManager.setProgressText(progressText)
             );
 

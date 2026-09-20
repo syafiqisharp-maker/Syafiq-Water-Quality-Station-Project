@@ -16,7 +16,7 @@ class AppConfig {
   static get WQS_SHEET_ID() { return '1zVXbhakvH8kFIcV_YL-YS89dsAF0eDNE-eeTxV-IWuY'; }
   static get WEATHER_SHEET_ID() { return '1xhWN6yg5u229HS-LbCDL2qVKs2b2v16XxGlklKR63BQ'; }
   static get FEED_BARREL_SHEET_ID() { return '19lHzaW6WengVOE1N-zNk-trIGwLduU7rDfaZGGLwSuM'; }
-  static get CACHE_DURATION_SECONDS() { return 180; } // 3 minutes cache for sub-second responses
+  static get CACHE_DURATION_SECONDS() { return 21600; } // 6 hours cache for sub-second responses (refreshed by 10-min trigger)
   static get DEFAULT_HISTORY_DAYS() { return 120; }
 }
 
@@ -1551,6 +1551,120 @@ class CacheManager {
  * Main Application Orchestrator
  */
 class AppController {
+  /**
+   * Generates the complete dashboard payload from all spreadsheets
+   */
+  static buildPayload(targetPond = AppConfig.TARGET_POND) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today.getTime() - 86400000);
+    const twoDaysAgo = new Date(today.getTime() - 2 * 86400000);
+
+    // 1. Fetch Operational Details (Stocking Date & Culture Cycle bounds)
+    const pondDetails = PondRepository.fetchDetails(targetPond, today);
+
+    let cycleStartDate = pondDetails.stockingDateRaw || null;
+    if (!cycleStartDate && pondDetails.doc) {
+      cycleStartDate = new Date(today.getTime() - (pondDetails.doc - 1) * 86400000);
+    }
+    const startFilterTime = cycleStartDate
+      ? new Date(cycleStartDate.getFullYear(), cycleStartDate.getMonth(), cycleStartDate.getDate()).getTime()
+      : (today.getTime() - AppConfig.DEFAULT_HISTORY_DAYS * 86400000);
+
+    // 2. Open Spreadsheets and read data
+    const wqsSheet = SpreadsheetApp.openById(AppConfig.WQS_SHEET_ID).getSheets()[0];
+    const weatherSs = SpreadsheetApp.openById(AppConfig.WEATHER_SHEET_ID);
+    const weatherLiveSheet = weatherSs.getSheetByName("Live");
+    const weatherHistorySheet = weatherSs.getSheetByName("Sheet1");
+
+    const wqsData = wqsSheet.getDataRange().getValues();
+    const weatherLiveData = weatherLiveSheet.getDataRange().getValues();
+    const weatherHistoryData = weatherHistorySheet.getDataRange().getValues();
+
+    // 3. Process Weather Data
+    const weatherLive = WeatherProcessor.processLive(weatherLiveData, today, yesterday, twoDaysAgo);
+    const weatherHistory = WeatherProcessor.processHistory(weatherHistoryData, startFilterTime);
+
+    // 4. Process Water Quality Data
+    const wqsResult = WaterQualityProcessor.process(wqsData, startFilterTime, cycleStartDate, pondDetails.doc, today);
+
+    // 5. Alert & Advisory Evaluation
+    const analysis = AlertEngine.buildAnalysisStatus(wqsResult.todayMetrics, weatherLive, weatherHistory, today);
+    const abnormalities = AlertEngine.detectAbnormalities(
+      wqsResult.dailyWqs,
+      weatherHistory.dailyWeather,
+      weatherHistory.sevenDayRainMap,
+      cycleStartDate,
+      pondDetails.doc,
+      today
+    );
+
+    // 6. Process Feed Barrel Sonar Telemetry
+    const feedingActivity = FeedBarrelProcessor.process(targetPond, today);
+
+    // 7. Construct Final Response Payload
+    return {
+      status: "success",
+      data: {
+        pondDetails: pondDetails,
+        raw: {
+          timestamp: wqsResult.recentRaw.timestamp instanceof Date
+            ? wqsResult.recentRaw.timestamp.toISOString()
+            : (wqsResult.recentRaw.timestamp || now.toISOString()),
+          do: wqsResult.recentRaw.do,
+          ph: wqsResult.recentRaw.ph,
+          waterTemp: wqsResult.recentRaw.waterTemp,
+          lux: weatherLive.recentLux,
+          airTemp: weatherLive.recentAirTemp,
+          trends: {
+            do: wqsResult.trends.do,
+            ph: wqsResult.trends.ph,
+            waterTemp: wqsResult.trends.waterTemp,
+            lux: weatherLive.trends.lux,
+            airTemp: weatherLive.trends.airTemp
+          },
+          sparklines: {
+            do: wqsResult.sparklines.do,
+            ph: wqsResult.sparklines.ph,
+            waterTemp: wqsResult.sparklines.waterTemp,
+            lux: weatherLive.sparklines.lux,
+            airTemp: weatherLive.sparklines.airTemp
+          }
+        },
+        weeklyMetrics: wqsResult.weeklyMetrics,
+        analysis: analysis,
+        feedingActivity: feedingActivity,
+        config: AlertConfig.toClientConfig(),
+        history: {
+          totalAbnormalDays: abnormalities.length,
+          tempExtremes: {
+            min: wqsResult.minTempRecord,
+            max: wqsResult.maxTempRecord
+          },
+          abnormalities: abnormalities
+        }
+      }
+    };
+  }
+
+  /**
+   * Pre-warms and stores the compiled payload in CacheService.
+   * Executed automatically by the 10-minute background trigger.
+   */
+  static prewarm(targetPond = AppConfig.TARGET_POND) {
+    const startTime = Date.now();
+    const cacheKey = `wqs_dashboard_${targetPond}`;
+    const payload = AppController.buildPayload(targetPond);
+    const outputJson = JSON.stringify(payload);
+    CacheManager.put(cacheKey, outputJson, AppConfig.CACHE_DURATION_SECONDS);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`[Prewarm] Cache updated for pond ${targetPond} in ${duration}s (${outputJson.length} bytes)`);
+    return outputJson;
+  }
+
+  /**
+   * Handles incoming web app HTTP requests
+   */
   static handleRequest(e) {
     try {
       const targetPond = (e && e.parameter && e.parameter.pond) ? e.parameter.pond : AppConfig.TARGET_POND;
@@ -1563,7 +1677,7 @@ class AppController {
       ));
       const cacheKey = `wqs_dashboard_${targetPond}`;
 
-      // 1. Check Short-Term Cache
+      // 1. Check Pre-Warmed Cache (instant sub-second delivery unless forceRefresh requested)
       if (!forceRefresh) {
         const cachedResponse = CacheManager.get(cacheKey);
         if (cachedResponse) {
@@ -1571,102 +1685,8 @@ class AppController {
         }
       }
 
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const yesterday = new Date(today.getTime() - 86400000);
-      const twoDaysAgo = new Date(today.getTime() - 2 * 86400000);
-
-      // 2. Fetch Operational Details (Stocking Date & Culture Cycle bounds)
-      const pondDetails = PondRepository.fetchDetails(targetPond, today);
-
-      let cycleStartDate = pondDetails.stockingDateRaw || null;
-      if (!cycleStartDate && pondDetails.doc) {
-        cycleStartDate = new Date(today.getTime() - (pondDetails.doc - 1) * 86400000);
-      }
-      const startFilterTime = cycleStartDate
-        ? new Date(cycleStartDate.getFullYear(), cycleStartDate.getMonth(), cycleStartDate.getDate()).getTime()
-        : (today.getTime() - AppConfig.DEFAULT_HISTORY_DAYS * 86400000);
-
-      // 3. Open Spreadsheets and read data
-      const wqsSheet = SpreadsheetApp.openById(AppConfig.WQS_SHEET_ID).getSheets()[0];
-      const weatherSs = SpreadsheetApp.openById(AppConfig.WEATHER_SHEET_ID);
-      const weatherLiveSheet = weatherSs.getSheetByName("Live");
-      const weatherHistorySheet = weatherSs.getSheetByName("Sheet1");
-
-      const wqsData = wqsSheet.getDataRange().getValues();
-      const weatherLiveData = weatherLiveSheet.getDataRange().getValues();
-      const weatherHistoryData = weatherHistorySheet.getDataRange().getValues();
-
-      // 4. Process Weather Data
-      const weatherLive = WeatherProcessor.processLive(weatherLiveData, today, yesterday, twoDaysAgo);
-      const weatherHistory = WeatherProcessor.processHistory(weatherHistoryData, startFilterTime);
-
-      // 5. Process Water Quality Data
-      const wqsResult = WaterQualityProcessor.process(wqsData, startFilterTime, cycleStartDate, pondDetails.doc, today);
-
-      // 6. Alert & Advisory Evaluation
-      const analysis = AlertEngine.buildAnalysisStatus(wqsResult.todayMetrics, weatherLive, weatherHistory, today);
-      const abnormalities = AlertEngine.detectAbnormalities(
-        wqsResult.dailyWqs,
-        weatherHistory.dailyWeather,
-        weatherHistory.sevenDayRainMap,
-        cycleStartDate,
-        pondDetails.doc,
-        today
-      );
-
-      // 7. Process Feed Barrel Sonar Telemetry
-      const feedingActivity = FeedBarrelProcessor.process(targetPond, today);
-
-      // 8. Construct Final Response Payload
-      const payload = {
-        status: "success",
-        data: {
-          pondDetails: pondDetails,
-          raw: {
-            timestamp: wqsResult.recentRaw.timestamp instanceof Date
-              ? wqsResult.recentRaw.timestamp.toISOString()
-              : (wqsResult.recentRaw.timestamp || now.toISOString()),
-            do: wqsResult.recentRaw.do,
-            ph: wqsResult.recentRaw.ph,
-            waterTemp: wqsResult.recentRaw.waterTemp,
-            lux: weatherLive.recentLux,
-            airTemp: weatherLive.recentAirTemp,
-            trends: {
-              do: wqsResult.trends.do,
-              ph: wqsResult.trends.ph,
-              waterTemp: wqsResult.trends.waterTemp,
-              lux: weatherLive.trends.lux,
-              airTemp: weatherLive.trends.airTemp
-            },
-            sparklines: {
-              do: wqsResult.sparklines.do,
-              ph: wqsResult.sparklines.ph,
-              waterTemp: wqsResult.sparklines.waterTemp,
-              lux: weatherLive.sparklines.lux,
-              airTemp: weatherLive.sparklines.airTemp
-            }
-          },
-          weeklyMetrics: wqsResult.weeklyMetrics,
-          analysis: analysis,
-          feedingActivity: feedingActivity,
-          config: AlertConfig.toClientConfig(),
-          history: {
-            totalAbnormalDays: abnormalities.length,
-            tempExtremes: {
-              min: wqsResult.minTempRecord,
-              max: wqsResult.maxTempRecord
-            },
-            abnormalities: abnormalities
-          }
-        }
-      };
-
-      const outputJson = JSON.stringify(payload);
-
-      // Store in Cache
-      CacheManager.put(cacheKey, outputJson, AppConfig.CACHE_DURATION_SECONDS);
-
+      // 2. Build live payload (on forced refresh or initial cache miss) and refresh cache
+      const outputJson = AppController.prewarm(targetPond);
       return ContentService.createTextOutput(outputJson).setMimeType(ContentService.MimeType.JSON);
     } catch (error) {
       return ContentService.createTextOutput(
@@ -1678,7 +1698,7 @@ class AppController {
 
 
 // =========================================================================
-// 8. MAIN GOOGLE APPS SCRIPT WEB APP ENTRYPOINT
+// 8. MAIN GOOGLE APPS SCRIPT WEB APP ENTRYPOINT & TRIGGERS
 // =========================================================================
 
 /**
@@ -1686,4 +1706,16 @@ class AppController {
  */
 function doGet(e) {
   return AppController.handleRequest(e);
+}
+
+/**
+ * Automated 10-Minute Pre-Warming Trigger Entrypoint
+ * Configure this function in Apps Script Triggers:
+ * - Function: prewarmDashboardCache
+ * - Event source: Time-driven
+ * - Type: Minutes timer
+ * - Interval: Every 10 minutes
+ */
+function prewarmDashboardCache() {
+  return AppController.prewarm();
 }
