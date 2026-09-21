@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WQS Dashboard Module 1 - SWOT Presentation (Bright Aqua Theme)</title>
+    <style>
+        /* Bright Frutiger Aqua Design System (Inspired by Vibrant Dolphin & Rainbow Ocean Artwork) */
+        :root {
+            --sky-blue: #38b6ff;
+            --ocean-blue: #0084d1;
+            --deep-aqua: #005b99;
+            --text-dark: #072a4a;
+            --text-body: #1c3d5a;
+            --pure-white: #ffffff;
+            --card-glass: rgba(255, 255, 255, 0.88);
+            --card-inner: rgba(240, 250, 255, 0.94);
+            --border-light: rgba(255, 255, 255, 0.95);
+            --border-cyan: rgba(56, 182, 255, 0.5);
+
+            /* Bright Colorful Badges */
+            --badge-green: #10b981;
+            --badge-orange: #f59e0b;
+            --badge-purple: #8b5cf6;
+            --badge-pink: #ec4899;
+            --badge-red: #ef4444;
+            --badge-cyan: #06b6d4;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Segoe UI Emoji', Roboto, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            /* Bright Tropical Ocean & Sunny Sky Gradient */
+            background: linear-gradient(180deg, #5cd3ff 0%, #00a6fb 38%, #0077b6 75%, #005088 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Bright Sun Rays & Rainbow Glow */
+        .sun-glow {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 800px;
+            height: 450px;
+            background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.4) 35%, rgba(255, 255, 255, 0) 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .rainbow-arc {
+            position: fixed;
+            top: -20px;
+            left: 5%;
+            right: 5%;
+            height: 6px;
+            background: linear-gradient(90deg, #ff4d6d 0%, #ffa200 22%, #ffea00 40%, #06d6a0 60%, #118ab2 80%, #7209b7 100%);
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.8), 0 0 12px rgba(255, 230, 0, 0.6);
+            opacity: 0.9;
+            z-index: 1;
+        }
+
+        /* Sparkling Water Bubbles */
+        .ambient-bubbles {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(180, 240, 255, 0.6) 35%, rgba(56, 182, 255, 0.25) 75%, rgba(255, 255, 255, 0.8) 100%);
+            border: 1.5px solid rgba(255, 255, 255, 0.85);
+            box-shadow: 0 6px 16px rgba(0, 100, 180, 0.2), inset 0 2px 5px rgba(255, 255, 255, 0.9);
+            animation: floatSlow 12s infinite ease-in-out alternate;
+        }
+
+        .b1 { width: 140px; height: 140px; top: 10%; right: 4%; animation-duration: 14s; }
+        .b2 { width: 100px; height: 100px; bottom: 8%; left: 4%; animation-duration: 11s; }
+        .b3 { width: 70px; height: 70px; top: 48%; left: 6%; animation-duration: 16s; }
+        .b4 { width: 85px; height: 85px; bottom: 18%; right: 5%; animation-duration: 13s; }
+
+        @keyframes floatSlow {
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-24px) scale(1.06); }
+            100% { transform: translateY(18px) scale(0.96); }
+        }
+
+        /* Main Presentation Canvas (16:9 Glass Card) */
+        .stage {
+            position: relative;
+            z-index: 3;
+            width: 92vw;
+            max-width: 1260px;
+            aspect-ratio: 16 / 9;
+            background: rgba(255, 255, 255, 0.86);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 2px solid var(--border-light);
+            border-radius: 26px;
+            box-shadow: 0 20px 60px rgba(0, 45, 95, 0.35), 0 2px 6px rgba(255, 255, 255, 0.9), inset 0 2px 4px #ffffff;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Gloss Shine */
+        .stage::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 35%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0) 100%);
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            pointer-events: none;
+        }
+
+        /* Slides */
+        .slide {
+            position: absolute;
+            inset: 0;
+            padding: 42px 52px 36px;
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            opacity: 0;
+            transform: translateY(12px) scale(0.99);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+        }
+
+        .slide.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Slide Header */
+        .slide-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .category-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 18px;
+            border-radius: 24px;
+            font-size: 0.92rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border: 1.5px solid #fff;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.9);
+        }
+
+        .pill-strength {
+            background: linear-gradient(180deg, #34d399 0%, #059669 100%);
+            color: #ffffff;
+        }
+
+        .pill-weakness {
+            background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+            color: #ffffff;
+        }
+
+        .pill-opportunity {
+            background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+            color: #ffffff;
+        }
+
+        .pill-threat {
+            background: linear-gradient(180deg, #f87171 0%, #dc2626 100%);
+            color: #ffffff;
+        }
+
+        .slide-counter {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #0369a1;
+            background: rgba(224, 242, 254, 0.8);
+            padding: 6px 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(186, 230, 253, 0.9);
+        }
+
+        /* Slide Titles */
+        .slide-heading-wrap {
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+
+        .slide-title {
+            font-size: 2.25rem;
+            font-weight: 800;
+            color: #0c4a6e;
+            letter-spacing: -0.5px;
+            text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .slide-takeaway {
+            margin-top: 5px;
+            font-size: 1.08rem;
+            color: #0284c7;
+            font-weight: 600;
+        }
+
+        /* Content Grid */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 290px;
+            gap: 22px;
+            align-items: stretch;
+            flex-grow: 1;
+        }
+
+        /* Glass Content Card */
+        .glass-card {
+            background: var(--card-inner);
+            border: 1.5px solid rgba(186, 230, 253, 0.7);
+            border-top: 2px solid #ffffff;
+            border-radius: 20px;
+            padding: 24px 28px;
+            box-shadow: 0 10px 24px rgba(0, 80, 150, 0.08), inset 0 2px 2px #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 16px;
+            position: relative;
+        }
+
+        .bullet-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+        }
+
+        .bullet-icon {
+            width: 26px;
+            height: 26px;
+            min-width: 26px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.88rem;
+            font-weight: 800;
+            margin-top: 3px;
+            color: #ffffff;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.12);
+        }
+
+        .icon-green { background: linear-gradient(180deg, #34d399, #059669); }
+        .icon-orange { background: linear-gradient(180deg, #fbbf24, #d97706); }
+        .icon-blue { background: linear-gradient(180deg, #38bdf8, #0284c7); }
+        .icon-red { background: linear-gradient(180deg, #f87171, #dc2626); }
+
+        .bullet-text h4 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #082f49;
+            margin-bottom: 4px;
+        }
+
+        .bullet-text p {
+            font-size: 0.98rem;
+            color: var(--text-body);
+            line-height: 1.45;
+        }
+
+        /* Metric Sidebar Card */
+        .metric-card {
+            background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #bae6fd;
+            border-top: 2px solid #ffffff;
+            border-radius: 20px;
+            padding: 24px 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 8px 20px rgba(0, 90, 170, 0.1), inset 0 2px 3px #ffffff;
+        }
+
+        .metric-label {
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            color: #0369a1;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-size: 2.25rem;
+            font-weight: 900;
+            color: #0284c7;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+            line-height: 1.1;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+        }
+
+        .metric-desc {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #0c4a6e;
+            line-height: 1.35;
+        }
+
+        /* Title Slide Layout */
+        .title-slide {
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .title-badge {
+            display: inline-block;
+            padding: 8px 24px;
+            border-radius: 30px;
+            background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 100%);
+            border: 1.5px solid #ffffff;
+            color: #0284c7;
+            font-size: 0.95rem;
+            font-weight: 800;
+            letter-spacing: 1.5px;
+            box-shadow: 0 4px 12px rgba(0, 130, 220, 0.15);
+            margin-bottom: 22px;
+        }
+
+        .main-hero-title {
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            color: #034870;
+            text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9), 0 6px 20px rgba(0, 120, 200, 0.2);
+            margin-bottom: 12px;
+        }
+
+        .main-hero-sub {
+            font-size: 1.6rem;
+            color: #0284c7;
+            font-weight: 700;
+            margin-bottom: 28px;
+        }
+
+        .title-footer-tags {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #075985;
+        }
+
+        .title-footer-tag {
+            background: rgba(224, 242, 254, 0.85);
+            padding: 8px 18px;
+            border-radius: 14px;
+            border: 1px solid #bae6fd;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Controls Bar */
+        .controls-bar {
+            margin-top: 18px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        .nav-btn {
+            background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 60%, #bae6fd 100%);
+            border: 1.5px solid #ffffff;
+            color: #0369a1;
+            font-size: 1rem;
+            font-weight: 800;
+            padding: 9px 24px;
+            border-radius: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 50, 100, 0.2), inset 0 2px 2px #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-2px);
+            background: #ffffff;
+            color: #0284c7;
+            box-shadow: 0 6px 16px rgba(0, 100, 200, 0.3);
+        }
+
+        .nav-btn:active {
+            transform: translateY(1px);
+        }
+
+        .dot-nav {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid #ffffff;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .dot.active {
+            width: 30px;
+            border-radius: 12px;
+            background: #ffffff;
+            box-shadow: 0 0 10px #ffffff;
+        }
+
+        .fs-btn {
+            background: rgba(255, 255, 255, 0.35);
+            border: 1px solid #ffffff;
+            color: #ffffff;
+            font-size: 0.88rem;
+            font-weight: 700;
+            padding: 8px 16px;
+            border-radius: 16px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: 0.2s;
+        }
+
+        .fs-btn:hover {
+            background: #ffffff;
+            color: #0284c7;
+        }
+
+        .key-hint {
+            margin-top: 8px;
+            font-size: 0.85rem;
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Bright Sunlight & Rainbow Arc -->
+    <div class="sun-glow"></div>
+    <div class="rainbow-arc"></div>
+
+    <!-- Floating Water Bubbles -->
+    <div class="ambient-bubbles">
+        <div class="bubble b1"></div>
+        <div class="bubble b2"></div>
+        <div class="bubble b3"></div>
+        <div class="bubble b4"></div>
+    </div>
+
+    <!-- Presentation Stage Canvas -->
+    <div class="stage" id="stage">
+
+        <!-- Slide 0: Title Cover -->
+        <div class="slide active title-slide" data-slide="0">
+            <div class="title-badge">WATER QUALITY STATION (WQS)</div>
+            <h1 class="main-hero-title">WQS Dashboard Module 1</h1>
+            <h2 class="main-hero-sub">Product SWOT Analysis & Future Plan</h2>
+            <div class="title-footer-tags">
+                <div class="title-footer-tag">💧 Automated Water Monitoring</div>
+                <div class="title-footer-tag">📡 In-House LoRa & ESP32</div>
+                <div class="title-footer-tag">🦐 200 Ponds Live Control</div>
+            </div>
+        </div>
+
+        <!-- Slide 1: Strength 1 -->
+        <div class="slide" data-slide="1">
+            <div class="slide-header">
+                <div class="category-pill pill-strength">● STRENGTH</div>
+                <div class="slide-counter">01 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">Auto Analyse & Actionable Data</h2>
+                <div class="slide-takeaway">⚡ Automatic graphs and quick alerts for up to 200 ponds at the same time</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>Real-Time Data & Trend Graphs</h4>
+                            <p>Automatically records water data and draws trend graphs for up to 200 ponds at the same time without manual work.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>Instant Warning When Values Go Wrong</h4>
+                            <p>Quickly detects abnormal readings like low oxygen or bad pH, warning the farm team before shrimp get hurt.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>Easy View for Farm Managers</h4>
+                            <p>Managers can see the current water situation across all 200 ponds on one screen, without waiting for manual paper test logs.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">SCALE CAPACITY</div>
+                    <div class="metric-value">200</div>
+                    <div class="metric-desc">Ponds Checked Together at the Same Time</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: Strength 2 -->
+        <div class="slide" data-slide="2">
+            <div class="slide-header">
+                <div class="category-pill pill-strength">● STRENGTH</div>
+                <div class="slide-counter">02 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">100% Internally Developed & Kaizen</h2>
+                <div class="slide-takeaway">🛠️ Full ownership of hardware and software, always improving</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>Built Completely In-House</h4>
+                            <p>I developed all the sensor electronics, circuit boards, code, and the web dashboard myself without hiring outside vendors.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>No Outside Vendor Dependency</h4>
+                            <p>No expensive support contracts with 3rd-party companies, and no waiting weeks for outside technicians to come help.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>Same-Day Repairs & Continuous Kaizen</h4>
+                            <p>If something breaks, we can fix it on the same day. We can also add new custom features anytime based on farm team feedback.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">RESPONSE SPEED</div>
+                    <div class="metric-value">SAME DAY</div>
+                    <div class="metric-desc">Fixes & Upgrades Done On-Site Immediately</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 3: Strength 3 -->
+        <div class="slide" data-slide="3">
+            <div class="slide-header">
+                <div class="category-pill pill-strength">● STRENGTH</div>
+                <div class="slide-counter">03 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">Cheap & Efficient</h2>
+                <div class="slide-takeaway">💰 Good performance without buying overpriced commercial equipment</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>Cost-Effective Microcontrollers & LoRa</h4>
+                            <p>Built with reliable, budget-friendly ESP32 chips and long-range wireless LoRa, which covers our large ponds easily.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>No Overpowered Waste</h4>
+                            <p>We only use what our farm really needs. It costs only a small fraction of expensive commercial aquaculture packages.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-green">✓</div>
+                        <div class="bullet-text">
+                            <h4>Zero License Fees</h4>
+                            <p>Completely free from monthly or yearly software license fees, saving our company money every month.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">SOFTWARE COST</div>
+                    <div class="metric-value">$0</div>
+                    <div class="metric-desc">No Yearly Per-Pond Subscription Fees</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 4: Weakness 1 -->
+        <div class="slide" data-slide="4">
+            <div class="slide-header">
+                <div class="category-pill pill-weakness">● WEAKNESS</div>
+                <div class="slide-counter">04 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">Big Data</h2>
+                <div class="slide-takeaway">📊 Huge data coming in daily; need PostgreSQL instead of Excel</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-orange">!</div>
+                        <div class="bullet-text">
+                            <h4>Huge Daily Rows</h4>
+                            <p>200 ponds sending data every 10 mins = 1,200 rows every hour, 28,800 rows every day, and ~10.5 Million rows each year!</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-orange">!</div>
+                        <div class="bullet-text">
+                            <h4>Complex ID Mapping Logic</h4>
+                            <p>Sensors only send general pond numbers (01.02.12). Our code must check the active shrimp list and attach the right cycle ID (e.g. 2010212.40).</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-orange">!</div>
+                        <div class="bullet-text">
+                            <h4>Need PostgreSQL Database Skills</h4>
+                            <p>Basic Excel or Google Sheets will freeze and crash with this much data. I need to master PostgreSQL database setup so graphs load fast without lag.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">DATA VOLUME</div>
+                    <div class="metric-value" style="color:#d97706;">10.5M</div>
+                    <div class="metric-desc">Rows/Year (Requires PostgreSQL Database)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 5: Weakness 2 -->
+        <div class="slide" data-slide="5">
+            <div class="slide-header">
+                <div class="category-pill pill-weakness">● WEAKNESS</div>
+                <div class="slide-counter">05 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">Electronic Weakness</h2>
+                <div class="slide-takeaway">⚠️ Outdoor farm conditions are tough on electronic probes</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-orange">!</div>
+                        <div class="bullet-text">
+                            <h4>Known Hardware Limitation</h4>
+                            <p>Even top brands like YSI advise checking probe measurements daily. Outdoor electronics always face heat, rain, and insects.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-orange">!</div>
+                        <div class="bullet-text">
+                            <h4>Algae Build-Up & Mineral Dirt</h4>
+                            <p>Algae and minerals in pond water stick to oxygen and pH probes, causing readings to drift if they are not cleaned regularly.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-orange">!</div>
+                        <div class="bullet-text">
+                            <h4>Weekly Maintenance Routine</h4>
+                            <p>We must set up a strict weekly routine for farm workers to wash probes and verify that sensor numbers are accurate.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">MAINTENANCE</div>
+                    <div class="metric-value" style="color:#d97706;">WEEKLY</div>
+                    <div class="metric-desc">Regular Probe Cleaning & Verification Schedule</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Opportunity 1 -->
+        <div class="slide" data-slide="6">
+            <div class="slide-header">
+                <div class="category-pill pill-opportunity">● OPPORTUNITY</div>
+                <div class="slide-counter">06 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">Predictive Machine Learning</h2>
+                <div class="slide-takeaway">🧠 Using data from 400 ponds per year to predict problems early</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-blue">★</div>
+                        <div class="bullet-text">
+                            <h4>Big Data from 400 Ponds Per Year</h4>
+                            <p>Collect multi-cycle data across 400 ponds each year, combining harvest shrimp weight, water quality records, and daily feeding trends.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-blue">★</div>
+                        <div class="bullet-text">
+                            <h4>Forecast Problems Before They Happen</h4>
+                            <p>Train smart models to spot warning signs and predict oxygen drops or water sickness before shrimp show signs of stress.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-blue">★</div>
+                        <div class="bullet-text">
+                            <h4>Save Money on Feed Costs</h4>
+                            <p>Connect feeding amounts directly with dissolved oxygen and temperature to prevent overfeeding and cut expensive feed waste.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">DATA SOURCE</div>
+                    <div class="metric-value">400</div>
+                    <div class="metric-desc">Ponds Per Year for Smart Learning Models</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 7: Opportunity 2 -->
+        <div class="slide" data-slide="7">
+            <div class="slide-header">
+                <div class="category-pill pill-opportunity">● OPPORTUNITY</div>
+                <div class="slide-counter">07 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">Automation</h2>
+                <div class="slide-takeaway">⚙️ Automatically control farm equipment based on water quality</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-blue">★</div>
+                        <div class="bullet-text">
+                            <h4>Auto Paddlewheels & Auto Feeders</h4>
+                            <p>Automatically turn on paddlewheels when oxygen drops, and adjust auto-feeders to feed only when shrimp have good appetite.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-blue">★</div>
+                        <div class="bullet-text">
+                            <h4>Future: Underwater Cameras</h4>
+                            <p>Put cameras underwater to monitor uneaten feed pellets on the pond bottom and spot dead shrimp early.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-blue">★</div>
+                        <div class="bullet-text">
+                            <h4>Future: Automated Water Pumps</h4>
+                            <p>Automatically turn on water pumps for water exchange when water quality numbers (like pH or turbidity) get bad.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">AUTOMATION</div>
+                    <div class="metric-value">AUTO</div>
+                    <div class="metric-desc">Paddlewheels, Auto-Feeders & Water Pumps</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 8: Threat 1 -->
+        <div class="slide" data-slide="8">
+            <div class="slide-header">
+                <div class="category-pill pill-threat">● THREAT</div>
+                <div class="slide-counter">08 / 08</div>
+            </div>
+            <div class="slide-heading-wrap">
+                <h2 class="slide-title">Harsh Farm Environment & Supply Chain</h2>
+                <div class="slide-takeaway">🛡️ Protecting electronics from outdoor weather and keeping spare parts</div>
+            </div>
+            <div class="content-grid">
+                <div class="glass-card">
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-red">✕</div>
+                        <div class="bullet-text">
+                            <h4>Tough Farm Weather Hazards</h4>
+                            <p>Outdoor electronics face heavy tropical thunderstorms, lightning power surges, high humidity, corrosion, and extreme heat.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-red">✕</div>
+                        <div class="bullet-text">
+                            <h4>Electronic Spare Parts Delays</h4>
+                            <p>If special sensor probes or chips run out of stock with suppliers, building or replacing units could face delays.</p>
+                        </div>
+                    </div>
+                    <div class="bullet-item">
+                        <div class="bullet-icon icon-red">✕</div>
+                        <div class="bullet-text">
+                            <h4>How We Protect It</h4>
+                            <p>Use IP67 waterproof boxes, lightning surge protectors, and always keep extra backup spare parts ready on the farm.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">PROTECTION</div>
+                    <div class="metric-value" style="color:#dc2626;">IP67</div>
+                    <div class="metric-desc">Waterproof Enclosures & Surge Protectors</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="controls-bar">
+        <button class="nav-btn" onclick="prevSlide()">◀ Previous</button>
+        <div class="dot-nav" id="dotNav"></div>
+        <button class="nav-btn" onclick="nextSlide()">Next ▶</button>
+        <button class="fs-btn" onclick="toggleFullscreen()">⛶ Fullscreen (F)</button>
+    </div>
+
+    <div class="key-hint">Press ◄ / ► Arrow Keys or Spacebar to change slides</div>
+
+    <script>
+        const slides = document.querySelectorAll('.slide');
+        const dotNav = document.getElementById('dotNav');
+        let currentSlide = 0;
+
+        // Build navigation dots
+        slides.forEach((_, idx) => {
+            const dot = document.createElement('div');
+            dot.className = 'dot' + (idx === 0 ? ' active' : '');
+            dot.title = idx === 0 ? 'Title Slide' : `Slide ${idx}`;
+            dot.onclick = () => goToSlide(idx);
+            dotNav.appendChild(dot);
+        });
+
+        const dots = document.querySelectorAll('.dot');
+
+        function updateSlide() {
+            slides.forEach((s, idx) => {
+                s.classList.toggle('active', idx === currentSlide);
+            });
+            dots.forEach((d, idx) => {
+                d.classList.toggle('active', idx === currentSlide);
+            });
+        }
+
+        function nextSlide() {
+            if (currentSlide < slides.length - 1) {
+                currentSlide++;
+                updateSlide();
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+
+        function goToSlide(idx) {
+            currentSlide = idx;
+            updateSlide();
+        }
+
+        // Keyboard Controls
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+                nextSlide();
+            } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                prevSlide();
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen();
+            }
+        }
+    </script>
+</body>
+</html>
