@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>iSHARP Database Management System (DBMS) — Enterprise Aquaculture Portal</title>
+    <!-- Modern Typography: Inter and JetBrains Mono for data numbers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- App Container -->
+    <div class="app-layout">
+        
+        <!-- Top App Bar -->
+        <header class="app-header">
+            <div class="brand-cluster">
+                <div class="brand-logo-badge">
+                    <span class="logo-shrimp">🦐</span>
+                </div>
+                <div class="brand-titles">
+                    <div class="brand-row">
+                        <span class="brand-name">iSHARP</span>
+                        <span class="brand-tag">DBMS v2.0</span>
+                    </div>
+                    <span class="brand-sub">Blue Archipelago Berhad • Setiu Farm (SETiU)</span>
+                </div>
+            </div>
+
+            <!-- Global Pond Selector & Cycle Navigation -->
+            <div class="header-pond-selector">
+                <input type="text" id="input-pond-search" class="pond-search-input" placeholder="🔍 Search pond (e.g. 01.02.12)..." title="Filter cycles or search by pond number" />
+                <button id="btn-prev-pond" class="btn-nav-step" title="Previous Pond (Ctrl + Left)">‹</button>
+                <div class="select-wrapper">
+                    <select id="select-pond-index" class="pond-master-dropdown" aria-label="Select Pond Cycle">
+                        <option value="" disabled selected>Loading pond cycles from Supabase...</option>
+                    </select>
+                </div>
+                <button id="btn-next-pond" class="btn-nav-step" title="Next Pond (Ctrl + Right)">›</button>
+                <button id="btn-refresh-master" class="btn-icon" title="Refresh all data from cloud">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="header-actions">
+                <button id="btn-open-excel-modal" class="btn-action btn-excel">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="8" y1="13" x2="16" y2="13"></line>
+                        <line x1="8" y1="17" x2="16" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Paste Excel Data</span>
+                </button>
+                <button id="btn-action-new-cycle" class="btn-action btn-new-cycle">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    <span>Start Next Cycle</span>
+                </button>
+                <button id="btn-save-active-tab" class="btn-action btn-save">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    <span>Save Changes</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- EXECUTIVE FILTER BAR (Filter by Status, Module, State) -->
+        <section class="executive-filter-bar" aria-label="Pond Filters">
+            <div class="filter-controls-cluster">
+                <div class="filter-item">
+                    <span class="filter-icon">🏷️</span>
+                    <label for="filter-pond-status">Pond Status:</label>
+                    <select id="filter-pond-status" class="filter-dropdown">
+                        <option value="ALL">All Statuses (Archive)</option>
+                        <option value="PRODUCTION" selected>🟢 PRODUCTION Only (Active Crop)</option>
+                        <option value="iDLE">🔵 IDLE / Dry</option>
+                        <option value="CLOSE">⚪ CLOSE (Harvested)</option>
+                        <option value="MAINTENANCE">🟠 MAINTENANCE</option>
+                        <option value="RESERVOIR">💧 RESERVOIR</option>
+                        <option value="PREPARATION">🟡 PREPARATION</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <span class="filter-icon">🏢</span>
+                    <label for="filter-pond-module">Module:</label>
+                    <select id="filter-pond-module" class="filter-dropdown">
+                        <option value="ALL">All Modules</option>
+                        <option value="01">Module 01</option>
+                        <option value="02">Module 02</option>
+                        <option value="03">Module 03</option>
+                        <option value="04">Module 04</option>
+                        <option value="05">Module 05</option>
+                        <option value="06">Module 06</option>
+                        <option value="07">Module 07</option>
+                        <option value="08">Module 08</option>
+                        <option value="09">Module 09</option>
+                        <option value="10">Module 10</option>
+                        <option value="11">Module 11</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <span class="filter-icon">⚡</span>
+                    <label for="filter-pond-active">Cycle State:</label>
+                    <select id="filter-pond-active" class="filter-dropdown">
+                        <option value="ALL">All States</option>
+                        <option value="ACTiVE" selected>Active Cycles</option>
+                        <option value="iN ACTiVE">Archived / Closed</option>
+                    </select>
+                </div>
+
+                <button id="btn-reset-filters" class="btn-filter-reset" title="Reset all filters">✕ Reset</button>
+            </div>
+
+            <div class="filter-feedback">
+                <span id="filtered-count-badge" class="filter-count-badge">Loading...</span>
+                <span class="filter-sort-label">Sort: <strong>Module ➔ Line ➔ Pond ➔ Cycle</strong></span>
+            </div>
+        </section>
+
+        <!-- Master Status Bar (Always Visible Anchor) -->
+        <section class="master-banner">
+            <div class="banner-grid">
+                <!-- Pond Primary Identifiers -->
+                <div class="banner-item id-block">
+                    <span class="label">POND IDENTIFIER</span>
+                    <div class="val-group">
+                        <span id="badge-pond-label" class="val-highlight">01.02.12</span>
+                        <span id="badge-pond-index" class="val-sub">2010212.43</span>
+                    </div>
+                </div>
+
+                <!-- Status & Active Flags -->
+                <div class="banner-item">
+                    <span class="label">STATUS / LIFECYCLE</span>
+                    <div class="val-group status-badges">
+                        <span id="badge-pond-status" class="status-pill status-production">PRODUCTION</span>
+                        <span id="badge-pond-active" class="active-pill active-yes">ACTiVE</span>
+                    </div>
+                </div>
+
+                <!-- Culture Specs -->
+                <div class="banner-item">
+                    <span class="label">SPECIES / GENETIC</span>
+                    <div class="val-group">
+                        <span id="badge-species" class="val-bold">P. VANNAMEi</span>
+                        <span id="badge-genetic" class="val-sub">SPT • Syaqua</span>
+                    </div>
+                </div>
+
+                <!-- Cycle & DOC Counter with Option A Cycle History Dropdown -->
+                <div class="banner-item">
+                    <span class="label">CYCLE &amp; DOC</span>
+                    <div class="val-group num-group">
+                        <span class="num-box">Cycle <span id="badge-cycle-no">40</span></span>
+                        <select id="select-cycle-history" class="cycle-history-dropdown" title="12-Year Historical Cycles for this Pond">
+                            <option value="">Loading cycles...</option>
+                        </select>
+                        <span class="doc-box">DOC <span id="badge-doc">0</span></span>
+                    </div>
+                </div>
+
+                <!-- Physical Dimensions & Paddlewheels (PWA) -->
+                <div class="banner-item">
+                    <span class="label">POND ASSETS</span>
+                    <div class="val-group">
+                        <span class="val-bold"><span id="badge-area">0.50</span> ha</span>
+                        <span class="val-sub"><span id="badge-total-hp">0.0 HP</span> Paddlewheels (PWA)</span>
+                    </div>
+                </div>
+
+                <!-- Biosecurity & Health Status -->
+                <div class="banner-item disease-block">
+                    <span class="label">PATHOLOGY / BIOSECURITY</span>
+                    <div class="val-group">
+                        <span id="badge-disease-status" class="disease-pill disease-ok">🟢 NO ISSUES</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 9-Tab Navigation Ribbon (1:1 with GrowoutPondMaster) -->
+        <nav class="master-tab-ribbon" role="tablist">
+            <button class="tab-btn active" data-tab="tab-master" role="tab" id="btn-tab-master">
+                <span class="tab-num">1</span>
+                <span class="tab-label">Master</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-laboratory" role="tab" id="btn-tab-laboratory">
+                <span class="tab-num">2</span>
+                <span class="tab-label">Laboratory</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-stocking" role="tab" id="btn-tab-stocking">
+                <span class="tab-num">3</span>
+                <span class="tab-label">Stocking</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-feeding" role="tab" id="btn-tab-feeding">
+                <span class="tab-num">4</span>
+                <span class="tab-label">Feeding</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-sampling" role="tab" id="btn-tab-sampling">
+                <span class="tab-num">5</span>
+                <span class="tab-label">Sampling</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-performance" role="tab" id="btn-tab-performance">
+                <span class="tab-num">6</span>
+                <span class="tab-label">Performance</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-termination" role="tab" id="btn-tab-termination">
+                <span class="tab-num">7</span>
+                <span class="tab-label">Termination</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-staff" role="tab" id="btn-tab-staff">
+                <span class="tab-num">8</span>
+                <span class="tab-label">Staff+Remarks</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-utilities" role="tab" id="btn-tab-utilities">
+                <span class="tab-num">9</span>
+                <span class="tab-label">Utilities</span>
+            </button>
+        </nav>
+
+        <!-- Main Tab Body Area -->
+        <main class="master-tab-content">
+            
+            <!-- TAB 1: MASTER (Pond Lifecycle & Prep Milestones) -->
+            <div id="tab-master" class="tab-pane active" role="tabpanel">
+                <div class="panel-layout">
+                    
+                    <!-- Left: Preparation Milestones Timeline -->
+                    <div class="card panel-card">
+                        <div class="card-header">
+                            <h3>Pond Preparation & Water Culture Milestones</h3>
+                            <span class="card-sub">Cycle preparation dates from dry-out to stocking</span>
+                        </div>
+                        <div class="form-grid-3">
+                            <div class="form-group">
+                                <label for="input-date-cycle">Cycle Start Date</label>
+                                <input type="date" id="input-date-cycle" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-cleaning">Pond Cleaning Date</label>
+                                <input type="date" id="input-date-cleaning" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-repair">Liner Repair Date</label>
+                                <input type="date" id="input-date-repair" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-filling">Water Filling Date</label>
+                                <input type="date" id="input-date-filling" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-culture">Water Culture Start</label>
+                                <input type="date" id="input-date-culture" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-babybox">Baby Box Setup Date</label>
+                                <input type="date" id="input-date-babybox" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-qaqc">Lab QA/QC Approval Date</label>
+                                <input type="date" id="input-date-qaqc" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-ready">Pond Ready Date</label>
+                                <input type="date" id="input-date-ready" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-plan-stock">Target Stocking Date</label>
+                                <input type="date" id="input-date-plan-stock" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- Idle Days & Status -->
+                        <div class="form-grid-3">
+                            <div class="form-group">
+                                <label for="input-idle-days">Idle Days (Dry Period)</label>
+                                <input type="number" id="input-idle-days" class="form-control font-mono" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-idle-status">Idle Status</label>
+                                <select id="input-idle-status" class="form-control">
+                                    <option value="NORMAL">NORMAL</option>
+                                    <option value="EXTENDED IDLE">EXTENDED IDLE</option>
+                                    <option value="EARTHEN MAINTENANCE">EARTHEN MAINTENANCE</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="input-water-type">Water Type</label>
+                                <select id="input-water-type" class="form-control">
+                                    <option value="SEA WATER">SEA WATER</option>
+                                    <option value="BRACKISH">BRACKISH</option>
+                                    <option value="RESERVOIR BLEND">RESERVOIR BLEND</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Aeration HP & 5 Snapshot Cards -->
+                    <div class="side-column">
+                        
+                        <!-- Multi-Model Aeration HP Box -->
+                        <div class="card panel-card highlight-border">
+                            <div class="card-header flex-between">
+                                <div>
+                                    <h3>Paddlewheel Inventory (PWA)</h3>
+                                    <span class="card-sub">Pond paddlewheel aeration configuration</span>
+                                </div>
+                                <div class="hp-badge">
+                                    <span id="summary-total-active-hp" class="hp-number">0.0</span>
+                                    <span class="hp-unit">Total PWA HP</span>
+                                </div>
+                            </div>
+                            <div class="aerator-grid">
+                                <div class="aerator-row">
+                                    <div class="aerator-label">
+                                        <span class="hp-spec">1.0 HP Paddlewheels</span>
+                                        <small>[I HP] Nursery / small ponds</small>
+                                    </div>
+                                    <div class="stepper-cluster">
+                                        <input type="number" id="aerator-1hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                        <span class="unit-sub">units</span>
+                                    </div>
+                                </div>
+                                <div class="aerator-row">
+                                    <div class="aerator-label">
+                                        <span class="hp-spec">2.0 HP Paddlewheels</span>
+                                        <small>[2 HP] Standard high-flow</small>
+                                    </div>
+                                    <div class="stepper-cluster">
+                                        <input type="number" id="aerator-2hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                        <span class="unit-sub">units</span>
+                                    </div>
+                                </div>
+                                <div class="aerator-row">
+                                    <div class="aerator-label">
+                                        <span class="hp-spec">4.0 HP Paddlewheels</span>
+                                        <small>Heavy central aerators</small>
+                                    </div>
+                                    <div class="stepper-cluster">
+                                        <input type="number" id="aerator-4hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                        <span class="unit-sub">units</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4 Snapshot Cards (Legacy Subforms) -->
+                        <div class="card panel-card">
+                            <div class="card-header">
+                                <h3>Cycle Snapshots</h3>
+                                <span class="card-sub">Realtime summary for this pond cycle</span>
+                            </div>
+                            <div class="snapshot-grid">
+                                <div class="snapshot-pill">
+                                    <span class="snap-title">Stocked Fry</span>
+                                    <span id="snap-stocked-pcs" class="snap-val font-mono">456,000</span>
+                                    <span class="snap-foot">Gross PL count</span>
+                                </div>
+                                <div class="snapshot-pill">
+                                    <span class="snap-title">Latest ABW</span>
+                                    <span id="snap-latest-abw" class="snap-val font-mono">18.42 g</span>
+                                    <span class="snap-foot">Sampling Day 48</span>
+                                </div>
+                                <div class="snapshot-pill">
+                                    <span class="snap-title">Total Feed</span>
+                                    <span id="snap-total-feed" class="snap-val font-mono">8,940 kg</span>
+                                    <span class="snap-foot">Cumulative feed</span>
+                                </div>
+                                <div class="snapshot-pill">
+                                    <span class="snap-title">Total Harvest</span>
+                                    <span id="snap-total-harvest" class="snap-val font-mono">0.0 kg</span>
+                                    <span class="snap-foot">Status: IN CULTURE</span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: LABORATORY (Pathology & PL Tests) -->
+            <div id="tab-laboratory" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Biosecurity & Disease Pathology Logbook</h3>
+                            <span class="card-sub">Laboratory PCR tests, microscopy findings, and quarantine flags</span>
+                        </div>
+                        <button class="btn-action btn-secondary" onclick="app.openExcelModal('issues')">
+                            + Add / Paste Lab Record
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-issues">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Pathogen / Status</th>
+                                    <th>Test Method</th>
+                                    <th>Flag Alert</th>
+                                    <th>Grade</th>
+                                    <th>Result / Note</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-issues">
+                                <tr><td colspan="8" class="text-center text-muted">No pathology issues recorded for this cycle (Pond is clean).</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: STOCKING (Batches & Hatchery Details) -->
+            <div id="tab-stocking" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Stocking Events & PL Hatchery Records</h3>
+                            <span class="card-sub">Pond PL delivery, allowance, density, and genetic lineage</span>
+                        </div>
+                        <button class="btn-action btn-secondary" onclick="app.openExcelModal('stocking')">
+                            + Add Stocking Batch
+                        </button>
+                    </div>
+                    <div class="form-grid-3 mb-4">
+                        <div class="form-group">
+                            <label for="input-stck-date">Stocking Date</label>
+                            <input type="date" id="input-stck-date" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-source">Hatchery / Source</label>
+                            <input type="text" id="input-stck-source" class="form-control" placeholder="e.g. SHT / BAB Hatchery">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-species">Species</label>
+                            <select id="input-stck-species" class="form-control">
+                                <option value="P. VANNAMEi">P. VANNAMEi</option>
+                                <option value="P. MONODON">P. MONODON</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-netto">Netto Fry (pcs)</label>
+                            <input type="number" id="input-stck-netto" class="form-control font-mono" placeholder="410000">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-allow">Allowance Fry (pcs)</label>
+                            <input type="number" id="input-stck-allow" class="form-control font-mono" placeholder="46000">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-gross">Total Gross Fry (pcs)</label>
+                            <input type="number" id="input-stck-gross" class="form-control font-mono font-bold" placeholder="456000">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-line">Broodstock Line</label>
+                            <input type="text" id="input-stck-line" class="form-control" placeholder="e.g. Syaqua / Dragon">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-size">PL Size</label>
+                            <input type="number" id="input-stck-size" class="form-control font-mono" placeholder="15">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-tank">Hatchery Tank Ref</label>
+                            <input type="text" id="input-stck-tank" class="form-control" placeholder="e.g. C16, C4">
+                        </div>
+                    </div>
+
+                    <div class="divider mt-4"></div>
+                    <div class="card-header flex-between mt-3">
+                        <div>
+                            <h4>Multi-Batch Stocking History (`GrowoutPondStocking`)</h4>
+                            <span class="card-sub">Individual fry deliveries and partial stocking batches for this cycle</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-stocking-batches">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Source / Hatchery</th>
+                                    <th>Species</th>
+                                    <th>Netto Fry (pcs)</th>
+                                    <th>Allowance (pcs)</th>
+                                    <th>Total Gross (pcs)</th>
+                                    <th>Type</th>
+                                    <th>Broodstock</th>
+                                    <th>Tank</th>
+                                    <th>PL Size</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-stocking-batches">
+                                <tr><td colspan="10" class="text-center text-muted">Loading stocking batches...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: FEEDING (Daily Records & SAP Ledger) -->
+            <div id="tab-feeding" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Daily Feeding & Feed Inventory Records</h3>
+                            <span class="card-sub">Daily field feeding log and SAP movement ledger</span>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn-action btn-secondary" onclick="app.openExcelModal('feed')">
+                                📋 Paste Excel Feed Sheet
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-feed">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shift</th>
+                                    <th>Daily Total Feed (kg)</th>
+                                    <th>Tray Remnant %</th>
+                                    <th>Water Level (cm)</th>
+                                    <th>Water Colour Swatch</th>
+                                    <th>Mortality</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-feed">
+                                <tr><td colspan="8" class="text-center text-muted">No daily feeding logs loaded yet. Paste from Excel or enter records.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: SAMPLING (Weekly Biometrics & Telemetry) -->
+            <div id="tab-sampling" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Weekly Biometric Sampling & Telemetry Convergence</h3>
+                            <span class="card-sub">Cast net growth measurements converged with 7-day WQS sensor readings</span>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn-action btn-secondary" onclick="app.openExcelModal('sampling')">
+                                📋 Paste Excel Sampling
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-sampling">
+                            <thead>
+                                <tr>
+                                    <th>Sample Date</th>
+                                    <th>DOC</th>
+                                    <th>ABW (g)</th>
+                                    <th>AWG (g/wk)</th>
+                                    <th>Survival %</th>
+                                    <th>Biomass (kg)</th>
+                                    <th>Feed Total (kg)</th>
+                                    <th>Avg DO (WQS)</th>
+                                    <th>Avg pH (WQS)</th>
+                                    <th>Avg Temp (WQS)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-sampling">
+                                <tr><td colspan="10" class="text-center text-muted">Loading weekly sampling records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: PERFORMANCE (Interactive Growth Curves) -->
+            <div id="tab-performance" class="tab-pane" role="tabpanel">
+                <div class="panel-layout">
+                    <!-- Growth Chart Canvas -->
+                    <div class="card panel-card" style="flex: 2;">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Shrimp Growth Trajectory (ABW Curve)</h3>
+                                <span class="card-sub">Actual ABW vs Farm Target Strategy Curve</span>
+                            </div>
+                            <div class="chart-legend">
+                                <span class="legend-item"><span class="legend-dot dot-actual"></span> Actual Growth</span>
+                                <span class="legend-item"><span class="legend-dot dot-target"></span> Target Strategy</span>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="chart-growth-container">
+                            <canvas id="growthChart" width="800" height="350"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Performance KPI Cards -->
+                    <div class="side-column" style="flex: 1;">
+                        <div class="card panel-card">
+                            <div class="card-header">
+                                <h3>Efficiency KPIs</h3>
+                                <span class="card-sub">Derived production metrics</span>
+                            </div>
+                            <div class="kpi-stack">
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Average Daily Gain (ADG)</span>
+                                    <span id="kpi-adg" class="kpi-val font-mono">0.32 g/day</span>
+                                    <span class="kpi-sub text-success">▲ On track for 40-count</span>
+                                </div>
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Cumulative FCR</span>
+                                    <span id="kpi-fcr" class="kpi-val font-mono">1.34</span>
+                                    <span class="kpi-sub text-success">Good feed efficiency</span>
+                                </div>
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Estimated Current Biomass</span>
+                                    <span id="kpi-biomass" class="kpi-val font-mono">6,840 kg</span>
+                                    <span class="kpi-sub">Target: 7,500 kg</span>
+                                </div>
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Projected Harvest DOC</span>
+                                    <span id="kpi-proj-doc" class="kpi-val font-mono">DOC 92</span>
+                                    <span class="kpi-sub">Target weight: 25.0 g</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 7: TERMINATION (Harvest Planning & Sales Grading) -->
+            <div id="tab-termination" class="tab-pane" role="tabpanel">
+                <div class="card panel-card mb-4">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Harvest Runs & Commercial Buyer Grading</h3>
+                            <span class="card-sub">Partial and final harvest events with packout grade pricing</span>
+                        </div>
+                        <button class="btn-action btn-secondary" onclick="app.openExcelModal('harvest')">
+                            + Add Harvest Event
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-harvest">
+                            <thead>
+                                <tr>
+                                    <th>Harvest Date</th>
+                                    <th>Type</th>
+                                    <th>Weight (kg)</th>
+                                    <th>ABW (g)</th>
+                                    <th>Total Pieces</th>
+                                    <th>Method</th>
+                                    <th>Gross Revenue (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-harvest">
+                                <tr><td colspan="7" class="text-center text-muted">No harvest events recorded yet for this active cycle.</td></tr>
+                            </tbody>
+                        </table>
+                    <div class="divider mt-4"></div>
+                    <div class="card-header flex-between mt-3">
+                        <div>
+                            <h4>Commercial Buyer Grading & Sales Packout (`GrowoutPondHarvestSales`)</h4>
+                            <span class="card-sub">Buyer sales weight breakdown, grade specifications, and pricing</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-harvest-sales">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Buyer Name</th>
+                                    <th>ABW (g)</th>
+                                    <th>Good Wgt (kg)</th>
+                                    <th>Good Price</th>
+                                    <th>2nd Grade (kg)</th>
+                                    <th>Small (kg)</th>
+                                    <th>Below (kg)</th>
+                                    <th>Rubbish (kg)</th>
+                                    <th>Total Net Sales (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-harvest-sales">
+                                <tr><td colspan="10" class="text-center text-muted">No commercial sales grading logged for this cycle.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Harvest Action Drawer Callout -->
+                <div class="callout-card">
+                    <div class="callout-content">
+                        <h4>Ready to Terminate & Harvest this Pond?</h4>
+                        <p>Recording a TERMINATION harvest will lock this cycle, set status to <strong>CLOSE</strong>, and automatically generate the next cycle (e.g. <strong>Cycle 44</strong>) in <strong>IDLE</strong> status.</p>
+                    </div>
+                    <button class="btn-action btn-danger" onclick="app.promptTerminatePond()">
+                        🏁 Terminate & Rollover Cycle
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 8: STAFF + REMARKS (Personnel & Field Notes) -->
+            <div id="tab-staff" class="tab-pane" role="tabpanel">
+                <div class="panel-layout">
+                    <div class="card panel-card" style="flex: 1;">
+                        <div class="card-header">
+                            <h3>Assigned Pond Personnel</h3>
+                            <span class="card-sub">Staff allocated to this production cycle</span>
+                        </div>
+                        <div class="form-grid-1">
+                            <div class="form-group">
+                                <label for="input-staff-pm">Pond Manager (PM)</label>
+                                <input type="text" id="input-staff-pm" class="form-control" placeholder="Manager Name">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-staff-sv">Field Supervisor (SV)</label>
+                                <input type="text" id="input-staff-sv" class="form-control" placeholder="Supervisor Name">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-staff-po">Primary Operator (PO)</label>
+                                <input type="text" id="input-staff-po" class="form-control" placeholder="Operator Name">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card panel-card" style="flex: 2;">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Operational Logbook & Remarks (`GrowoutPondNote`)</h3>
+                                <span class="card-sub">Historical field observations, treatments, and supervisor notes</span>
+                            </div>
+                        </div>
+                        <div class="notes-feed mb-3" id="notes-feed-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+                            <!-- Dynamically populated from pond_notes -->
+                        </div>
+                        <textarea id="textarea-notes" class="form-control" rows="4" placeholder="Enter daily observation remarks, water quality anomalies, or feeding adjustments..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 9: UTILITIES (Cycle Rollover Engine & Exports) -->
+            <div id="tab-utilities" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header">
+                        <h3>Database Utilities & Cycle Management Engine</h3>
+                        <span class="card-sub">Administrative tools, historical archives, and reports</span>
+                    </div>
+                    <div class="utilities-grid">
+                        <div class="util-box">
+                            <h4>➕ Cycle Rollover Engine</h4>
+                            <p>Close current cycle and auto-create the next cycle index in IDLE status.</p>
+                            <button class="btn-action btn-primary" onclick="app.promptTerminatePond()">Trigger Cycle Rollover</button>
+                        </div>
+                        <div class="util-box">
+                            <h4>📥 Export Cycle Data</h4>
+                            <p>Download complete sampling, feeding, and water quality records as CSV.</p>
+                            <button class="btn-action btn-secondary" onclick="app.exportCycleCsv()">Export to CSV</button>
+                        </div>
+                        <div class="util-box">
+                            <h4>🔄 Sync Access Archive</h4>
+                            <p>Compare Supabase cloud records against legacy Microsoft Access snapshot.</p>
+                            <button class="btn-action btn-secondary" onclick="app.verifySyncStatus()">Verify Cloud Integrity</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- UNIVERSAL EXCEL COPY-PASTE MODAL -->
+    <div id="modal-excel-paste" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-cluster">
+                    <h3 id="excel-modal-title">📋 Paste Excel Spreadsheet Data</h3>
+                    <span id="excel-modal-subtitle" class="modal-subtitle">Paste rows copied directly from Excel (Ctrl + V)</span>
+                </div>
+                <button class="modal-close" onclick="app.closeExcelModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="excel-target-category">Target Data Domain:</label>
+                    <select id="excel-target-category" class="form-control" onchange="app.onExcelCategoryChanged()">
+                        <option value="sampling">Weekly Sampling (Date, DOC, ABW, Survival, Biomass)</option>
+                        <option value="feed">Daily Feed Log (Date, Shift, Feed kg, Tray Remnant %)</option>
+                        <option value="issues">Laboratory Issues (Date, Category, Pathogen, Flag, Note)</option>
+                        <option value="harvest">Harvest Events (Date, Type, Weight kg, ABW g, Revenue)</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="excel-paste-textarea">Paste Spreadsheet Rows Here:</label>
+                    <textarea id="excel-paste-textarea" class="form-control font-mono" rows="8" placeholder="Select cells in Excel, press Ctrl+C, then click here and press Ctrl+V..."></textarea>
+                </div>
+                <div id="excel-preview-container" class="preview-area hidden">
+                    <div class="flex-between mb-2">
+                        <span class="preview-count"><strong id="excel-parsed-count">0</strong> rows recognized</span>
+                        <span id="excel-parse-status" class="status-valid">Ready to commit</span>
+                    </div>
+                    <div class="table-responsive max-h-200">
+                        <table class="data-table preview-table" id="table-excel-preview">
+                            <thead id="thead-excel-preview"></thead>
+                            <tbody id="tbody-excel-preview"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-action btn-secondary" onclick="app.closeExcelModal()">Cancel</button>
+                <button id="btn-parse-excel" class="btn-action btn-secondary" onclick="app.parseClipboardText()">Preview Data</button>
+                <button id="btn-commit-excel" class="btn-action btn-primary" onclick="app.commitExcelData()" disabled>Commit to Supabase</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="toast-stack"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
