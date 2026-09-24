@@ -1,0 +1,85 @@
+/* ==========================================================================
+   iSHARP DBMS 2.0 — Frutiger Aero Design Tokens
+   Crystalline water, optimistic cyan/sky gradients, glossy glass surfaces,
+   deep marine high-contrast typography, and healthy aquaculture emeralds.
+   ========================================================================== */
+
+:root {
+    /* --- FRUTIGER AERO CORE PALETTE --- */
+    --aero-sky-50:  #f0f9ff;
+    --aero-sky-100: #e0f2fe;
+    --aero-sky-200: #bae6fd;
+    --aero-sky-300: #7dd3fc;
+    --aero-sky-400: #38bdf8;
+    --aero-sky-500: #0ea5e9;
+    --aero-sky-600: #0284c7;
+    --aero-sky-700: #0369a1;
+
+    --aero-aqua-50:  #ecfeff;
+    --aero-aqua-100: #cffafe;
+    --aero-aqua-200: #a5f3fc;
+    --aero-aqua-300: #67e8f9;
+    --aero-aqua-400: #22d3ee;
+    --aero-aqua-500: #06b6d4;
+    --aero-aqua-600: #0891b2;
+
+    /* --- AQUACULTURE DOMAIN STATUS ACCENTS --- */
+    --status-production: #10b981;       /* Vibrant Emerald: Active Crop */
+    --status-production-glow: rgba(16, 185, 129, 0.25);
+    --status-idle: #0ea5e9;             /* Clear Pond Blue: Dry/Idle */
+    --status-maintenance: #f59e0b;      /* Sunbeam Amber: Equipment / Prep */
+    --status-close: #64748b;            /* Soft Slate: Harvested / Closed */
+    --status-reservoir: #06b6d4;        /* Pure Aqua: Water Storage */
+    --status-alert: #f43f5e;            /* Coral Crimson: Critical warning */
+
+    /* --- HIGH-CONTRAST DATA TYPOGRAPHY (Deep Marine) --- */
+    --text-primary: #0a2540;            /* Deep Marine Navy for 100% crisp readability */
+    --text-secondary: #2d4b68;          /* Refined Slate Cyan */
+    --text-muted: #567290;              /* Subdued labels */
+    --text-dim: #8ba2b9;                /* Inactive / hints */
+    --text-inverse: #ffffff;            /* White text on saturated buttons */
+
+    /* --- GLASSMORPHIC & GLOSSY SURFACES --- */
+    --surface-glass: rgba(255, 255, 255, 0.72);
+    --surface-glass-elevated: rgba(255, 255, 255, 0.88);
+    --surface-glass-solid: rgba(255, 255, 255, 0.96);
+    --surface-glass-tinted: rgba(224, 242, 254, 0.45);
+    
+    --border-glass: rgba(255, 255, 255, 0.8);
+    --border-glass-subtle: rgba(186, 230, 253, 0.55);
+    --border-accent: rgba(14, 165, 233, 0.4);
+
+    /* --- SPECULAR SHINE & GLOSS (Water Droplet Sheen) --- */
+    --gloss-top: inset 0 1px 1px rgba(255, 255, 255, 0.95);
+    --gloss-bevel: inset 0 1px 2px rgba(255, 255, 255, 0.8), inset 0 -1px 2px rgba(0, 0, 0, 0.05);
+    --button-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 60%, rgba(0, 0, 0, 0.04) 100%);
+    --button-primary-gradient: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+    --button-success-gradient: linear-gradient(180deg, #34d399 0%, #059669 100%);
+    --button-amber-gradient: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+
+    /* --- ATMOSPHERE BACKGROUND (Sunlight caustic water & sky) --- */
+    --app-bg: linear-gradient(135deg, #e0f2fe 0%, #e0f7fa 30%, #f0fdf4 65%, #f8fafc 100%);
+    --app-bg-fixed: #eef6fb;
+
+    /* --- SHADOWS & BLURS --- */
+    --shadow-glass-sm: 0 2px 6px rgba(2, 132, 199, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-glass-md: 0 8px 24px -4px rgba(2, 132, 199, 0.12), 0 4px 8px -2px rgba(0, 0, 0, 0.05);
+    --shadow-glass-lg: 0 18px 45px -8px rgba(2, 132, 199, 0.18), 0 8px 16px -4px rgba(0, 0, 0, 0.06);
+    --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.35);
+
+    --backdrop-blur-sm: blur(8px);
+    --backdrop-blur-md: blur(14px);
+    --backdrop-blur-lg: blur(20px);
+
+    /* --- TYPOGRAPHY & SPACING --- */
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-full: 9999px;
+
+    --transition-fast: 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-normal: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}

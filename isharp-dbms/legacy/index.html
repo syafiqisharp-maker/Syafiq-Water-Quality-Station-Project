@@ -9,9 +9,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="src/styles/tokens.css">
-    <link rel="stylesheet" href="src/styles/base.css">
-    <link rel="stylesheet" href="src/styles/components.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -622,23 +619,23 @@
                             <div class="kpi-stack">
                                 <div class="kpi-card">
                                     <span class="kpi-label">Average Daily Gain (ADG)</span>
-                                    <span id="kpi-adg" class="kpi-val font-mono">—</span>
-                                    <span id="kpi-adg-sub" class="kpi-sub text-success">Awaiting sampling data</span>
+                                    <span id="kpi-adg" class="kpi-val font-mono">0.32 g/day</span>
+                                    <span class="kpi-sub text-success">▲ On track for 40-count</span>
                                 </div>
                                 <div class="kpi-card">
                                     <span class="kpi-label">Cumulative FCR</span>
-                                    <span id="kpi-fcr" class="kpi-val font-mono">—</span>
-                                    <span id="kpi-fcr-sub" class="kpi-sub text-success">Requires sampling & feed logs</span>
+                                    <span id="kpi-fcr" class="kpi-val font-mono">1.34</span>
+                                    <span class="kpi-sub text-success">Good feed efficiency</span>
                                 </div>
                                 <div class="kpi-card">
                                     <span class="kpi-label">Estimated Current Biomass</span>
-                                    <span id="kpi-biomass" class="kpi-val font-mono">—</span>
-                                    <span id="kpi-biomass-sub" class="kpi-sub">Pending biometrics</span>
+                                    <span id="kpi-biomass" class="kpi-val font-mono">6,840 kg</span>
+                                    <span class="kpi-sub">Target: 7,500 kg</span>
                                 </div>
                                 <div class="kpi-card">
                                     <span class="kpi-label">Projected Harvest DOC</span>
-                                    <span id="kpi-proj-doc" class="kpi-val font-mono">DOC 95</span>
-                                    <span id="kpi-proj-doc-sub" class="kpi-sub">Target weight: 25.0 g</span>
+                                    <span id="kpi-proj-doc" class="kpi-val font-mono">DOC 92</span>
+                                    <span class="kpi-sub">Target weight: 25.0 g</span>
                                 </div>
                             </div>
                         </div>
@@ -793,12 +790,12 @@
                     <h3 id="excel-modal-title">📋 Paste Excel Spreadsheet Data</h3>
                     <span id="excel-modal-subtitle" class="modal-subtitle">Paste rows copied directly from Excel (Ctrl + V)</span>
                 </div>
-                <button id="btn-modal-close-icon" class="modal-close" type="button" title="Close (Esc)">&times;</button>
+                <button class="modal-close" onclick="app.closeExcelModal()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group mb-3">
-                    <label for="excel-target-category" style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.35rem; display: block;">Target Data Domain:</label>
-                    <select id="excel-target-category" class="form-control" style="background: #fff; border: 1px solid #bae6fd; font-weight: 600; padding: 0.4rem 0.6rem; border-radius: 6px; width: 100%;">
+                    <label for="excel-target-category">Target Data Domain:</label>
+                    <select id="excel-target-category" class="form-control" onchange="app.onExcelCategoryChanged()">
                         <option value="sampling">Weekly Sampling (Date, DOC, ABW, Survival, Biomass)</option>
                         <option value="feed">Daily Feed Log (Date, Shift, Feed kg, Tray Remnant %)</option>
                         <option value="issues">Laboratory Issues (Date, Category, Pathogen, Flag, Note)</option>
@@ -806,16 +803,16 @@
                     </select>
                 </div>
                 <div class="form-group mb-3">
-                    <label for="excel-paste-textarea" style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.35rem; display: block;">Paste Spreadsheet Rows Here:</label>
-                    <textarea id="excel-paste-textarea" class="form-control font-mono" rows="4" placeholder="Select cells in Excel, press Ctrl+C, then click here and press Ctrl+V..." style="background: #fff; border: 1px solid #bae6fd; font-size: 0.82rem; padding: 0.5rem; border-radius: 6px; width: 100%;"></textarea>
+                    <label for="excel-paste-textarea">Paste Spreadsheet Rows Here:</label>
+                    <textarea id="excel-paste-textarea" class="form-control font-mono" rows="8" placeholder="Select cells in Excel, press Ctrl+C, then click here and press Ctrl+V..."></textarea>
                 </div>
-                <div id="excel-preview-container" class="preview-area">
-                    <div class="flex-between mb-2" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                        <span class="preview-count" style="font-size: 0.78rem; font-weight: 600;"><strong id="excel-parsed-count">0</strong> rows recognized</span>
+                <div id="excel-preview-container" class="preview-area hidden">
+                    <div class="flex-between mb-2">
+                        <span class="preview-count"><strong id="excel-parsed-count">0</strong> rows recognized</span>
                         <span id="excel-parse-status" class="status-valid">Ready to commit</span>
                     </div>
-                    <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
-                        <table class="aero-table preview-table" id="table-excel-preview">
+                    <div class="table-responsive max-h-200">
+                        <table class="data-table preview-table" id="table-excel-preview">
                             <thead id="thead-excel-preview"></thead>
                             <tbody id="tbody-excel-preview"></tbody>
                         </table>
@@ -823,8 +820,9 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button id="btn-close-excel-modal" class="btn-action btn-secondary" type="button" style="background: #fff; border: 1px solid #cbd5e1; color: var(--text-primary); font-weight: 600;">⬅ Back to Dashboard</button>
-                <button id="btn-commit-excel" class="btn-action btn-save" type="button">💾 Commit to Supabase</button>
+                <button class="btn-action btn-secondary" onclick="app.closeExcelModal()">Cancel</button>
+                <button id="btn-parse-excel" class="btn-action btn-secondary" onclick="app.parseClipboardText()">Preview Data</button>
+                <button id="btn-commit-excel" class="btn-action btn-primary" onclick="app.commitExcelData()" disabled>Commit to Supabase</button>
             </div>
         </div>
     </div>
@@ -832,6 +830,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="toast-container" class="toast-stack"></div>
 
-    <script type="module" src="/src/main.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

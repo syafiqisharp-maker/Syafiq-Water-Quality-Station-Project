@@ -1,0 +1,78 @@
+/* ==========================================================================
+   iSHARP DBMS 2.0 — Base Styles & Atmosphere
+   Frutiger Aero aesthetic: Crystalline atmosphere, fluid responsiveness
+   ========================================================================== */
+
+@import "./tokens.css";
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-sans);
+    background: var(--app-bg) fixed;
+    color: var(--text-primary);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Subtle Frutiger Aero ambient water caustics effect */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 380px;
+    background: radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.3) 0%, rgba(6, 182, 212, 0.15) 45%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* App Layout Grid */
+.app-layout {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 2rem;
+}
+
+/* Typography Utilities */
+.font-mono {
+    font-family: var(--font-mono);
+    font-feature-settings: "tnum" 1;
+}
+
+.font-bold { font-weight: 700; }
+.font-semibold { font-weight: 600; }
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+
+.text-success { color: var(--status-production); }
+.text-primary { color: var(--aero-sky-600); }
+.text-muted { color: var(--text-muted); }
+.text-danger { color: var(--status-alert); }
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(224, 242, 254, 0.4);
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(14, 165, 233, 0.35);
+    border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(14, 165, 233, 0.6);
+}
