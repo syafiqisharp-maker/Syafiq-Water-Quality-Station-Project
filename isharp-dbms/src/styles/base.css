@@ -13,36 +13,59 @@
 
 body {
     font-family: var(--font-sans);
-    background: var(--app-bg) fixed;
+    background-color: #eef6fb;
+    background-image: 
+        radial-gradient(circle at 12% 15%, rgba(14, 165, 233, 0.14) 0%, transparent 45%),
+        radial-gradient(circle at 88% 12%, rgba(16, 185, 129, 0.11) 0%, transparent 45%),
+        radial-gradient(circle at 50% 95%, rgba(6, 182, 212, 0.12) 0%, transparent 55%),
+        linear-gradient(180deg, #e4f2fa 0%, #edf7fc 40%, #f7fbfd 100%);
+    background-attachment: fixed;
     color: var(--text-primary);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
     overflow-x: hidden;
     position: relative;
 }
 
-/* Subtle Frutiger Aero ambient water caustics effect */
+/* Subtle Frutiger Aero ambient sunlit caustic water flare */
 body::before {
     content: '';
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    height: 380px;
-    background: radial-gradient(circle at 50% -20%, rgba(56, 189, 248, 0.3) 0%, rgba(6, 182, 212, 0.15) 45%, transparent 70%);
+    height: 280px;
+    background: 
+        radial-gradient(circle at 50% -10%, rgba(56, 189, 248, 0.2) 0%, rgba(6, 182, 212, 0.08) 40%, rgba(255, 255, 255, 0) 70%),
+        radial-gradient(circle at 85% 10%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 15% 15%, rgba(14, 165, 233, 0.1) 0%, transparent 40%);
     pointer-events: none;
     z-index: 0;
 }
 
-/* App Layout Grid */
+/* Subtle water caustic wave highlight at the bottom */
+body::after {
+    content: '';
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 140px;
+    background: radial-gradient(ellipse 90% 50% at 50% 100%, rgba(255, 255, 255, 0.4) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* App Layout Container */
 .app-layout {
     position: relative;
     z-index: 1;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    padding-bottom: 2rem;
+    padding-bottom: 2.5rem;
 }
 
 /* Typography Utilities */
@@ -61,18 +84,36 @@ body::before {
 .text-muted { color: var(--text-muted); }
 .text-danger { color: var(--status-alert); }
 
-/* Custom Sleek Scrollbar */
+/* Universal Accessibility Focus Ring (ui-ux-pro-max standard) */
+:focus-visible {
+    outline: 2px solid var(--aero-sky-500);
+    outline-offset: 2px;
+}
+
+/* Custom Sleek Glass Scrollbars */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 ::-webkit-scrollbar-track {
-    background: rgba(224, 242, 254, 0.4);
-}
-::-webkit-scrollbar-thumb {
-    background: rgba(14, 165, 233, 0.35);
+    background: rgba(224, 242, 254, 0.5);
     border-radius: var(--radius-full);
 }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.6) 0%, rgba(2, 132, 199, 0.7) 100%);
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: var(--gloss-top);
+}
 ::-webkit-scrollbar-thumb:hover {
-    background: rgba(14, 165, 233, 0.6);
+    background: linear-gradient(180deg, rgba(14, 165, 233, 0.8) 0%, rgba(3, 105, 161, 0.9) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

@@ -56,12 +56,35 @@ export class SamplingTab {
             if (!data || data.length === 0) {
                 this.dom.tbody.innerHTML = `
                     <tr>
-                        <td colspan="10" class="text-center text-muted" style="padding: 2rem;">
-                            No sampling records logged for this cycle.<br>
-                            <span style="font-size: 0.78rem;">Click <strong>"Paste Sampling Sheet"</strong> above to upload Excel records.</span>
+                        <td colspan="10" class="text-center" style="padding: 2.5rem 1rem;">
+                            <div class="empty-state-box">
+                                <div class="empty-icon-wrap">
+                                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--aero-sky-600);">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="12" y1="18" x2="12" y2="12"></line>
+                                        <line x1="9" y1="15" x2="15" y2="15"></line>
+                                    </svg>
+                                </div>
+                                <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0.6rem 0 0.2rem 0;">No Biometrics Sampling Logged</h4>
+                                <p style="font-size: 0.78rem; color: var(--text-muted); max-width: 400px; margin: 0 auto 0.9rem auto;">This pond cycle has not received cast-net weekly sampling measurements or ABW records yet.</p>
+                                <button type="button" class="btn-action btn-excel" id="btn-empty-paste-sampling">
+                                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                        <polyline points="14 2 14 8 20 8"></polyline>
+                                        <line x1="8" y1="13" x2="16" y2="13"></line>
+                                        <line x1="8" y1="17" x2="16" y2="17"></line>
+                                    </svg>
+                                    <span>Paste Sampling Sheet (Excel)</span>
+                                </button>
+                            </div>
                         </td>
                     </tr>
                 `;
+                const emptyBtn = document.getElementById("btn-empty-paste-sampling");
+                if (emptyBtn && this.onOpenExcel) {
+                    emptyBtn.addEventListener("click", () => this.onOpenExcel("sampling"));
+                }
                 if (this.dom.snapLatestAbw) this.dom.snapLatestAbw.textContent = "—";
                 return;
             }

@@ -7,6 +7,8 @@ import { appState } from "../../state/appState.js";
 import { calculateTotalActiveHP, calculateAerationDensity } from "../../domain/aeration.js";
 import { InventoryRepository } from "../../infrastructure/repositories/inventoryRepository.js";
 import { PondRepository } from "../../infrastructure/repositories/pondRepository.js";
+import { SamplingRepository } from "../../infrastructure/repositories/samplingRepository.js";
+import { HarvestRepository } from "../../infrastructure/repositories/harvestRepository.js";
 import { hasPermission, PERMISSIONS } from "../../config/permissions.js";
 import { Toast } from "../../components/Toast.js";
 
@@ -36,9 +38,14 @@ export class MasterTab {
 
             // Snapshots
             snapStockedPcs: document.getElementById("snap-stocked-pcs"),
+            snapStockedFoot: document.getElementById("snap-stocked-foot"),
             snapLatestAbw: document.getElementById("snap-latest-abw"),
+            snapAbwFoot: document.getElementById("snap-abw-foot"),
             snapTotalFeed: document.getElementById("snap-total-feed"),
-            snapTotalHarvest: document.getElementById("snap-total-harvest")
+            snapFeedFoot: document.getElementById("snap-feed-foot"),
+            snapTotalHarvest: document.getElementById("snap-total-harvest"),
+            snapHarvestFoot: document.getElementById("snap-harvest-foot"),
+            snapCycleStatus: document.getElementById("snap-cycle-status")
         };
 
         this.bindEvents();
@@ -72,17 +79,104 @@ export class MasterTab {
         if (this.dom.inputIdleStatus) this.dom.inputIdleStatus.value = pond.idle_status || "";
         if (this.dom.inputWaterType) this.dom.inputWaterType.value = pond.water_type || "Marine (Saltwater)";
 
-        // Stocked Pieces Snapshot
-        if (this.dom.snapStockedPcs) {
-            const pcs = parseInt(pond.stck_netto, 10);
-            this.dom.snapStockedPcs.textContent = !isNaN(pcs) && pcs > 0 ? `${pcs.toLocaleString()} pcs` : "—";
-        }
+        // Populate Real-Time Snapshots from Database
+        await this.loadSnapshots(pond);
 
         // Fetch Aerator Inventory from DB
         await this.loadAerators(pond.pond_index, pond.area);
 
         // Apply RBAC
         this.applyRolePermissions();
+    }
+
+    /**
+     * Loads live cycle metrics (Stocking, Biometrics Sampling, and Harvest) from Supabase.
+     * @param {object} pond 
+     */
+    async loadSnapshots(pond) {
+        if (!pond) return;
+
+        // 1. Stocked Pieces & Density
+        const pcs = parseInt(pond.stck_netto || pond.stck_pcs || 0, 10);
+        if (this.dom.snapStockedPcs) {
+            this.dom.snapStockedPcs.textContent = !isNaN(pcs) && pcs > 0 ? `${pcs.toLocaleString()} pcs` : "—";
+        }
+        if (this.dom.snapStockedFoot) {
+            const areaHa = parseFloat(pond.area || 0);
+            if (areaHa > 0 && pcs > 0) {
+                const areaM2 = (areaHa <= 10) ? areaHa * 10000 : areaHa;
+                const density = Math.round(pcs / areaM2);
+                this.dom.snapStockedFoot.textContent = `${density} PL/m² (${areaHa} Ha)`;
+            } else {
+                this.dom.snapStockedFoot.textContent = "Gross PL count";
+            }
+        }
+
+        // Cycle Status Badge
+        if (this.dom.snapCycleStatus) {
+            const status = (pond.pond_status || "PRODUCTION").toUpperCase();
+            this.dom.snapCycleStatus.textContent = status;
+            this.dom.snapCycleStatus.className = `status-badge ${status === 'PRODUCTION' ? 'status-production' : status === 'CLOSE' ? 'status-close' : 'status-idle'}`;
+        }
+
+        // 2. Biometrics Sampling (Latest ABW & Cumulative Feed)
+        try {
+            const samples = await SamplingRepository.getSamplingByPond(pond.pond_index);
+            if (samples && samples.length > 0) {
+                // Grab the highest DOC sampling
+                const latest = samples[samples.length - 1];
+                const abw = parseFloat(latest.smpl_abw || 0);
+                const doc = latest.smpl_doc;
+                const tfed = parseFloat(latest.smpl_tfed || 0);
+
+                if (this.dom.snapLatestAbw) {
+                    this.dom.snapLatestAbw.textContent = abw > 0 ? `${abw.toFixed(2)} g` : "—";
+                }
+                if (this.dom.snapAbwFoot) {
+                    this.dom.snapAbwFoot.textContent = doc ? `DOC ${doc} sampling` : "Latest biometrics";
+                }
+                if (this.dom.snapTotalFeed) {
+                    this.dom.snapTotalFeed.textContent = tfed > 0 ? `${Math.round(tfed).toLocaleString()} kg` : "—";
+                }
+                if (this.dom.snapFeedFoot) {
+                    this.dom.snapFeedFoot.textContent = doc ? `Cumulative feed (DOC ${doc})` : "Cumulative feed";
+                }
+            } else {
+                if (this.dom.snapLatestAbw) this.dom.snapLatestAbw.textContent = "—";
+                if (this.dom.snapAbwFoot) this.dom.snapAbwFoot.textContent = "No sampling yet";
+                if (this.dom.snapTotalFeed) this.dom.snapTotalFeed.textContent = "0 kg";
+                if (this.dom.snapFeedFoot) this.dom.snapFeedFoot.textContent = "Cumulative feed";
+            }
+        } catch (err) {
+            console.warn("Could not load biometrics sampling for snapshot:", err);
+            if (this.dom.snapLatestAbw) this.dom.snapLatestAbw.textContent = "—";
+            if (this.dom.snapTotalFeed) this.dom.snapTotalFeed.textContent = "—";
+        }
+
+        // 3. Harvest Summary (Actual Harvest kg & Revenue)
+        try {
+            const harvest = await HarvestRepository.getHarvestSummary(pond.pond_index);
+            if (harvest.hasHarvest) {
+                if (this.dom.snapTotalHarvest) {
+                    this.dom.snapTotalHarvest.textContent = `${harvest.totalWeightKg.toLocaleString()} kg`;
+                }
+                if (this.dom.snapHarvestFoot) {
+                    this.dom.snapHarvestFoot.textContent = harvest.totalRevenue > 0
+                        ? `RM ${harvest.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : "Harvest logged";
+                }
+            } else {
+                if (this.dom.snapTotalHarvest) {
+                    this.dom.snapTotalHarvest.textContent = "0.0 kg";
+                }
+                if (this.dom.snapHarvestFoot) {
+                    this.dom.snapHarvestFoot.textContent = pond.pond_status === "CLOSE" ? "Cycle closed" : "Status: IN CULTURE";
+                }
+            }
+        } catch (err) {
+            console.warn("Could not load harvest summary for snapshot:", err);
+            if (this.dom.snapTotalHarvest) this.dom.snapTotalHarvest.textContent = "0.0 kg";
+        }
     }
 
     async loadAerators(pondIndex, pondArea) {

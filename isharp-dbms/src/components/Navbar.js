@@ -6,6 +6,7 @@
 import { appState } from "../state/appState.js";
 import { ROLES, hasPermission, PERMISSIONS, getRoleMeta } from "../config/permissions.js";
 import { PondRepository } from "../infrastructure/repositories/pondRepository.js";
+import { calculateDOC } from "../domain/biometrics.js";
 import { Toast } from "./Toast.js";
 
 export class Navbar {
@@ -119,14 +120,12 @@ export class Navbar {
         }
 
         this.dom.selectPond.innerHTML = cycles.map(c => {
-            const st = (c.status || "").toUpperCase();
-            let emoji = "🟢";
-            if (st === "iDLE" || st === "IDLE") emoji = "🔵";
-            else if (st === "CLOSE") emoji = "⚪";
-            else if (st === "MAINTENANCE") emoji = "🟠";
-            else if (st === "RESERVOIR") emoji = "💧";
-
-            return `<option value="${c.pond_index}">${emoji} Pond ${c.pond} — Cycle ${c.pond_index} (${st})</option>`;
+            let docLabel = "DOC —";
+            if (c.stck_date && String(c.stck_date).trim() !== "") {
+                const doc = calculateDOC(c.stck_date, c.date_close);
+                docLabel = `DOC ${doc}`;
+            }
+            return `<option value="${c.pond_index}">Pond ${c.pond} - ${c.pond_index} (${docLabel})</option>`;
         }).join("");
 
         if (appState.currentPondIndex) {

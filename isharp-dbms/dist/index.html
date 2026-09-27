@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-DZ-7N5EW.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CQ5HsO12.css">
+  <script type="module" crossorigin src="/assets/index-C1jKFOKl.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-B2sgJcRK.css">
 </head>
 <body>
     <!-- App Container -->
@@ -19,8 +19,10 @@
         <!-- Top App Bar -->
         <header class="app-header">
             <div class="brand-cluster">
-                <div class="brand-logo-badge">
-                    <span class="logo-shrimp">🦐</span>
+                <div class="brand-logo-badge" title="iSHARP Aquaculture Platform">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,30,60,0.3));">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    </svg>
                 </div>
                 <div class="brand-titles">
                     <div class="brand-row">
@@ -33,7 +35,7 @@
 
             <!-- Global Pond Selector & Cycle Navigation -->
             <div class="header-pond-selector">
-                <input type="text" id="input-pond-search" class="pond-search-input" placeholder="🔍 Search pond (e.g. 01.02.12)..." title="Filter cycles or search by pond number" />
+                <input type="text" id="input-pond-search" class="pond-search-input" placeholder="Search pond (e.g. 01.02.12)..." title="Filter cycles or search by pond number" />
                 <button id="btn-prev-pond" class="btn-nav-step" title="Previous Pond (Ctrl + Left)">‹</button>
                 <div class="select-wrapper">
                     <select id="select-pond-index" class="pond-master-dropdown" aria-label="Select Pond Cycle">
@@ -83,21 +85,33 @@
         <section class="executive-filter-bar" aria-label="Pond Filters">
             <div class="filter-controls-cluster">
                 <div class="filter-item">
-                    <span class="filter-icon">🏷️</span>
-                    <label for="filter-pond-status">Pond Status:</label>
+                    <span class="filter-icon">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                            <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                        </svg>
+                    </span>
+                    <label for="filter-pond-status">Status:</label>
                     <select id="filter-pond-status" class="filter-dropdown">
                         <option value="ALL">All Statuses (Archive)</option>
-                        <option value="PRODUCTION" selected>🟢 PRODUCTION Only (Active Crop)</option>
-                        <option value="iDLE">🔵 IDLE / Dry</option>
-                        <option value="CLOSE">⚪ CLOSE (Harvested)</option>
-                        <option value="MAINTENANCE">🟠 MAINTENANCE</option>
-                        <option value="RESERVOIR">💧 RESERVOIR</option>
-                        <option value="PREPARATION">🟡 PREPARATION</option>
+                        <option value="PRODUCTION" selected>PRODUCTION (Active Crop)</option>
+                        <option value="iDLE">IDLE (Dry / Ready)</option>
+                        <option value="CLOSE">CLOSE (Harvested)</option>
+                        <option value="MAINTENANCE">MAINTENANCE</option>
+                        <option value="RESERVOIR">RESERVOIR</option>
+                        <option value="PREPARATION">PREPARATION</option>
                     </select>
                 </div>
 
                 <div class="filter-item">
-                    <span class="filter-icon">🏢</span>
+                    <span class="filter-icon">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                    </span>
                     <label for="filter-pond-module">Module:</label>
                     <select id="filter-pond-module" class="filter-dropdown">
                         <option value="ALL">All Modules</option>
@@ -116,7 +130,11 @@
                 </div>
 
                 <div class="filter-item">
-                    <span class="filter-icon">⚡</span>
+                    <span class="filter-icon">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                    </span>
                     <label for="filter-pond-active">Cycle State:</label>
                     <select id="filter-pond-active" class="filter-dropdown">
                         <option value="ALL">All States</option>
@@ -125,7 +143,13 @@
                     </select>
                 </div>
 
-                <button id="btn-reset-filters" class="btn-filter-reset" title="Reset all filters">✕ Reset</button>
+                <button id="btn-reset-filters" class="btn-filter-reset" title="Reset all filters">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>Reset</span>
+                </button>
             </div>
 
             <div class="filter-feedback">
@@ -189,13 +213,13 @@
                 <div class="banner-item disease-block">
                     <span class="label">PATHOLOGY / BIOSECURITY</span>
                     <div class="val-group">
-                        <span id="badge-disease-status" class="disease-pill disease-ok">🟢 NO ISSUES</span>
+                        <span id="badge-disease-status" class="disease-pill disease-ok">Pathogen Negative (Normal)</span>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- 9-Tab Navigation Ribbon (1:1 with GrowoutPondMaster) -->
+        <!-- 9-Tab Navigation Ribbon (Ungrouped 1 to 9) -->
         <nav class="master-tab-ribbon" role="tablist">
             <button class="tab-btn active" data-tab="tab-master" role="tab" id="btn-tab-master">
                 <span class="tab-num">1</span>
@@ -240,12 +264,61 @@
             
             <!-- TAB 1: MASTER (Pond Lifecycle & Prep Milestones) -->
             <div id="tab-master" class="tab-pane active" role="tabpanel">
-                <div class="panel-layout">
+                
+                <!-- Hero Section: Realtime Cycle Snapshots (Top Priority) -->
+                <div class="card panel-card cycle-snapshots-hero mb-4">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Cycle Snapshots</h3>
+                            <span class="card-sub">Realtime operational telemetry queried directly from database</span>
+                        </div>
+                        <div class="snapshot-header-meta">
+                            <span id="snap-cycle-status" class="status-badge status-production">PRODUCTION</span>
+                        </div>
+                    </div>
+                    <div class="snapshot-grid-hero">
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Stocked Fry</span>
+                                <span class="snap-icon">🦐</span>
+                            </div>
+                            <span id="snap-stocked-pcs" class="snap-val font-mono">—</span>
+                            <span id="snap-stocked-foot" class="snap-foot">Gross PL count</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Latest ABW</span>
+                                <span class="snap-icon">⚖️</span>
+                            </div>
+                            <span id="snap-latest-abw" class="snap-val font-mono">—</span>
+                            <span id="snap-abw-foot" class="snap-foot">Latest biometrics</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Total Feed</span>
+                                <span class="snap-icon">🌾</span>
+                            </div>
+                            <span id="snap-total-feed" class="snap-val font-mono">—</span>
+                            <span id="snap-feed-foot" class="snap-foot">Cumulative feed</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Total Harvest</span>
+                                <span class="snap-icon">📦</span>
+                            </div>
+                            <span id="snap-total-harvest" class="snap-val font-mono">—</span>
+                            <span id="snap-harvest-foot" class="snap-foot">Status: IN CULTURE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary Section: Preparation Dates & Paddlewheel Aeration -->
+                <div class="panel-layout master-details-layout">
                     
-                    <!-- Left: Preparation Milestones Timeline -->
-                    <div class="card panel-card">
+                    <!-- Left: Pond Preparation Date -->
+                    <div class="card panel-card pond-prep-card">
                         <div class="card-header">
-                            <h3>Pond Preparation & Water Culture Milestones</h3>
+                            <h3>Pond Preparation Date</h3>
                             <span class="card-sub">Cycle preparation dates from dry-out to stocking</span>
                         </div>
                         <div class="form-grid-3">
@@ -314,86 +387,58 @@
                         </div>
                     </div>
 
-                    <!-- Right: Aeration HP & 5 Snapshot Cards -->
-                    <div class="side-column">
-                        
-                        <!-- Multi-Model Aeration HP Box -->
-                        <div class="card panel-card highlight-border">
-                            <div class="card-header flex-between">
-                                <div>
-                                    <h3>Paddlewheel Inventory (PWA)</h3>
-                                    <span class="card-sub">Pond paddlewheel aeration configuration</span>
+                    <!-- Right: Multi-Model Aeration HP Box -->
+                    <div class="card panel-card paddlewheel-card highlight-border">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Paddlewheel Inventory (PWA)</h3>
+                                <span class="card-sub">Pond paddlewheel aeration configuration</span>
+                            </div>
+                            <div class="hp-badge">
+                                <span id="summary-total-active-hp" class="hp-number">0.0</span>
+                                <span class="hp-unit">Total PWA HP</span>
+                            </div>
+                        </div>
+                        <div class="aerator-grid">
+                            <div class="aerator-row">
+                                <div class="aerator-label">
+                                    <span class="hp-spec">1.0 HP Paddlewheels</span>
+                                    <small>[I HP] Nursery / small ponds</small>
                                 </div>
-                                <div class="hp-badge">
-                                    <span id="summary-total-active-hp" class="hp-number">0.0</span>
-                                    <span class="hp-unit">Total PWA HP</span>
+                                <div class="stepper-cluster aero-stepper-group">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-1hp-units'); i.value=Math.max(0, (+i.value||0)-1); i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Decrease 1.0 HP Aerators">−</button>
+                                    <input type="number" id="aerator-1hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-1hp-units'); i.value=(+i.value||0)+1; i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Increase 1.0 HP Aerators">+</button>
+                                    <span class="unit-sub">units</span>
                                 </div>
                             </div>
-                            <div class="aerator-grid">
-                                <div class="aerator-row">
-                                    <div class="aerator-label">
-                                        <span class="hp-spec">1.0 HP Paddlewheels</span>
-                                        <small>[I HP] Nursery / small ponds</small>
-                                    </div>
-                                    <div class="stepper-cluster">
-                                        <input type="number" id="aerator-1hp-units" class="form-control font-mono text-center" min="0" value="0">
-                                        <span class="unit-sub">units</span>
-                                    </div>
+                            <div class="aerator-row">
+                                <div class="aerator-label">
+                                    <span class="hp-spec">2.0 HP Paddlewheels</span>
+                                    <small>[2 HP] Standard high-flow</small>
                                 </div>
-                                <div class="aerator-row">
-                                    <div class="aerator-label">
-                                        <span class="hp-spec">2.0 HP Paddlewheels</span>
-                                        <small>[2 HP] Standard high-flow</small>
-                                    </div>
-                                    <div class="stepper-cluster">
-                                        <input type="number" id="aerator-2hp-units" class="form-control font-mono text-center" min="0" value="0">
-                                        <span class="unit-sub">units</span>
-                                    </div>
+                                <div class="stepper-cluster aero-stepper-group">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-2hp-units'); i.value=Math.max(0, (+i.value||0)-1); i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Decrease 2.0 HP Aerators">−</button>
+                                    <input type="number" id="aerator-2hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-2hp-units'); i.value=(+i.value||0)+1; i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Increase 2.0 HP Aerators">+</button>
+                                    <span class="unit-sub">units</span>
                                 </div>
-                                <div class="aerator-row">
-                                    <div class="aerator-label">
-                                        <span class="hp-spec">4.0 HP Paddlewheels</span>
-                                        <small>Heavy central aerators</small>
-                                    </div>
-                                    <div class="stepper-cluster">
-                                        <input type="number" id="aerator-4hp-units" class="form-control font-mono text-center" min="0" value="0">
-                                        <span class="unit-sub">units</span>
-                                    </div>
+                            </div>
+                            <div class="aerator-row">
+                                <div class="aerator-label">
+                                    <span class="hp-spec">4.0 HP Paddlewheels</span>
+                                    <small>Heavy central aerators</small>
+                                </div>
+                                <div class="stepper-cluster aero-stepper-group">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-4hp-units'); i.value=Math.max(0, (+i.value||0)-1); i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Decrease 4.0 HP Aerators">−</button>
+                                    <input type="number" id="aerator-4hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-4hp-units'); i.value=(+i.value||0)+1; i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Increase 4.0 HP Aerators">+</button>
+                                    <span class="unit-sub">units</span>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- 4 Snapshot Cards (Legacy Subforms) -->
-                        <div class="card panel-card">
-                            <div class="card-header">
-                                <h3>Cycle Snapshots</h3>
-                                <span class="card-sub">Realtime summary for this pond cycle</span>
-                            </div>
-                            <div class="snapshot-grid">
-                                <div class="snapshot-pill">
-                                    <span class="snap-title">Stocked Fry</span>
-                                    <span id="snap-stocked-pcs" class="snap-val font-mono">456,000</span>
-                                    <span class="snap-foot">Gross PL count</span>
-                                </div>
-                                <div class="snapshot-pill">
-                                    <span class="snap-title">Latest ABW</span>
-                                    <span id="snap-latest-abw" class="snap-val font-mono">18.42 g</span>
-                                    <span class="snap-foot">Sampling Day 48</span>
-                                </div>
-                                <div class="snapshot-pill">
-                                    <span class="snap-title">Total Feed</span>
-                                    <span id="snap-total-feed" class="snap-val font-mono">8,940 kg</span>
-                                    <span class="snap-foot">Cumulative feed</span>
-                                </div>
-                                <div class="snapshot-pill">
-                                    <span class="snap-title">Total Harvest</span>
-                                    <span id="snap-total-harvest" class="snap-val font-mono">0.0 kg</span>
-                                    <span class="snap-foot">Status: IN CULTURE</span>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
+
                 </div>
             </div>
 
@@ -526,7 +571,11 @@
                         </div>
                         <div class="btn-group">
                             <button class="btn-action btn-secondary" onclick="app.openExcelModal('feed')">
-                                📋 Paste Excel Feed Sheet
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                                </svg>
+                                <span>Paste Excel Feed Sheet</span>
                             </button>
                         </div>
                     </div>
@@ -562,7 +611,11 @@
                         </div>
                         <div class="btn-group">
                             <button class="btn-action btn-secondary" onclick="app.openExcelModal('sampling')">
-                                📋 Paste Excel Sampling
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                                </svg>
+                                <span>Paste Excel Sampling</span>
                             </button>
                         </div>
                     </div>
@@ -673,6 +726,7 @@
                                 <tr><td colspan="7" class="text-center text-muted">No harvest events recorded yet for this active cycle.</td></tr>
                             </tbody>
                         </table>
+                    </div>
                     <div class="divider mt-4"></div>
                     <div class="card-header flex-between mt-3">
                         <div>
