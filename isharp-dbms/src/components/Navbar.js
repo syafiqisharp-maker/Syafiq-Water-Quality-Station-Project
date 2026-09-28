@@ -7,6 +7,7 @@ import { appState } from "../state/appState.js";
 import { ROLES, hasPermission, PERMISSIONS, getRoleMeta } from "../config/permissions.js";
 import { PondRepository } from "../infrastructure/repositories/pondRepository.js";
 import { calculateDOC } from "../domain/biometrics.js";
+import { isCycleClosed } from "../domain/rollover.js";
 import { Toast } from "./Toast.js";
 
 export class Navbar {
@@ -35,6 +36,9 @@ export class Navbar {
 
         // Listen for role change to update button visibility
         appState.subscribe("roleChanged", () => this.applyRolePermissions());
+
+        // Listen for active pond change to toggle Terminate vs Revive Back button
+        appState.subscribe("pondChanged", (pond) => this.updateNewCycleButton(pond));
     }
 
     initRoleSelector() {
@@ -167,6 +171,33 @@ export class Navbar {
         }
     }
 
+    updateNewCycleButton(pond) {
+        if (!this.dom.btnNewCycle) return;
+        const closed = isCycleClosed(pond);
+        if (closed) {
+            this.dom.btnNewCycle.className = "btn-action btn-revive-cycle";
+            this.dom.btnNewCycle.innerHTML = `
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="1 4 1 10 7 10"></polyline>
+                    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                </svg>
+                <span>Revive Back</span>
+            `;
+            this.dom.btnNewCycle.title = "Revive this closed cycle back to PRODUCTION";
+        } else {
+            this.dom.btnNewCycle.className = "btn-action btn-new-cycle";
+            this.dom.btnNewCycle.innerHTML = `
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="16"></line>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+                <span>Start Next Cycle</span>
+            `;
+            this.dom.btnNewCycle.title = "Terminate current cycle & spawn next cycle";
+        }
+    }
+
     applyRolePermissions() {
         const role = appState.userRole;
         const canRollover = hasPermission(role, PERMISSIONS.EXECUTE_ROLLOVER);
@@ -175,7 +206,10 @@ export class Navbar {
         if (this.dom.btnNewCycle) {
             this.dom.btnNewCycle.style.opacity = canRollover ? "1" : "0.5";
             this.dom.btnNewCycle.style.pointerEvents = canRollover ? "auto" : "none";
-            this.dom.btnNewCycle.title = canRollover ? "Start Next Culture Cycle" : "Requires Planner Role";
+            const closed = isCycleClosed(appState.currentPond);
+            this.dom.btnNewCycle.title = canRollover 
+                ? (closed ? "Revive this closed pond cycle" : "Start Next Culture Cycle") 
+                : "Requires Planner Role";
         }
 
         if (this.dom.btnSave) {

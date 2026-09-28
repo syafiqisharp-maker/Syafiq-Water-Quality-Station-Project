@@ -39,36 +39,95 @@ export class StockingTab {
         if (this.dom.stckAllow) this.dom.stckAllow.addEventListener("input", calcGross);
     }
 
-    render(pond) {
+    async render(pond) {
         if (!pond) return;
 
         if (this.dom.stckDate) this.dom.stckDate.value = pond.stck_date || "";
-        if (this.dom.stckSource) this.dom.stckSource.value = pond.pl_origin || pond.stck_source || "Hatchery Setiu";
-        if (this.dom.stckSpecies) this.dom.stckSpecies.value = pond.species || "Penaeus vannamei";
-        if (this.dom.stckNetto) this.dom.stckNetto.value = pond.stck_netto || 0;
-        if (this.dom.stckAllow) this.dom.stckAllow.value = pond.stck_allow || 0;
-        if (this.dom.stckGross) this.dom.stckGross.value = (parseFloat(pond.stck_netto) || 0) + (parseFloat(pond.stck_allow) || 0);
-        if (this.dom.stckLine) this.dom.stckLine.value = pond.genetic_line || "SIS Superior";
-        if (this.dom.stckSize) this.dom.stckSize.value = pond.pl_size || "PL 10";
-        if (this.dom.stckTank) this.dom.stckTank.value = pond.tank_no || "T-04";
+        if (this.dom.stckSource) this.dom.stckSource.value = pond.stck_source || pond.pl_origin || "";
+        if (this.dom.stckSpecies) this.dom.stckSpecies.value = pond.stck_species || pond.species || "P. VANNAMEi";
+        if (this.dom.stckNetto) this.dom.stckNetto.value = pond.stck_pcs || pond.stck_netto || "";
+        if (this.dom.stckAllow) this.dom.stckAllow.value = pond.stck_allow !== undefined && pond.stck_allow !== null ? pond.stck_allow : "";
+        
+        const nettoVal = parseFloat(pond.stck_pcs || pond.stck_netto || 0) || 0;
+        const allowVal = parseFloat(pond.stck_allow || 0) || 0;
+        const grossVal = pond.stck_total !== undefined && pond.stck_total !== null ? pond.stck_total : (nettoVal + allowVal);
+        if (this.dom.stckGross) this.dom.stckGross.value = grossVal || "";
 
-        if (this.dom.tbodyBatches) {
-            this.dom.tbodyBatches.innerHTML = `
-                <tr>
-                    <td class="font-mono">BATCH-01</td>
-                    <td class="font-mono">${pond.stck_date || '—'}</td>
-                    <td>${pond.pl_origin || 'Local Hatchery'}</td>
-                    <td>${pond.genetic_line || 'Standard Line'}</td>
-                    <td class="font-mono font-bold">${(parseFloat(pond.stck_netto) || 0).toLocaleString()}</td>
-                    <td class="font-mono">${(parseFloat(pond.stck_allow) || 0).toLocaleString()}</td>
-                    <td class="font-mono text-success font-bold">${((parseFloat(pond.stck_netto) || 0) + (parseFloat(pond.stck_allow) || 0)).toLocaleString()}</td>
-                    <td class="font-mono">${pond.pl_size || 'PL 10'}</td>
-                    <td class="font-mono">${pond.tank_no || 'T-04'}</td>
-                </tr>
-            `;
+        if (this.dom.stckLine) this.dom.stckLine.value = pond.bs_line || pond.genetic_line || "";
+        if (this.dom.stckSize) {
+            const rawSize = pond.stck_size !== undefined && pond.stck_size !== null ? pond.stck_size : (pond.pl_size || "");
+            this.dom.stckSize.value = rawSize ? (String(rawSize).toUpperCase().startsWith("PL") ? String(rawSize) : `PL ${rawSize}`) : "";
+        }
+        if (this.dom.stckTank) this.dom.stckTank.value = pond.stck_tank || pond.tank_no || "";
+
+        await this.loadBatches(pond);
+        this.applyRolePermissions();
+    }
+
+    async loadBatches(pond) {
+        if (!this.dom.tbodyBatches) return;
+        if (!pond || !pond.pond_index) {
+            this.dom.tbodyBatches.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 1.5rem;">Select a pond to view stocking batches.</td></tr>`;
+            return;
         }
 
-        this.applyRolePermissions();
+        try {
+            const batches = await PondRepository.getStockingBatches(pond.pond_index);
+
+            if (batches && batches.length > 0) {
+                this.dom.tbodyBatches.innerHTML = batches.map((r, i) => {
+                    const netto = parseFloat(r.stck_pcs || 0);
+                    const allow = parseFloat(r.stck_allow || 0);
+                    const total = r.stck_total ? parseFloat(r.stck_total) : (netto + allow);
+                    const sizeStr = r.stck_size ? (String(r.stck_size).toUpperCase().startsWith("PL") ? r.stck_size : `PL ${r.stck_size}`) : "—";
+
+                    return `
+                        <tr>
+                            <td class="font-mono font-bold">BATCH-${String(i + 1).padStart(2, '0')}</td>
+                            <td class="font-mono">${r.stck_date || '—'}</td>
+                            <td>${r.stck_source || pond.stck_source || '—'}</td>
+                            <td>${r.bs_line || pond.bs_line || '—'}</td>
+                            <td class="font-mono font-bold">${netto > 0 ? Math.round(netto).toLocaleString() : '—'}</td>
+                            <td class="font-mono">${allow > 0 ? Math.round(allow).toLocaleString() : '0'}</td>
+                            <td class="font-mono text-success font-bold">${total > 0 ? Math.round(total).toLocaleString() : '—'}</td>
+                            <td class="font-mono">${sizeStr}</td>
+                            <td class="font-mono">${r.stck_tank || pond.stck_tank || '—'}</td>
+                        </tr>
+                    `;
+                }).join("");
+            } else if (pond.stck_pcs || pond.stck_date) {
+                // Fallback to cycle-level stocking record
+                const netto = parseFloat(pond.stck_pcs || pond.stck_netto || 0);
+                const allow = parseFloat(pond.stck_allow || 0);
+                const total = pond.stck_total ? parseFloat(pond.stck_total) : (netto + allow);
+                const sizeStr = pond.stck_size ? (String(pond.stck_size).toUpperCase().startsWith("PL") ? pond.stck_size : `PL ${pond.stck_size}`) : "—";
+
+                this.dom.tbodyBatches.innerHTML = `
+                    <tr>
+                        <td class="font-mono font-bold">BATCH-01</td>
+                        <td class="font-mono">${pond.stck_date || '—'}</td>
+                        <td>${pond.stck_source || pond.pl_origin || '—'}</td>
+                        <td>${pond.bs_line || pond.genetic_line || '—'}</td>
+                        <td class="font-mono font-bold">${netto > 0 ? Math.round(netto).toLocaleString() : '—'}</td>
+                        <td class="font-mono">${allow > 0 ? Math.round(allow).toLocaleString() : '0'}</td>
+                        <td class="font-mono text-success font-bold">${total > 0 ? Math.round(total).toLocaleString() : '—'}</td>
+                        <td class="font-mono">${sizeStr}</td>
+                        <td class="font-mono">${pond.stck_tank || pond.tank_no || '—'}</td>
+                    </tr>
+                `;
+            } else {
+                this.dom.tbodyBatches.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center text-muted" style="padding: 1.5rem;">
+                            No stocking batch records logged for cycle <strong>[${pond.pond_index}]</strong>.
+                        </td>
+                    </tr>
+                `;
+            }
+        } catch (err) {
+            console.error("Failed to load stocking batches:", err);
+            this.dom.tbodyBatches.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error loading batch records: ${err.message}</td></tr>`;
+        }
     }
 
     async saveData() {
@@ -82,18 +141,39 @@ export class StockingTab {
 
         try {
             appState.setLoading(true);
+            const nettoVal = parseFloat(this.dom.stckNetto?.value || 0) || 0;
+            const allowVal = parseFloat(this.dom.stckAllow?.value || 0) || 0;
+            const totalVal = nettoVal + allowVal;
+
+            let sizeVal = null;
+            if (this.dom.stckSize?.value) {
+                const num = parseInt(String(this.dom.stckSize.value).replace(/\D/g, ''), 10);
+                if (!isNaN(num)) sizeVal = num;
+            }
+
             const updates = {
                 stck_date: this.dom.stckDate?.value || null,
                 stck_source: this.dom.stckSource?.value || null,
-                species: this.dom.stckSpecies?.value || null,
-                stck_netto: parseFloat(this.dom.stckNetto?.value || 0),
-                stck_allow: parseFloat(this.dom.stckAllow?.value || 0),
-                genetic_line: this.dom.stckLine?.value || null,
-                pl_size: this.dom.stckSize?.value || null,
-                tank_no: this.dom.stckTank?.value || null
+                stck_species: this.dom.stckSpecies?.value || null,
+                stck_pcs: nettoVal,
+                stck_allow: allowVal,
+                stck_total: totalVal,
+                bs_line: this.dom.stckLine?.value || null,
+                stck_size: sizeVal,
+                stck_tank: this.dom.stckTank?.value || null
             };
 
             await PondRepository.updateCycle(pondIndex, updates);
+            
+            // Sync active state
+            if (appState.currentPond) {
+                Object.assign(appState.currentPond, updates, {
+                    stck_netto: nettoVal,
+                    species: updates.stck_species,
+                    genetic_line: updates.bs_line
+                });
+            }
+
             Toast.success("Stocking parameters saved successfully!");
         } catch (err) {
             console.error("Save Stocking error:", err);

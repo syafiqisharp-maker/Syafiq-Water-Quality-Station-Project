@@ -16,7 +16,7 @@ export class PondRepository {
      */
     static async getCycles(filters = {}) {
         let queryParams = [
-            "select=pond_index,pond,modl,row_no,cycle_no,crop_no,pond_status,pond_active,stck_date,date_close,aerator_1hp,aerator_2hp,area,stck_species,bs_line,stck_source",
+            "select=pond_index,pond,modl,row_no,cycle_no,crop_no,pond_status,pond_active,stck_date,date_close,aerator_1hp,aerator_2hp,area,stck_species,bs_line,stck_source,stck_size,stck_tank,stck_pcs,stck_allow,stck_total",
             "order=pond_index.asc"
         ];
 
@@ -61,7 +61,11 @@ export class PondRepository {
             module: r.modl || "MODULE 1",
             species: r.stck_species || "P. VANNAMEi",
             genetic_line: r.bs_line || "Standard",
-            pl_origin: r.stck_source || "Hatchery"
+            pl_origin: r.stck_source || "Hatchery",
+            stck_size: r.stck_size,
+            stck_tank: r.stck_tank,
+            stck_netto: r.stck_pcs || r.stck_netto || 0,
+            stck_total: r.stck_total || ((parseFloat(r.stck_pcs || 0)) + (parseFloat(r.stck_allow || 0)))
         }));
     }
 
@@ -85,8 +89,28 @@ export class PondRepository {
             genetic_line: r.bs_line || "Standard",
             pl_origin: r.stck_source || "Hatchery",
             stck_netto: r.stck_pcs || r.stck_netto || 0,
+            stck_size: r.stck_size,
+            stck_tank: r.stck_tank,
+            stck_allow: r.stck_allow || 0,
+            stck_total: r.stck_total || ((parseFloat(r.stck_pcs || 0)) + (parseFloat(r.stck_allow || 0))),
             date_babybox: r.date_baby_box || r.date_babybox || null
         };
+    }
+
+    /**
+     * Fetches individual stocking batch records for a cycle from pond_stocking_batches.
+     * @param {string} pondIndex 
+     * @returns {Promise<Array<object>>}
+     */
+    static async getStockingBatches(pondIndex) {
+        if (!pondIndex) return [];
+        const endpoint = `pond_stocking_batches?pond_index=eq.${encodeURIComponent(pondIndex)}&order=stck_date.asc,index_no.asc`;
+        try {
+            return await supabase.request(endpoint);
+        } catch (err) {
+            console.warn("Could not fetch stocking batches:", err);
+            return [];
+        }
     }
 
     /**
@@ -121,18 +145,98 @@ export class PondRepository {
     }
 
     /**
-     * Triggers the PostgreSQL RPC function to close current cycle and spawn the next cycle.
+     * Terminates a pond cycle with option to create next cycle or close only.
      * @param {string} pondIndex 
-     * @param {string} [harvestDate] YYYY-MM-DD
-     * @param {string} [finalStatus] e.g. "NORMAL HARVEST"
-     * @returns {Promise<{ success: boolean, pond: string, new_pond_index: string }>}
+     * @param {string} [harvestDate] 
+     * @param {string} [finalStatus] 
+     * @param {boolean} [createNextCycle=true]
+     * @returns {Promise<object>}
      */
-    static async executeRollover(pondIndex, harvestDate, finalStatus = "NORMAL HARVEST") {
+    static async terminateCycle(pondIndex, harvestDate, finalStatus = "NORMAL HARVEST", createNextCycle = true) {
+        if (!pondIndex) throw new Error("pondIndex is required for termination.");
         const dateStr = harvestDate || new Date().toISOString().split("T")[0];
-        return await supabase.rpc("fn_close_and_create_next_cycle", {
+        return await supabase.rpc("fn_terminate_cycle", {
             p_pond_index: pondIndex,
             p_harvest_date: dateStr,
-            p_final_status: finalStatus
+            p_final_status: finalStatus,
+            p_create_next_cycle: createNextCycle
         });
     }
+
+    /**
+     * Backward-compatible alias for executeRollover.
+     */
+    static async executeRollover(pondIndex, harvestDate, finalStatus = "NORMAL HARVEST") {
+        return await this.terminateCycle(pondIndex, harvestDate, finalStatus, true);
+    }
+
+    /**
+     * Reopens an accidentally closed cycle and optionally deletes the next cycle spawned during rollover.
+     * @param {string} pondIndex 
+     * @param {boolean} [deleteNextCycle=false]
+     * @returns {Promise<{ success: boolean, revived_pond_index: string, next_pond_index: string, next_cycle_deleted: boolean, status: string }>}
+     */
+    static async reviveCycle(pondIndex, deleteNextCycle = false) {
+        if (!pondIndex) throw new Error("pondIndex is required for revive.");
+        return await supabase.rpc("fn_revive_cycle", {
+            p_pond_index: pondIndex,
+            p_delete_next_cycle: deleteNextCycle
+        });
+    }
+
+    /**
+     * Creates a customized pond cycle with custom pond code and cycle number.
+     * @param {object} params
+     * @param {string} params.pond
+     * @param {number} params.cycleNo
+     * @param {number} [params.area=0.50]
+     * @param {string} [params.status="iDLE"]
+     * @param {string|null} [params.planStockDate=null]
+     * @returns {Promise<object>}
+     */
+    static async createCustomCycle({ pond, cycleNo, area = 0.50, status = "iDLE", planStockDate = null }) {
+        if (!pond) throw new Error("Pond code is required.");
+        if (!cycleNo) throw new Error("Cycle number is required.");
+        return await supabase.rpc("fn_create_custom_cycle", {
+            p_pond: pond,
+            p_cycle_no: parseInt(cycleNo, 10),
+            p_area: parseFloat(area) || 0.50,
+            p_status: status,
+            p_plan_stock_date: planStockDate || null
+        });
+    }
+
+    /**
+     * Safely deletes an empty/idle cycle.
+     * @param {string} pondIndex 
+     * @returns {Promise<object>}
+     */
+    static async deleteIdleCycle(pondIndex) {
+        if (!pondIndex) throw new Error("pondIndex is required for deletion.");
+        return await supabase.rpc("fn_delete_idle_cycle", {
+            p_pond_index: pondIndex
+        });
+    }
+
+    /**
+     * Fetches distinct physical pond codes across all cycles.
+     * @returns {Promise<Array<{pond: string, modl: string, area: number}>>}
+     */
+    static async getDistinctPonds() {
+        const endpoint = `stocking_records?select=pond,modl,area&order=pond.asc`;
+        const data = await supabase.request(endpoint);
+        const unique = new Map();
+        (data || []).forEach(r => {
+            if (r.pond && !unique.has(r.pond)) {
+                unique.set(r.pond, {
+                    pond: r.pond,
+                    modl: r.modl || "",
+                    area: parseFloat(r.area) || 0.50
+                });
+            }
+        });
+        return Array.from(unique.values());
+    }
 }
+
+

@@ -1,23 +1,46 @@
+/**
+ * iSHARP DBMS 2.0 — Harvest & Sales Tab Module (Tab 7)
+ * Focuses purely on harvest events, catch biometrics, commercial buyer grading packout, and revenue.
+ */
+
 import { appState } from "../../state/appState.js";
-import { PondRepository } from "../../infrastructure/repositories/pondRepository.js";
 import { HarvestRepository } from "../../infrastructure/repositories/harvestRepository.js";
-import { validateRolloverEligibility, parsePondIndex } from "../../domain/rollover.js";
-import { hasPermission, PERMISSIONS } from "../../config/permissions.js";
 import { Toast } from "../../components/Toast.js";
 
-export class TerminationTab {
-    constructor() {
+export class HarvestTab {
+    constructor(onOpenExcel) {
+        this.onOpenExcel = onOpenExcel;
         this.dom = {
             tbodyHarvest: document.getElementById("tbody-harvest"),
             tbodySales: document.getElementById("tbody-harvest-sales"),
-            btnRollover: document.getElementById("btn-action-new-cycle")
+            totalWeight: document.getElementById("stat-harvest-weight"),
+            totalRevenue: document.getElementById("stat-harvest-revenue"),
+            meanAbw: document.getElementById("stat-harvest-abw"),
+            btnAddHarvest: document.getElementById("btn-add-harvest-event")
         };
 
+        this.bindEvents();
         appState.subscribe("pondChanged", (pond) => this.render(pond));
     }
 
+    bindEvents() {
+        if (this.dom.btnAddHarvest) {
+            this.dom.btnAddHarvest.addEventListener("click", () => {
+                if (this.onOpenExcel) this.onOpenExcel("harvest");
+            });
+        }
+    }
+
     async render(pond) {
-        if (!pond) return;
+        if (!pond) {
+            if (this.dom.tbodyHarvest) {
+                this.dom.tbodyHarvest.innerHTML = `<tr><td colspan="7" class="text-center text-muted" style="padding: 1.5rem;">Select a pond cycle to view harvest records.</td></tr>`;
+            }
+            if (this.dom.tbodySales) {
+                this.dom.tbodySales.innerHTML = `<tr><td colspan="10" class="text-center text-muted" style="padding: 1.5rem;">Select a pond cycle to view buyer sales records.</td></tr>`;
+            }
+            return;
+        }
 
         try {
             const [dailyRecords, salesRecords] = await Promise.all([
@@ -25,7 +48,11 @@ export class TerminationTab {
                 HarvestRepository.getHarvestSales(pond.pond_index)
             ]);
 
-            // Render Daily Harvest
+            let sumWeight = 0;
+            let sumRevenue = 0;
+            let weightedAbwSum = 0;
+
+            // 1. Render Daily Harvest
             if (this.dom.tbodyHarvest) {
                 if (dailyRecords && dailyRecords.length > 0) {
                     this.dom.tbodyHarvest.innerHTML = dailyRecords.map(r => {
@@ -36,6 +63,12 @@ export class TerminationTab {
                         const isFinal = (r.harv_status || "").toUpperCase().includes("TERMINATION") || (r.harv_status || "").toUpperCase().includes("FINAL");
                         const statusClass = isFinal ? "status-production" : "status-idle";
 
+                        sumWeight += weight;
+                        sumRevenue += revenue;
+                        if (abw > 0 && weight > 0) {
+                            weightedAbwSum += (abw * weight);
+                        }
+
                         return `
                             <tr>
                                 <td class="font-mono">${r.harv_date || '—'}</td>
@@ -43,7 +76,7 @@ export class TerminationTab {
                                 <td class="font-mono font-bold text-success">${weight > 0 ? weight.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' kg' : '—'}</td>
                                 <td class="font-mono font-bold">${abw > 0 ? abw.toFixed(2) + ' g' : '—'}</td>
                                 <td class="font-mono">${pcs > 0 ? pcs.toLocaleString() : '—'}</td>
-                                <td>${r.harv_method === 'M' ? 'Mechanical (Pump/Net)' : (r.harv_method || 'Standard')}</td>
+                                <td>${r.harv_method === 'M' ? 'Mechanical (Pump/Net)' : (r.harv_method || 'Standard Netting')}</td>
                                 <td class="font-mono font-bold text-success">${revenue > 0 ? 'RM ' + revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}</td>
                             </tr>
                         `;
@@ -51,15 +84,15 @@ export class TerminationTab {
                 } else {
                     this.dom.tbodyHarvest.innerHTML = `
                         <tr>
-                            <td colspan="7" class="text-center text-muted" style="padding: 2rem 1rem;">
-                                🦐 No harvest runs logged for cycle <strong>[${pond.pond_index}]</strong> (Current Status: <strong>${pond.pond_status || 'PRODUCTION'}</strong>).
+                            <td colspan="7" class="text-center text-muted" style="padding: 2.2rem 1rem;">
+                                🦐 No harvest runs logged yet for cycle <strong>[${pond.pond_index}]</strong> (Current Status: <strong>${pond.pond_status || 'PRODUCTION'}</strong>).
                             </td>
                         </tr>
                     `;
                 }
             }
 
-            // Render Commercial Buyer Sales
+            // 2. Render Commercial Buyer Sales Packout
             if (this.dom.tbodySales) {
                 if (salesRecords && salesRecords.length > 0) {
                     this.dom.tbodySales.innerHTML = salesRecords.map(s => {
@@ -90,72 +123,29 @@ export class TerminationTab {
                 } else {
                     this.dom.tbodySales.innerHTML = `
                         <tr>
-                            <td colspan="10" class="text-center text-muted" style="padding: 2rem 1rem;">
+                            <td colspan="10" class="text-center text-muted" style="padding: 2.2rem 1rem;">
                                 📦 No commercial buyer packout transactions recorded yet for cycle <strong>[${pond.pond_index}]</strong>.
                             </td>
                         </tr>
                     `;
                 }
             }
+
+            // 3. Update Stat Badges (if present in DOM)
+            if (this.dom.totalWeight) {
+                this.dom.totalWeight.textContent = sumWeight > 0 ? `${sumWeight.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kg` : '—';
+            }
+            if (this.dom.totalRevenue) {
+                this.dom.totalRevenue.textContent = sumRevenue > 0 ? `RM ${sumRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+            }
+            if (this.dom.meanAbw) {
+                const avgAbw = sumWeight > 0 ? (weightedAbwSum / sumWeight) : 0;
+                this.dom.meanAbw.textContent = avgAbw > 0 ? `${avgAbw.toFixed(2)} g` : '—';
+            }
+
         } catch (err) {
             console.error("Error loading harvest and sales records:", err);
-        }
-    }
-
-    async promptRollover() {
-        const pond = appState.currentPond;
-        if (!pond) {
-            Toast.error("Please select a pond cycle first.");
-            return;
-        }
-
-        if (!hasPermission(appState.userRole, PERMISSIONS.EXECUTE_ROLLOVER)) {
-            Toast.error("Only Planner role can execute cycle rollover.");
-            return;
-        }
-
-        const eligibility = validateRolloverEligibility(pond);
-        if (!eligibility.eligible) {
-            alert(`⚠️ Cannot Rollover:\n\n${eligibility.reason}`);
-            return;
-        }
-
-        const info = parsePondIndex(pond.pond_index);
-        const confirmed = confirm(
-            `🦐 CYCLE ROLLOVER CONFIRMATION\n\n` +
-            `Are you sure you want to close cycle [${pond.pond_index}] for Pond ${pond.pond}?\n\n` +
-            `This will:\n` +
-            `1. Lock this cycle and set status to 'CLOSE' / 'iN ACTiVE'.\n` +
-            `2. Automatically increment the cycle number.\n` +
-            `3. Generate the next cycle record: [${info.nextIndex}] in 'iDLE' status ready for preparation.\n\n` +
-            `Click OK to proceed with rollover.`
-        );
-
-        if (!confirmed) return;
-
-        try {
-            appState.setLoading(true);
-            Toast.info("Executing automated cycle rollover...");
-
-            const res = await PondRepository.executeRollover(pond.pond_index);
-
-            if (res && res.success) {
-                alert(`✅ SUCCESS!\n\nPond ${res.pond} is now closed.\nNew Cycle Created: ${res.new_pond_index} (Status: IDLE).`);
-                Toast.success(`New Cycle ${res.new_pond_index} created!`);
-
-                // Reload cycles and auto-select newly spawned cycle
-                const cycles = await PondRepository.getCycles();
-                appState.setCycles(cycles);
-                appState.setCurrentPond({ pond_index: res.new_pond_index });
-            } else {
-                throw new Error("RPC returned unexpected result: " + JSON.stringify(res));
-            }
-        } catch (err) {
-            console.error("Rollover failed:", err);
-            alert(`Rollover Failed: ${err.message}`);
-            Toast.error(`Rollover Failed: ${err.message}`);
-        } finally {
-            appState.setLoading(false);
+            Toast.error(`Could not load harvest data: ${err.message}`);
         }
     }
 }

@@ -1,0 +1,15 @@
+# Large Microsoft Access Database binaries (over 100MB, migrated to Supabase Cloud)
+*.accdb
+*.accde
+*.mdb
+*.ldb
+*.laccdb
+
+# Node modules & build artifacts
+node_modules/
+dist/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+*.tmp

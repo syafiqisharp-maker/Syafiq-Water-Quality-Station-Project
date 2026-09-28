@@ -50,4 +50,18 @@ export class HarvestRepository {
             hasHarvest: totalWeightKg > 0
         };
     }
+
+    /**
+     * Inserts a batch of harvest daily records.
+     * @param {Array<object>} records 
+     * @returns {Promise<any>}
+     */
+    static async insertBatch(records) {
+        if (!records || records.length === 0) return [];
+        return await supabase.request("pond_harvest_daily", {
+            method: "POST",
+            body: JSON.stringify(records)
+        });
+    }
 }
+

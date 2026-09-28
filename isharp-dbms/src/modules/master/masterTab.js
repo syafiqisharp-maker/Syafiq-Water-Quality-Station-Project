@@ -71,7 +71,7 @@ export class MasterTab {
         if (this.dom.inputDateRepair) this.dom.inputDateRepair.value = pond.date_repair || "";
         if (this.dom.inputDateFilling) this.dom.inputDateFilling.value = pond.date_filling || "";
         if (this.dom.inputDateCulture) this.dom.inputDateCulture.value = pond.date_culture || "";
-        if (this.dom.inputDateBabyBox) this.dom.inputDateBabyBox.value = pond.date_babybox || "";
+        if (this.dom.inputDateBabyBox) this.dom.inputDateBabyBox.value = pond.date_baby_box || pond.date_babybox || "";
         if (this.dom.inputDateQaqc) this.dom.inputDateQaqc.value = pond.date_qaqc || "";
         if (this.dom.inputDateReady) this.dom.inputDateReady.value = pond.date_ready || "";
         if (this.dom.inputDatePlanStock) this.dom.inputDatePlanStock.value = pond.date_plan_stock || "";
@@ -185,7 +185,7 @@ export class MasterTab {
             const items = await InventoryRepository.getAerators(pondIndex);
             if (items && items.length > 0) {
                 items.forEach(item => {
-                    const hp = parseFloat(item.hp_rating);
+                    const hp = parseFloat(item.hp !== undefined && item.hp !== null ? item.hp : item.hp_rating);
                     if (hp === 1.0) u1 = item.total_units || 0;
                     if (hp === 2.0) u2 = item.total_units || 0;
                     if (hp === 4.0) u4 = item.total_units || 0;
@@ -248,7 +248,7 @@ export class MasterTab {
                     date_repair: this.dom.inputDateRepair?.value || null,
                     date_filling: this.dom.inputDateFilling?.value || null,
                     date_culture: this.dom.inputDateCulture?.value || null,
-                    date_babybox: this.dom.inputDateBabyBox?.value || null,
+                    date_baby_box: this.dom.inputDateBabyBox?.value || null,
                     date_qaqc: this.dom.inputDateQaqc?.value || null,
                     date_ready: this.dom.inputDateReady?.value || null,
                     date_plan_stock: this.dom.inputDatePlanStock?.value || null,

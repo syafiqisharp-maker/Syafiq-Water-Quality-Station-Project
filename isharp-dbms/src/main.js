@@ -12,13 +12,16 @@ import { ExecutiveFilterBar } from "./components/ExecutiveFilterBar.js";
 import { MasterBanner } from "./components/MasterBanner.js";
 import { ExcelModal } from "./features/excelImporter/excelModal.js";
 
+import { isCycleClosed } from "./domain/rollover.js";
+
 // Tab Modules
 import { MasterTab } from "./modules/master/masterTab.js";
 import { SamplingTab } from "./modules/sampling/samplingTab.js";
 import { FeedingTab } from "./modules/feeding/feedingTab.js";
 import { PerformanceTab } from "./modules/performance/performanceTab.js";
 import { StockingTab } from "./modules/stocking/stockingTab.js";
-import { TerminationTab } from "./modules/termination/terminationTab.js";
+import { HarvestTab } from "./modules/harvest/harvestTab.js";
+import { LifecycleTab } from "./modules/lifecycle/lifecycleTab.js";
 import { LaboratoryTab } from "./modules/laboratory/laboratoryTab.js";
 import { StaffTab } from "./modules/staff/staffTab.js";
 import { UtilitiesTab } from "./modules/utilities/utilitiesTab.js";
@@ -37,11 +40,18 @@ class App {
                 this.onExcelImportComplete(category, pondIndex);
             });
 
-            this.terminationTab = new TerminationTab();
+            this.harvestTab = new HarvestTab((cat) => this.excelModal.open(cat || "harvest"));
+            this.lifecycleTab = new LifecycleTab((pondIndex) => this.navbar.selectPondByIndex(pondIndex));
 
             this.navbar = new Navbar(
                 () => this.excelModal.open("sampling"),
-                () => this.terminationTab.promptRollover(),
+                () => {
+                    if (isCycleClosed(appState.currentPond)) {
+                        this.lifecycleTab.openReviveModal();
+                    } else {
+                        this.lifecycleTab.openTerminateModal(true);
+                    }
+                },
                 () => this.saveActiveTabData()
             );
 
@@ -53,12 +63,13 @@ class App {
             // 2. Initialize Tab Controllers
             this.tabs = {
                 "tab-master": new MasterTab(),
-                "tab-sampling": new SamplingTab((cat) => this.excelModal.open(cat || "sampling")),
-                "tab-feeding": new FeedingTab((cat) => this.excelModal.open(cat || "feed")),
-                "tab-performance": new PerformanceTab(),
+                "tab-laboratory": new LaboratoryTab((cat) => this.excelModal.open(cat || "issues")),
                 "tab-stocking": new StockingTab(),
-                "tab-termination": this.terminationTab,
-                "tab-laboratory": new LaboratoryTab(),
+                "tab-feeding": new FeedingTab((cat) => this.excelModal.open(cat || "feed")),
+                "tab-sampling": new SamplingTab((cat) => this.excelModal.open(cat || "sampling")),
+                "tab-performance": new PerformanceTab(),
+                "tab-harvest": this.harvestTab,
+                "tab-lifecycle": this.lifecycleTab,
                 "tab-staff": new StaffTab(),
                 "tab-utilities": new UtilitiesTab()
             };
@@ -137,6 +148,12 @@ class App {
         } else if (category === "feed") {
             const feedController = this.tabs["tab-feeding"];
             if (feedController) feedController.loadData(pondIndex);
+        } else if (category === "issues") {
+            const labController = this.tabs["tab-laboratory"];
+            if (labController) labController.loadIssues(pondIndex);
+        } else if (category === "harvest") {
+            const harvestController = this.tabs["tab-harvest"];
+            if (harvestController && appState.currentPond) harvestController.render(appState.currentPond);
         }
     }
 }
@@ -144,4 +161,12 @@ class App {
 // Instantiate on DOM ready
 document.addEventListener("DOMContentLoaded", () => {
     window.__isharpApp = new App();
+    window.app = {
+        openExcelModal: (cat) => window.__isharpApp.excelModal?.open(cat),
+        promptTerminatePond: (createNext = true) => window.__isharpApp.lifecycleTab?.openTerminateModal(createNext),
+        promptRevivePond: () => window.__isharpApp.lifecycleTab?.openReviveModal(),
+        exportCycleCsv: () => window.__isharpApp.tabs["tab-utilities"]?.exportCycleCsv(),
+        verifySyncStatus: () => window.__isharpApp.tabs["tab-utilities"]?.verifySyncStatus()
+    };
 });
+

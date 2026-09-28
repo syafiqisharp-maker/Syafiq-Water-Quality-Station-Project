@@ -357,3 +357,37 @@ ORDER BY hour_bucket DESC;
   * Update `googleScriptUrl` in `Weather_Station_v10.ino` to point directly to `https://keappoukeagyzpoxkrru.supabase.co/rest/v1/rpc/log_weather_telemetry`.
   * Add the `apikey: YOUR_ANON_KEY` header.
   * Disable the Apps Script trigger and archive the sheet.
+
+---
+
+## 6. Weekly Operations: Access-to-Supabase Smart Delta Sync Engine
+
+During the transitional phase while iSHARP DBMS 2.0 is being completed, the farm team updates the operational Microsoft Access database (`.accdb`) and emails it out every Friday.
+
+### Architecture & Pipeline
+```
+[Friday Access DB (.accdb)]
+          │ Save to: Legacy Access DB/
+          ▼
+   Run_Friday_Sync.bat
+          │
+          ▼
+   sync_weekly_access.ps1
+          │ 1. Auto-detects newest .accdb
+          │ 2. Queries Supabase for current checkpoints (MAX index_no)
+          │ 3. Delta-extracts only new/modified rows:
+          │    - stocking_records (upserts all active & recently closed cycles)
+          │    - active_operational_ponds (reconciles gatekeeper: adds newly stocked, drops harvested)
+          │    - biometrics_sampling (WHERE indexNo > max_sampling)
+          │    - pond_harvest_daily & sales (WHERE indexNo > max_harvest)
+          │    - pond_stocking_batches (WHERE indexNo > max_stocking)
+          │    - pond_issues & pond_notes (WHERE indexNo > max_issues/notes)
+          ▼
+   Supabase Cloud (Sync completed in ~15-25 seconds)
+```
+
+### Standard Friday Routine:
+1. Save the new email attachment into `Legacy Access DB\`.
+2. Double-click `Run_Friday_Sync.bat`.
+3. The console will display real-time progress and output a verification report of all new rows synchronized.
+

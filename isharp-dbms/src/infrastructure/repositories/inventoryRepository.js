@@ -27,16 +27,34 @@ export class InventoryRepository {
         if (!pondIndex) return;
         const records = aerators.map(a => ({
             pond_index: pondIndex,
-            hp_rating: a.hp_rating,
-            total_units: a.total_units,
+            aerator_model: a.aerator_model || `${a.hp || a.hp_rating || 1} HP Paddlewheel`,
+            hp: parseFloat(a.hp || a.hp_rating || 1),
+            total_units: parseInt(a.total_units || 0, 10),
+            active_units: parseInt(a.total_units || 0, 10),
             updated_at: new Date().toISOString()
         }));
 
-        return await supabase.request("pond_aerator_inventory", {
-            method: "POST",
-            headers: { "Prefer": "resolution=merge-duplicates" },
-            body: JSON.stringify(records)
-        });
+        try {
+            await supabase.request("pond_aerator_inventory", {
+                method: "POST",
+                headers: { "Prefer": "resolution=merge-duplicates" },
+                body: JSON.stringify(records)
+            });
+        } catch (err) {
+            console.warn("Could not sync to pond_aerator_inventory table:", err);
+        }
+
+        // Also keep stocking_records legacy aerator columns in sync
+        const u1 = aerators.find(a => parseFloat(a.hp || a.hp_rating) === 1.0)?.total_units || 0;
+        const u2 = aerators.find(a => parseFloat(a.hp || a.hp_rating) === 2.0)?.total_units || 0;
+        try {
+            await supabase.request(`stocking_records?pond_index=eq.${encodeURIComponent(pondIndex)}`, {
+                method: "PATCH",
+                body: JSON.stringify({ aerator_1hp: u1, aerator_2hp: u2 })
+            });
+        } catch (err) {
+            console.warn("Could not sync aerators to stocking_records:", err);
+        }
     }
 
     /**

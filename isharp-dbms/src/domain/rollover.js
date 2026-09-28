@@ -41,9 +41,21 @@ export function validateRolloverEligibility(pond) {
     if (!pond) {
         return { eligible: false, reason: "No pond cycle selected." };
     }
-    const status = String(pond.status || "").toUpperCase();
-    if (status === "CLOSE" || status === "IN ACTIVE" || status === "INACTIVE") {
+    if (isCycleClosed(pond)) {
         return { eligible: false, reason: "This cycle is already closed. Please select an active cycle to terminate." };
     }
     return { eligible: true };
 }
+
+/**
+ * Checks if a pond cycle is currently closed / terminated.
+ * @param {object} pond 
+ * @returns {boolean}
+ */
+export function isCycleClosed(pond) {
+    if (!pond) return false;
+    const status = String(pond.status || pond.pond_status || "").toUpperCase();
+    const active = String(pond.active || pond.pond_active || "").toUpperCase();
+    return status === "CLOSE" || active.includes("IN") || active.includes("INACTIVE");
+}
+

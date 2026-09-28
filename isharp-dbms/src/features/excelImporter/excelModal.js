@@ -6,6 +6,8 @@
 import { appState } from "../../state/appState.js";
 import { SamplingRepository } from "../../infrastructure/repositories/samplingRepository.js";
 import { FeedRepository } from "../../infrastructure/repositories/feedRepository.js";
+import { HarvestRepository } from "../../infrastructure/repositories/harvestRepository.js";
+import { LabRepository } from "../../infrastructure/repositories/labRepository.js";
 import { Toast } from "../../components/Toast.js";
 
 export const EXCEL_SCHEMAS = {
@@ -23,12 +25,19 @@ export const EXCEL_SCHEMAS = {
         notes: "Shift can be Morning, Afternoon, Evening, or Full Day. Tray remnant is integer %.",
         dbFields: ["log_date", "shift", "feed_kg", "feed_tray_remnant_pct", "water_level_cm", "water_colour", "mortality_count", "remarks"]
     },
+    issues: {
+        title: "Laboratory & Pathology Log",
+        headers: ["Date (YYYY-MM-DD)", "Category", "Test / Pathogen", "Status", "Flag", "Grade / Severity", "Notes / Remarks"],
+        example: "2026-07-20\tPathology\tVibrio Green Colony\tActive\tWarning\tGrade 2\tObserved in water sample",
+        notes: "Status can be Active or Resolved. Flag can be Normal, Warning, or Critical.",
+        dbFields: ["issue_date", "issue_category", "issue_test", "issue_status", "issue_flag", "issue_grade", "issue_note"]
+    },
     harvest: {
         title: "Harvest Sales & Tonnage",
-        headers: ["Date (YYYY-MM-DD)", "Harvest Type", "Qty (kg)", "ABW (g)", "Crates", "Destination / Buyer"],
-        example: "2026-09-10\tPartial Harvest\t1500\t18.2\t50\tProcessing Plant A",
+        headers: ["Date (YYYY-MM-DD)", "Harvest Status / Type", "Weight (kg)", "ABW (g)", "Estimated Revenue (RM)", "Harvest Method"],
+        example: "2026-09-10\tPartial Harvest\t1500\t18.2\t36000\tCast Netting",
         notes: "Harvest type can be 'Partial Harvest' or 'Final Clean Harvest'.",
-        dbFields: ["harvest_date", "harvest_type", "qty_kg", "size_abw", "crates_count", "destination"]
+        dbFields: ["harv_date", "harv_status", "harv_weight", "harv_abw", "harv_revenue", "harv_method"]
     }
 };
 
@@ -265,8 +274,10 @@ export class ExcelModal {
 
                 await SamplingRepository.insertBatch(records);
             } else if (this.activeCategory === "feed") {
+                const pondName = appState.currentPond?.pond || pondIndex.split("_")[0];
                 const records = this.parsedRows.map(cols => ({
                     pond_index: pondIndex,
+                    pond: pondName,
                     log_date: cols[0],
                     shift: cols[1] || "Full Day",
                     feed_kg: parseFloat(cols[2]) || 0,
@@ -278,6 +289,31 @@ export class ExcelModal {
                 }));
 
                 await FeedRepository.insertBatch(records);
+            } else if (this.activeCategory === "issues") {
+                const records = this.parsedRows.map(cols => ({
+                    pond_index: pondIndex,
+                    issue_date: cols[0],
+                    issue_category: cols[1] || "General Pathology",
+                    issue_test: cols[2] || "Routine Screen",
+                    issue_status: cols[3] || "Active",
+                    issue_flag: cols[4] || "Normal",
+                    issue_grade: cols[5] || null,
+                    issue_note: cols[6] || null
+                }));
+
+                await LabRepository.insertBatch(records);
+            } else if (this.activeCategory === "harvest") {
+                const records = this.parsedRows.map(cols => ({
+                    pond_index: pondIndex,
+                    harv_date: cols[0],
+                    harv_status: cols[1] || "Partial Harvest",
+                    harv_weight: parseFloat(cols[2]) || 0,
+                    harv_abw: parseFloat(cols[3]) || 0,
+                    harv_revenue: parseFloat(cols[4]) || 0,
+                    harv_method: cols[5] || "Cast Netting"
+                }));
+
+                await HarvestRepository.insertBatch(records);
             }
 
             Toast.success(`Successfully uploaded ${this.parsedRows.length} records!`);

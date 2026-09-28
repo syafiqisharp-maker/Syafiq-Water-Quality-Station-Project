@@ -112,9 +112,9 @@ export class SamplingTab {
                         <td class="font-mono">${r.smpl_surv ? parseFloat(r.smpl_surv).toFixed(1) + '%' : '—'}</td>
                         <td class="font-mono font-bold">${r.smpl_bms ? Math.round(r.smpl_bms).toLocaleString() + ' kg' : '—'}</td>
                         <td class="font-mono">${r.smpl_tfed ? Math.round(r.smpl_tfed).toLocaleString() + ' kg' : '—'}</td>
-                        <td class="font-mono text-muted">6.2 mg/L</td>
-                        <td class="font-mono text-muted">7.85</td>
-                        <td class="font-mono text-muted">29.4 °C</td>
+                        <td class="font-mono text-muted">—</td>
+                        <td class="font-mono text-muted">—</td>
+                        <td class="font-mono text-muted">—</td>
                     </tr>
                 `;
             }).join("");
