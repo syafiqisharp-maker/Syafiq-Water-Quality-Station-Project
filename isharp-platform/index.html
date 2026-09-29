@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <title>iSHARP Aquaculture Platform — Enterprise Farm Intelligence</title>
+    <!-- Modern Typography: Inter and JetBrains Mono for data numbers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="src/styles/tokens.css">
+    <link rel="stylesheet" href="src/styles/base.css">
+    <link rel="stylesheet" href="src/styles/components.css">
+    <link rel="stylesheet" href="src/styles/landing.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- TOP-LEVEL VIEW 1: PORTAL LANDING PAGE -->
+    <div id="view-portal" class="view-pane active-view"></div>
+
+    <!-- TOP-LEVEL VIEW 2: EXECUTIVE DASHBOARD -->
+    <div id="view-executive" class="view-pane" style="display: none;"></div>
+
+    <!-- TOP-LEVEL VIEW 3: FIELD OPERATIONS -->
+    <div id="view-field-ops" class="view-pane" style="display: none;"></div>
+
+    <!-- TOP-LEVEL VIEW 4: OPERATIONAL DBMS -->
+    <div id="view-dbms" class="view-pane" style="display: none;">
+        <!-- App Container -->
+        <div class="app-layout">
+            
+            <!-- Top App Bar -->
+            <header class="app-header">
+                <div class="brand-cluster">
+                    <button id="btn-back-to-portal-dbms" class="btn-portal-back" type="button" data-nav-view="portal" title="Return to Portal Landing Page">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        <span>Back to Portal</span>
+                    </button>
+                    <button id="btn-to-executive-map" class="btn-portal-back btn-to-map" type="button" data-nav-view="executive" title="Switch directly to Executive 216-Pond Farm Map">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                            <line x1="8" y1="2" x2="8" y2="18"></line>
+                            <line x1="16" y1="6" x2="16" y2="22"></line>
+                        </svg>
+                        <span>Executive Map</span>
+                    </button>
+                    <button id="btn-to-field-ops" class="btn-portal-back btn-to-map" type="button" data-nav-view="field-ops" title="Switch directly to Supervisor Field Operations (24 Ponds)">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                            <path d="M12 9v4"></path>
+                            <path d="M12 17h.01"></path>
+                        </svg>
+                        <span>Field Operations</span>
+                    </button>
+                    <div class="brand-logo-badge" title="iSHARP Aquaculture Platform">
+                    <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,30,60,0.3));">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                    </svg>
+                </div>
+                <div class="brand-titles">
+                    <div class="brand-row">
+                        <span class="brand-name">iSHARP</span>
+                        <span class="brand-tag">DBMS v2.0</span>
+                    </div>
+                    <span class="brand-sub">Blue Archipelago Berhad • Setiu Farm (SETiU)</span>
+                </div>
+            </div>
+
+            <!-- Global Pond Selector & Cycle Navigation -->
+            <div class="header-pond-selector">
+                <input type="text" id="input-pond-search" class="pond-search-input" placeholder="Search pond (e.g. 01.02.12)..." title="Filter cycles or search by pond number" />
+                <button id="btn-prev-pond" class="btn-nav-step" title="Previous Pond (Ctrl + Left)">‹</button>
+                <div class="select-wrapper">
+                    <select id="select-pond-index" class="pond-master-dropdown" aria-label="Select Pond Cycle">
+                        <option value="" disabled selected>Loading pond cycles from Supabase...</option>
+                    </select>
+                </div>
+                <button id="btn-next-pond" class="btn-nav-step" title="Next Pond (Ctrl + Right)">›</button>
+                <button id="btn-refresh-master" class="btn-icon" title="Refresh all data from cloud">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="header-actions">
+                <button id="btn-open-excel-modal" class="btn-action btn-excel">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="8" y1="13" x2="16" y2="13"></line>
+                        <line x1="8" y1="17" x2="16" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                    <span>Paste Excel Data</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- EXECUTIVE FILTER BAR (Filter by Status, Module, State) -->
+        <section class="executive-filter-bar" aria-label="Pond Filters">
+            <div class="filter-controls-cluster">
+                <div class="filter-item">
+                    <span class="filter-icon">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                            <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                        </svg>
+                    </span>
+                    <label for="filter-pond-status">Status:</label>
+                    <select id="filter-pond-status" class="filter-dropdown">
+                        <option value="ALL">All Statuses (Archive)</option>
+                        <option value="PRODUCTION" selected>PRODUCTION (Active Crop)</option>
+                        <option value="iDLE">IDLE (Dry / Ready)</option>
+                        <option value="CLOSE">CLOSE (Harvested)</option>
+                        <option value="MAINTENANCE">MAINTENANCE</option>
+                        <option value="RESERVOIR">RESERVOIR</option>
+                        <option value="PREPARATION">PREPARATION</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <span class="filter-icon">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="3" width="7" height="7"></rect>
+                            <rect x="14" y="14" width="7" height="7"></rect>
+                            <rect x="3" y="14" width="7" height="7"></rect>
+                        </svg>
+                    </span>
+                    <label for="filter-pond-module">Module:</label>
+                    <select id="filter-pond-module" class="filter-dropdown">
+                        <option value="ALL">All Modules</option>
+                        <option value="01">Module 01</option>
+                        <option value="02">Module 02</option>
+                        <option value="03">Module 03</option>
+                        <option value="04">Module 04</option>
+                        <option value="05">Module 05</option>
+                        <option value="06">Module 06</option>
+                        <option value="07">Module 07</option>
+                        <option value="08">Module 08</option>
+                        <option value="09">Module 09</option>
+                        <option value="10">Module 10</option>
+                        <option value="11">Module 11</option>
+                    </select>
+                </div>
+
+                <div class="filter-item">
+                    <span class="filter-icon">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                    </span>
+                    <label for="filter-pond-active">Cycle State:</label>
+                    <select id="filter-pond-active" class="filter-dropdown">
+                        <option value="ALL">All States</option>
+                        <option value="ACTiVE" selected>Active Cycles</option>
+                        <option value="iN ACTiVE">Archived / Closed</option>
+                    </select>
+                </div>
+
+                <button id="btn-reset-filters" class="btn-filter-reset" title="Reset all filters">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:3px;">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                    <span>Reset</span>
+                </button>
+            </div>
+
+            <div class="filter-feedback">
+                <span id="filtered-count-badge" class="filter-count-badge">Loading...</span>
+            </div>
+        </section>
+
+        <!-- Master Status Bar (Always Visible Anchor) -->
+        <section class="master-banner">
+            <div class="banner-grid">
+                <!-- Pond Primary Identifiers -->
+                <div class="banner-item id-block">
+                    <span class="label">POND IDENTIFIER</span>
+                    <div class="val-group">
+                        <span id="badge-pond-label" class="val-highlight">01.02.12</span>
+                        <span id="badge-pond-index" class="val-sub">2010212.43</span>
+                    </div>
+                </div>
+
+                <!-- Status & Active Flags -->
+                <div class="banner-item">
+                    <span class="label">STATUS / LIFECYCLE</span>
+                    <div class="val-group status-badges">
+                        <span id="badge-pond-status" class="status-pill status-production">PRODUCTION</span>
+                        <span id="badge-pond-active" class="active-pill active-yes">ACTiVE</span>
+                    </div>
+                </div>
+
+                <!-- Cycle & DOC Counter with Option A Cycle History Dropdown -->
+                <div class="banner-item">
+                    <span class="label">CYCLE &amp; DOC</span>
+                    <div class="val-group num-group">
+                        <select id="select-cycle-history" class="cycle-history-dropdown" title="12-Year Historical Cycles for this Pond">
+                            <option value="">Loading cycles...</option>
+                        </select>
+                        <span class="doc-box">DOC <span id="badge-doc">0</span></span>
+                    </div>
+                </div>
+
+                <!-- Biosecurity & Health Status -->
+                <div class="banner-item disease-block" title="Click to view Biosecurity & Disease Pathology Logbook">
+                    <span class="label">PATHOLOGY / BIOSECURITY</span>
+                    <div class="val-group">
+                        <span id="badge-disease-status" class="disease-pill disease-ok">Pathogen Negative (Normal)</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 10-Tab Navigation Ribbon (Ungrouped 1 to 10) -->
+        <nav class="master-tab-ribbon" role="tablist">
+            <button class="tab-btn active" data-tab="tab-master" role="tab" id="btn-tab-master">
+                <span class="tab-num">1</span>
+                <span class="tab-label">Master</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-laboratory" role="tab" id="btn-tab-laboratory">
+                <span class="tab-num">2</span>
+                <span class="tab-label">Laboratory</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-stocking" role="tab" id="btn-tab-stocking">
+                <span class="tab-num">3</span>
+                <span class="tab-label">Stocking</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-feeding" role="tab" id="btn-tab-feeding">
+                <span class="tab-num">4</span>
+                <span class="tab-label">Feeding</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-sampling" role="tab" id="btn-tab-sampling">
+                <span class="tab-num">5</span>
+                <span class="tab-label">Sampling</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-performance" role="tab" id="btn-tab-performance">
+                <span class="tab-num">6</span>
+                <span class="tab-label">Performance</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-harvest" role="tab" id="btn-tab-harvest">
+                <span class="tab-num">7</span>
+                <span class="tab-label">Harvest</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-lifecycle" role="tab" id="btn-tab-lifecycle">
+                <span class="tab-num">8</span>
+                <span class="tab-label">Pond Lifecycle</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-staff" role="tab" id="btn-tab-staff">
+                <span class="tab-num">9</span>
+                <span class="tab-label">Staff+Remarks</span>
+            </button>
+            <button class="tab-btn" data-tab="tab-utilities" role="tab" id="btn-tab-utilities">
+                <span class="tab-num">10</span>
+                <span class="tab-label">Utilities</span>
+            </button>
+        </nav>
+
+        <!-- Main Tab Body Area -->
+        <main class="master-tab-content">
+            
+            <!-- TAB 1: MASTER (Pond Lifecycle & Prep Milestones) -->
+            <div id="tab-master" class="tab-pane active" role="tabpanel">
+                
+                <!-- Hero Section: Realtime Cycle Snapshots (Top Priority) -->
+                <div class="card panel-card cycle-snapshots-hero mb-4">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Cycle Snapshots</h3>
+                            <span class="card-sub">Realtime operational telemetry queried directly from database</span>
+                        </div>
+                        <div class="snapshot-header-meta">
+                            <span id="snap-cycle-status" class="status-badge status-production">PRODUCTION</span>
+                        </div>
+                    </div>
+                    <div class="snapshot-grid-hero">
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Species / Line</span>
+                                <span class="snap-icon">🧬</span>
+                            </div>
+                            <span id="badge-species" class="snap-val snap-val-species font-bold">P. VANNAMEi</span>
+                            <span id="badge-genetic" class="snap-foot">Standard Line</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Stocked Fry</span>
+                                <span class="snap-icon">🦐</span>
+                            </div>
+                            <span id="snap-stocked-pcs" class="snap-val font-mono">—</span>
+                            <span id="snap-stocked-foot" class="snap-foot">Gross PL count</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Latest ABW</span>
+                                <span class="snap-icon">⚖️</span>
+                            </div>
+                            <span id="snap-latest-abw" class="snap-val font-mono">—</span>
+                            <span id="snap-abw-foot" class="snap-foot">Latest biometrics</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Total Feed</span>
+                                <span class="snap-icon">🌾</span>
+                            </div>
+                            <span id="snap-total-feed" class="snap-val font-mono">—</span>
+                            <span id="snap-feed-foot" class="snap-foot">Cumulative feed</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
+                                <span class="snap-title">Total Harvest</span>
+                                <span class="snap-icon">📦</span>
+                            </div>
+                            <span id="snap-total-harvest" class="snap-val font-mono">—</span>
+                            <span id="snap-harvest-foot" class="snap-foot">Status: IN CULTURE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary Section: Preparation Dates & Paddlewheel Aeration -->
+                <div class="panel-layout master-details-layout">
+                    
+                    <!-- Left: Pond Preparation Date -->
+                    <div class="card panel-card pond-prep-card">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Pond Preparation Date</h3>
+                                <span class="card-sub">Cycle preparation dates from dry-out to stocking</span>
+                            </div>
+                            <button id="btn-save-master" class="btn-action btn-save" title="Save Master cycle data to cloud">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
+                        </div>
+                        <div class="form-grid-3">
+                            <div class="form-group">
+                                <label for="input-date-cycle">Cycle Start Date</label>
+                                <input type="date" id="input-date-cycle" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-cleaning">Pond Cleaning Date</label>
+                                <input type="date" id="input-date-cleaning" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-repair">Liner Repair Date</label>
+                                <input type="date" id="input-date-repair" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-filling">Water Filling Date</label>
+                                <input type="date" id="input-date-filling" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-culture">Water Culture Start</label>
+                                <input type="date" id="input-date-culture" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-babybox">Baby Box Setup Date</label>
+                                <input type="date" id="input-date-babybox" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-qaqc">Lab QA/QC Approval Date</label>
+                                <input type="date" id="input-date-qaqc" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-ready">Pond Ready Date</label>
+                                <input type="date" id="input-date-ready" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-date-plan-stock">Target Stocking Date</label>
+                                <input type="date" id="input-date-plan-stock" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <!-- Idle Days & Status -->
+                        <div class="form-grid-3">
+                            <div class="form-group">
+                                <label for="input-idle-days">Idle Days (Dry Period)</label>
+                                <input type="number" id="input-idle-days" class="form-control font-mono" placeholder="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="input-idle-status">Idle Status</label>
+                                <select id="input-idle-status" class="form-control">
+                                    <option value="NORMAL">NORMAL</option>
+                                    <option value="EXTENDED IDLE">EXTENDED IDLE</option>
+                                    <option value="EARTHEN MAINTENANCE">EARTHEN MAINTENANCE</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="input-water-type">Water Type</label>
+                                <select id="input-water-type" class="form-control">
+                                    <option value="SEA WATER">SEA WATER</option>
+                                    <option value="BRACKISH">BRACKISH</option>
+                                    <option value="RESERVOIR BLEND">RESERVOIR BLEND</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Multi-Model Aeration HP Box -->
+                    <div class="card panel-card paddlewheel-card highlight-border">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Paddlewheel Inventory (PWA)</h3>
+                                <span class="card-sub">Pond paddlewheel aeration configuration</span>
+                            </div>
+                            <button id="btn-save-aerators" class="btn-action btn-save" title="Save Paddlewheel inventory to cloud">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
+                        </div>
+                        <div class="aerator-grid">
+                            <div class="aerator-row">
+                                <div class="aerator-label">
+                                    <span class="hp-spec">1.0 HP Paddlewheels</span>
+                                    <small>[I HP] Nursery / small ponds</small>
+                                </div>
+                                <div class="stepper-cluster aero-stepper-group">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-1hp-units'); i.value=Math.max(0, (+i.value||0)-1); i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Decrease 1.0 HP Aerators">−</button>
+                                    <input type="number" id="aerator-1hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-1hp-units'); i.value=(+i.value||0)+1; i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Increase 1.0 HP Aerators">+</button>
+                                    <span class="unit-sub">units</span>
+                                </div>
+                            </div>
+                            <div class="aerator-row">
+                                <div class="aerator-label">
+                                    <span class="hp-spec">2.0 HP Paddlewheels</span>
+                                    <small>[2 HP] Standard high-flow</small>
+                                </div>
+                                <div class="stepper-cluster aero-stepper-group">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-2hp-units'); i.value=Math.max(0, (+i.value||0)-1); i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Decrease 2.0 HP Aerators">−</button>
+                                    <input type="number" id="aerator-2hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-2hp-units'); i.value=(+i.value||0)+1; i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Increase 2.0 HP Aerators">+</button>
+                                    <span class="unit-sub">units</span>
+                                </div>
+                            </div>
+                            <div class="aerator-row">
+                                <div class="aerator-label">
+                                    <span class="hp-spec">4.0 HP Paddlewheels</span>
+                                    <small>Heavy central aerators</small>
+                                </div>
+                                <div class="stepper-cluster aero-stepper-group">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-4hp-units'); i.value=Math.max(0, (+i.value||0)-1); i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Decrease 4.0 HP Aerators">−</button>
+                                    <input type="number" id="aerator-4hp-units" class="form-control font-mono text-center" min="0" value="0">
+                                    <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-4hp-units'); i.value=(+i.value||0)+1; i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Increase 4.0 HP Aerators">+</button>
+                                    <span class="unit-sub">units</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="aerator-card-footer">
+                            <div class="hp-badge">
+                                <span id="summary-total-active-hp" class="hp-number">0.0</span>
+                                <span class="hp-unit">Total PWA HP</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 2: LABORATORY (Pathology & PL Tests) -->
+            <div id="tab-laboratory" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Biosecurity & Disease Pathology Logbook</h3>
+                            <span class="card-sub">Laboratory PCR tests, microscopy findings, and quarantine flags</span>
+                        </div>
+                        <button id="btn-add-lab-record" class="btn-action btn-secondary" onclick="app.openExcelModal('issues')">
+                            + Add / Paste Lab Record
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-issues">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Category</th>
+                                    <th>Pathogen / Status</th>
+                                    <th>Test Method</th>
+                                    <th>Flag Alert</th>
+                                    <th>Grade</th>
+                                    <th>Result / Note</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-issues">
+                                <tr><td colspan="8" class="text-center text-muted">No pathology issues recorded for this cycle (Pond is clean).</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: STOCKING (Batches & Hatchery Details) -->
+            <div id="tab-stocking" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Stocking Events & PL Hatchery Records</h3>
+                            <span class="card-sub">Pond PL delivery, allowance, density, and genetic lineage</span>
+                        </div>
+                        <div class="card-header-actions">
+                            <button id="btn-save-stocking" class="btn-action btn-save" title="Save Stocking parameters to cloud">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
+                            <button class="btn-action btn-secondary" onclick="app.openExcelModal('stocking')">
+                                + Add Stocking Batch
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-grid-3 mb-4">
+                        <div class="form-group">
+                            <label for="input-stck-date">Stocking Date</label>
+                            <input type="date" id="input-stck-date" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-source">Hatchery / Source</label>
+                            <input type="text" id="input-stck-source" class="form-control" placeholder="e.g. SHT / BAB Hatchery">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-species">Species</label>
+                            <select id="input-stck-species" class="form-control">
+                                <option value="P. VANNAMEi">P. VANNAMEi</option>
+                                <option value="P. MONODON">P. MONODON</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-netto">Netto Fry (pcs)</label>
+                            <input type="number" id="input-stck-netto" class="form-control font-mono" placeholder="410000">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-allow">Allowance Fry (pcs)</label>
+                            <input type="number" id="input-stck-allow" class="form-control font-mono" placeholder="46000">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-gross">Total Gross Fry (pcs)</label>
+                            <input type="number" id="input-stck-gross" class="form-control font-mono font-bold" placeholder="456000">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-line">Broodstock Line</label>
+                            <input type="text" id="input-stck-line" class="form-control" placeholder="e.g. Syaqua / Dragon">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-size">PL Size</label>
+                            <input type="number" id="input-stck-size" class="form-control font-mono" placeholder="15">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-stck-tank">Hatchery Tank Ref</label>
+                            <input type="text" id="input-stck-tank" class="form-control" placeholder="e.g. C16, C4">
+                        </div>
+                    </div>
+
+                    <div class="divider mt-4"></div>
+                    <div class="card-header flex-between mt-3">
+                        <div>
+                            <h4>Multi-Batch Stocking History (`GrowoutPondStocking`)</h4>
+                            <span class="card-sub">Individual fry deliveries and partial stocking batches for this cycle</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-stocking-batches">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Source / Hatchery</th>
+                                    <th>Species</th>
+                                    <th>Netto Fry (pcs)</th>
+                                    <th>Allowance (pcs)</th>
+                                    <th>Total Gross (pcs)</th>
+                                    <th>Type</th>
+                                    <th>Broodstock</th>
+                                    <th>Tank</th>
+                                    <th>PL Size</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-stocking-batches">
+                                <tr><td colspan="10" class="text-center text-muted">Loading stocking batches...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: FEEDING (Daily Records & SAP Ledger) -->
+            <div id="tab-feeding" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Daily Feeding & Feed Inventory Records</h3>
+                            <span class="card-sub">Daily field feeding log and SAP movement ledger</span>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn-action btn-secondary" onclick="app.openExcelModal('feed')">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                                </svg>
+                                <span>Paste Excel Feed Sheet</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-feed">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Shift</th>
+                                    <th>Daily Total Feed (kg)</th>
+                                    <th>Tray Remnant %</th>
+                                    <th>Water Level (cm)</th>
+                                    <th>Water Colour Swatch</th>
+                                    <th>Mortality</th>
+                                    <th>Remarks</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-feed">
+                                <tr><td colspan="8" class="text-center text-muted">No daily feeding logs loaded yet. Paste from Excel or enter records.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: SAMPLING (Weekly Biometrics & Telemetry) -->
+            <div id="tab-sampling" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Weekly Biometric Sampling & Telemetry Convergence</h3>
+                            <span class="card-sub">Cast net growth measurements converged with 7-day WQS sensor readings</span>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn-action btn-secondary" onclick="app.openExcelModal('sampling')">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                                </svg>
+                                <span>Paste Excel Sampling</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-sampling">
+                            <thead>
+                                <tr>
+                                    <th>Sample Date</th>
+                                    <th>DOC</th>
+                                    <th>ABW (g)</th>
+                                    <th>AWG (g/wk)</th>
+                                    <th>Survival %</th>
+                                    <th>Biomass (kg)</th>
+                                    <th>Feed Total (kg)</th>
+                                    <th>Avg DO (WQS)</th>
+                                    <th>Avg pH (WQS)</th>
+                                    <th>Avg Temp (WQS)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-sampling">
+                                <tr><td colspan="10" class="text-center text-muted">Loading weekly sampling records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: PERFORMANCE (Interactive Growth Curves) -->
+            <div id="tab-performance" class="tab-pane" role="tabpanel">
+                <div class="panel-layout">
+                    <!-- Growth Chart Canvas -->
+                    <div class="card panel-card" style="flex: 2;">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Shrimp Growth Trajectory (ABW Curve)</h3>
+                                <span class="card-sub">Actual ABW vs Farm Target Strategy Curve</span>
+                            </div>
+                            <div class="chart-legend">
+                                <span class="legend-item"><span class="legend-dot dot-actual"></span> Actual Growth</span>
+                                <span class="legend-item"><span class="legend-dot dot-target"></span> Target Strategy</span>
+                            </div>
+                        </div>
+                        <div class="chart-container" id="chart-growth-container">
+                            <canvas id="growthChart" width="800" height="350"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Performance KPI Cards -->
+                    <div class="side-column" style="flex: 1;">
+                        <div class="card panel-card">
+                            <div class="card-header">
+                                <h3>Efficiency KPIs</h3>
+                                <span class="card-sub">Derived production metrics</span>
+                            </div>
+                            <div class="kpi-stack">
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Average Daily Gain (ADG)</span>
+                                    <span id="kpi-adg" class="kpi-val font-mono">—</span>
+                                    <span id="kpi-adg-sub" class="kpi-sub text-success">Awaiting sampling data</span>
+                                </div>
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Cumulative FCR</span>
+                                    <span id="kpi-fcr" class="kpi-val font-mono">—</span>
+                                    <span id="kpi-fcr-sub" class="kpi-sub text-success">Requires sampling & feed logs</span>
+                                </div>
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Estimated Current Biomass</span>
+                                    <span id="kpi-biomass" class="kpi-val font-mono">—</span>
+                                    <span id="kpi-biomass-sub" class="kpi-sub">Pending biometrics</span>
+                                </div>
+                                <div class="kpi-card">
+                                    <span class="kpi-label">Projected Harvest DOC</span>
+                                    <span id="kpi-proj-doc" class="kpi-val font-mono">DOC 95</span>
+                                    <span id="kpi-proj-doc-sub" class="kpi-sub">Target weight: 25.0 g</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 7: HARVEST & SALES (Commercial Buyer Packout & Catch Biometrics) -->
+            <div id="tab-harvest" class="tab-pane" role="tabpanel">
+                <!-- Harvest KPI Summary Cards -->
+                <div class="kpi-grid mb-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+                    <div class="kpi-card glass-card" style="padding: 1rem; border-radius: 8px;">
+                        <span class="kpi-label" style="font-size: 0.76rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Total Harvest Weight</span>
+                        <span id="stat-harvest-weight" class="font-mono font-bold text-success" style="font-size: 1.4rem; display: block; margin-top: 0.3rem;">—</span>
+                        <span class="kpi-sub" style="font-size: 0.72rem; color: var(--text-muted);">Cumulative partial & final</span>
+                    </div>
+                    <div class="kpi-card glass-card" style="padding: 1rem; border-radius: 8px;">
+                        <span class="kpi-label" style="font-size: 0.76rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Net Sales Revenue</span>
+                        <span id="stat-harvest-revenue" class="font-mono font-bold text-success" style="font-size: 1.4rem; display: block; margin-top: 0.3rem;">—</span>
+                        <span class="kpi-sub" style="font-size: 0.72rem; color: var(--text-muted);">Total buyer transactions</span>
+                    </div>
+                    <div class="kpi-card glass-card" style="padding: 1rem; border-radius: 8px;">
+                        <span class="kpi-label" style="font-size: 0.76rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700;">Weighted Mean ABW</span>
+                        <span id="stat-harvest-abw" class="font-mono font-bold" style="font-size: 1.4rem; display: block; margin-top: 0.3rem; color: var(--aero-sky-600);">—</span>
+                        <span class="kpi-sub" style="font-size: 0.72rem; color: var(--text-muted);">Harvest size specification</span>
+                    </div>
+                </div>
+
+                <div class="card panel-card mb-4">
+                    <div class="card-header flex-between">
+                        <div>
+                            <h3>Harvest Runs & Catch Biometrics</h3>
+                            <span class="card-sub">Daily netting events, harvest type, and gross weight</span>
+                        </div>
+                        <button class="btn-action btn-secondary" onclick="app.openExcelModal('harvest')" id="btn-add-harvest-event">
+                            📋 + Add / Paste Harvest Events
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-harvest">
+                            <thead>
+                                <tr>
+                                    <th>Harvest Date</th>
+                                    <th>Type</th>
+                                    <th>Weight (kg)</th>
+                                    <th>ABW (g)</th>
+                                    <th>Total Pieces</th>
+                                    <th>Method</th>
+                                    <th>Gross Revenue (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-harvest">
+                                <tr><td colspan="7" class="text-center text-muted">No harvest events recorded yet for this cycle.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="divider mt-4"></div>
+                    <div class="card-header flex-between mt-3">
+                        <div>
+                            <h4>Commercial Buyer Grading & Sales Packout (`GrowoutPondHarvestSales`)</h4>
+                            <span class="card-sub">Buyer sales weight breakdown, grade specifications, and pricing</span>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table" id="table-harvest-sales">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Buyer Name</th>
+                                    <th>ABW (g)</th>
+                                    <th>Good Wgt (kg)</th>
+                                    <th>Good Price</th>
+                                    <th>2nd Grade (kg)</th>
+                                    <th>Small (kg)</th>
+                                    <th>Below (kg)</th>
+                                    <th>Rubbish (kg)</th>
+                                    <th>Total Net Sales (RM)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-harvest-sales">
+                                <tr><td colspan="10" class="text-center text-muted">No commercial sales grading logged for this cycle.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 8: POND & CYCLE LIFECYCLE (Operations, Termination, Revive & Manual Creator) -->
+            <div id="tab-lifecycle" class="tab-pane" role="tabpanel">
+                <div class="panel-layout" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    
+                    <!-- 1. Active Cycle Status & Action Center -->
+                    <div class="card panel-card">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Pond Cycle Status & Operational Actions</h3>
+                                <span class="card-sub">Current life stage, harvesting triggers, and cycle reversal</span>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <span id="lifecycle-status-badge" class="status-badge status-production">PRODUCTION</span>
+                                <span id="lifecycle-active-badge" class="status-badge status-production">ACTIVE</span>
+                            </div>
+                        </div>
+
+                        <div class="banner-grid mb-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; background: rgba(240, 249, 255, 0.6); padding: 1rem; border-radius: 8px; border: 1px solid #bae6fd;">
+                            <div>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Current Cycle</span>
+                                <div id="lifecycle-current-index" class="font-mono font-bold" style="font-size: 1.05rem; color: #0284c7;">—</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Physical Pond</span>
+                                <div id="lifecycle-current-pond" class="font-mono font-bold" style="font-size: 1.05rem;">—</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Days of Culture</span>
+                                <div id="lifecycle-doc-val" class="font-mono font-bold text-success" style="font-size: 1.05rem;">—</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Stocking Date</span>
+                                <div id="lifecycle-stock-date" class="font-mono font-semibold" style="font-size: 0.92rem;">—</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Harvest / Close</span>
+                                <div id="lifecycle-close-date" class="font-mono font-semibold" style="font-size: 0.92rem;">—</div>
+                            </div>
+                            <div>
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Area Size</span>
+                                <div id="lifecycle-area-val" class="font-mono font-semibold" style="font-size: 0.92rem;">—</div>
+                            </div>
+                        </div>
+
+                        <!-- Action Drawer Callout -->
+                        <div class="callout-card" id="lifecycle-callout-card" style="margin-top: 0.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
+                            <div class="callout-content">
+                                <h4 id="lifecycle-callout-title" style="margin: 0 0 0.25rem 0;">Cycle Termination & Harvesting Control</h4>
+                                <p id="lifecycle-callout-desc" style="margin: 0; font-size: 0.82rem; color: var(--text-muted);">
+                                    Choose <strong>Terminate & Rollover</strong> to auto-spawn the next cycle in IDLE, or <strong>Terminate Only</strong> to close the pond without spawning a new cycle.
+                                </p>
+                            </div>
+                            <div class="btn-group" style="display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap;">
+                                <button id="btn-lifecycle-terminate-rollover" class="btn-action btn-danger" type="button" style="padding: 0.5rem 1.1rem; font-size: 0.84rem;">
+                                    🏁 Terminate & Rollover (+1 Cycle)
+                                </button>
+                                <button id="btn-lifecycle-terminate-only" class="btn-action btn-secondary" type="button" style="padding: 0.5rem 1rem; font-size: 0.84rem; background: #fff; border: 1px solid #cbd5e1; color: #475569; font-weight: 600;">
+                                    🛑 Terminate Only (No Rollover)
+                                </button>
+                                <button id="btn-lifecycle-revive-action" class="btn-action btn-revive-cycle" type="button" style="display: none; padding: 0.5rem 1.25rem; font-size: 0.84rem;">
+                                    🔄 Revive Back Cycle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Manual Custom Cycle Registration Form -->
+                    <div class="card panel-card" id="card-manual-cycle-registration">
+                        <div class="card-header">
+                            <h3>➕ Manual Cycle Registration (Custom Pond & Cycle)</h3>
+                            <span class="card-sub">Create a new production or idle cycle with customizable pond code and cycle sequence</span>
+                        </div>
+                        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.25rem;">
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+                                <div class="form-group">
+                                    <label for="select-create-pond" style="font-weight: 700; font-size: 0.8rem; margin-bottom: 0.35rem; display: block;">Physical Pond:</label>
+                                    <select id="select-create-pond" class="form-control" style="background: #fff; border: 1px solid #cbd5e1; padding: 0.45rem; border-radius: 6px; width: 100%;">
+                                        <option value="">Loading ponds...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="wrap-create-custom-pond" style="display: none;">
+                                    <label for="input-create-custom-pond" style="font-weight: 700; font-size: 0.8rem; margin-bottom: 0.35rem; display: block;">New Pond Code (e.g. 01.01.05):</label>
+                                    <input type="text" id="input-create-custom-pond" class="form-control font-mono" placeholder="01.01.05" style="border: 1px solid #cbd5e1; padding: 0.45rem; border-radius: 6px; width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="input-create-cycle-no" style="font-weight: 700; font-size: 0.8rem; margin-bottom: 0.35rem; display: block;">Cycle Number:</label>
+                                    <input type="number" id="input-create-cycle-no" class="form-control font-mono font-bold" min="1" max="99" value="1" style="border: 1px solid #cbd5e1; padding: 0.45rem; border-radius: 6px; width: 100%;">
+                                    <small id="hint-create-cycle-suggestion" style="font-size: 0.72rem; color: #64748b; display: block; margin-top: 0.25rem;">Select a pond to view suggested next cycle.</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="select-create-status" style="font-weight: 700; font-size: 0.8rem; margin-bottom: 0.35rem; display: block;">Initial Cycle Status:</label>
+                                    <select id="select-create-status" class="form-control" style="background: #fff; border: 1px solid #cbd5e1; padding: 0.45rem; border-radius: 6px; width: 100%;">
+                                        <option value="IDLE" selected>IDLE (Resting / Sun Drying / Empty)</option>
+                                        <option value="PREPARATION">PREPARATION (Liner repair / Filling / Liming / QAQC)</option>
+                                        <option value="PRODUCTION">PRODUCTION (Active Shrimp Stock)</option>
+                                        <option value="RESERVOIR">RESERVOIR (Water Holding / Treatment)</option>
+                                        <option value="MAINTENANCE">MAINTENANCE (Major civil / mechanical overhaul)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="input-create-area" style="font-weight: 700; font-size: 0.8rem; margin-bottom: 0.35rem; display: block;">Pond Area (ha):</label>
+                                    <input type="number" step="0.01" id="input-create-area" class="form-control font-mono" value="0.50" style="border: 1px solid #cbd5e1; padding: 0.45rem; border-radius: 6px; width: 100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label for="input-create-stock-date" style="font-weight: 700; font-size: 0.8rem; margin-bottom: 0.35rem; display: block;">Target / Plan Stocking Date:</label>
+                                    <input type="date" id="input-create-stock-date" class="form-control font-mono" style="border: 1px solid #cbd5e1; padding: 0.45rem; border-radius: 6px; width: 100%;">
+                                </div>
+                            </div>
+                            <div style="margin-top: 1rem; text-align: right;">
+                                <button type="button" id="btn-submit-create-cycle" class="btn-action btn-save" style="font-weight: 700; padding: 0.55rem 1.4rem;">
+                                    🚀 Initialize &amp; Register Pond Cycle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Physical Pond Cycle Registry & History -->
+                    <div class="card panel-card">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3 id="registry-pond-title">Cycle Registry & History — Pond</h3>
+                                <span class="card-sub">All historical and active cycles recorded for this physical pond asset</span>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="table-cycle-registry">
+                                <thead>
+                                    <tr>
+                                        <th>Cycle</th>
+                                        <th>Pond Index</th>
+                                        <th>Pond Status</th>
+                                        <th>State</th>
+                                        <th>Stocking Date</th>
+                                        <th>Closed Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-cycle-registry">
+                                    <tr><td colspan="7" class="text-center text-muted" style="padding: 1.5rem;">Loading cycle history...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 9: STAFF + REMARKS (Personnel & Field Notes) -->
+            <div id="tab-staff" class="tab-pane" role="tabpanel">
+                <div class="panel-layout">
+                    <div class="card panel-card" style="flex: 1.3;">
+                        <div class="card-header flex-between" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>Assigned Pond Personnel</h3>
+                                <span class="card-sub">Cycle crew allocation &amp; harvest target incentive tracking</span>
+                            </div>
+                            <span class="badge" id="staff-cycle-badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; border: 1px solid #bae6fd; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 700;">No Cycle Selected</span>
+                        </div>
+
+                        <div class="alert-info-glass" style="font-size: 0.75rem; color: #475569; background: rgba(240, 249, 255, 0.85); border: 1px solid #bae6fd; border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-size: 1rem;">💡</span>
+                            <span>Enter the staff's <strong>Employee ID</strong> (e.g. <code>0042</code>, <code>1157</code>, <code>1216</code>). The system looks up their official name automatically.</span>
+                        </div>
+
+                        <!-- Staff ID Entry Grid -->
+                        <div class="staff-allocation-form" style="display: flex; flex-direction: column; gap: 0.6rem;">
+                            
+                            <!-- 1. Pond Manager (PM) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">👔 Pond Manager</label>
+                                <input type="text" id="input-pm-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 0042)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-pm-name" class="form-control" placeholder="Manager Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 2. Field Supervisor (SV) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">📋 Supervisor</label>
+                                <input type="text" id="input-sv-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 1157)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-sv-name" class="form-control" placeholder="Supervisor Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 3. Row Leader (RL) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🚜 Row Leader</label>
+                                <input type="text" id="input-rl-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 1120)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-rl-name" class="form-control" placeholder="Row Leader Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 4. Primary Operator (PO) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🦐 Primary Operator</label>
+                                <input type="text" id="input-po-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 1216)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-po-name" class="form-control" placeholder="Primary Operator Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 5. Support Operator -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🛠️ Support Operator</label>
+                                <input type="text" id="input-support-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 2057)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-support-name" class="form-control" placeholder="Support Operator Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                        </div>
+
+                        <!-- Form Actions: Save Button & Reset -->
+                        <div class="staff-actions-bar" style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid rgba(226, 232, 240, 0.8); display: flex; justify-content: space-between; align-items: center;">
+                            <button type="button" id="btn-reset-staff" class="btn-action btn-secondary" style="font-size: 0.78rem; padding: 0.4rem 0.8rem;">
+                                <span>🔄 Clear Form</span>
+                            </button>
+                            <button type="button" id="btn-save-staff" class="btn-action btn-primary" style="font-size: 0.82rem; font-weight: 700; padding: 0.45rem 1.25rem; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>💾 Save Personnel Allocation</span>
+                            </button>
+                        </div>
+
+                        <!-- HTML5 Datalist for autocomplete -->
+                        <datalist id="staff-directory-datalist"></datalist>
+                    </div>
+                    <div class="card panel-card" style="flex: 2;">
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Operational Logbook & Remarks (`GrowoutPondNote`)</h3>
+                                <span class="card-sub">Historical field observations, treatments, and supervisor notes</span>
+                            </div>
+                        </div>
+                        <div class="notes-feed mb-3" id="notes-feed-container" style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem;">
+                            <!-- Dynamically populated from pond_notes -->
+                        </div>
+                        <textarea id="textarea-notes" class="form-control" rows="4" placeholder="Enter daily observation remarks, water quality anomalies, or feeding adjustments..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 10: UTILITIES (System Tools, Exports & Cache Diagnostics) -->
+            <div id="tab-utilities" class="tab-pane" role="tabpanel">
+                <div class="card panel-card">
+                    <div class="card-header">
+                        <h3>Database Utilities & System Diagnostics</h3>
+                        <span class="card-sub">Administrative export tools, cloud integrity verification, and cache diagnostics</span>
+                    </div>
+                    <div class="utilities-grid">
+                        <div class="util-box">
+                            <h4>📥 Export Cycle Data</h4>
+                            <p>Download complete sampling, feeding, and water quality records as CSV.</p>
+                            <button class="btn-action btn-secondary" onclick="app.exportCycleCsv()">Export to CSV</button>
+                        </div>
+                        <div class="util-box">
+                            <h4>🔄 Sync Access Archive</h4>
+                            <p>Compare Supabase cloud records against legacy Microsoft Access snapshot.</p>
+                            <button class="btn-action btn-secondary" onclick="app.verifySyncStatus()">Verify Cloud Integrity</button>
+                        </div>
+                        <div class="util-box">
+                            <h4>🧹 Cache &amp; State Reset</h4>
+                            <p>Clear client filter state and reload active pond cache directly from Supabase.</p>
+                            <button class="btn-action btn-secondary" onclick="window.location.reload()">Flush Cache &amp; Reload</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- UNIVERSAL EXCEL COPY-PASTE MODAL -->
+    <div id="modal-excel-paste" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-cluster">
+                    <h3 id="excel-modal-title">📋 Paste Excel Spreadsheet Data</h3>
+                    <span id="excel-modal-subtitle" class="modal-subtitle">Paste rows copied directly from Excel (Ctrl + V)</span>
+                </div>
+                <button id="btn-modal-close-icon" class="modal-close" type="button" title="Close (Esc)">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-3">
+                    <label for="excel-target-category" style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.35rem; display: block;">Target Data Domain:</label>
+                    <select id="excel-target-category" class="form-control" style="background: #fff; border: 1px solid #bae6fd; font-weight: 600; padding: 0.4rem 0.6rem; border-radius: 6px; width: 100%;">
+                        <option value="sampling">Weekly Sampling (Date, DOC, ABW, Survival, Biomass)</option>
+                        <option value="feed">Daily Feed Log (Date, Shift, Feed kg, Tray Remnant %)</option>
+                        <option value="issues">Laboratory Issues (Date, Category, Pathogen, Flag, Note)</option>
+                        <option value="harvest">Harvest Events (Date, Type, Weight kg, ABW g, Revenue)</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="excel-paste-textarea" style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.35rem; display: block;">Paste Spreadsheet Rows Here:</label>
+                    <textarea id="excel-paste-textarea" class="form-control font-mono" rows="4" placeholder="Select cells in Excel, press Ctrl+C, then click here and press Ctrl+V..." style="background: #fff; border: 1px solid #bae6fd; font-size: 0.82rem; padding: 0.5rem; border-radius: 6px; width: 100%;"></textarea>
+                </div>
+                <div id="excel-preview-container" class="preview-area">
+                    <div class="flex-between mb-2" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                        <span class="preview-count" style="font-size: 0.78rem; font-weight: 600;"><strong id="excel-parsed-count">0</strong> rows recognized</span>
+                        <span id="excel-parse-status" class="status-valid">Ready to commit</span>
+                    </div>
+                    <div class="table-responsive" style="max-height: 180px; overflow-y: auto;">
+                        <table class="aero-table preview-table" id="table-excel-preview">
+                            <thead id="thead-excel-preview"></thead>
+                            <tbody id="tbody-excel-preview"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-close-excel-modal" class="btn-action btn-secondary" type="button" style="background: #fff; border: 1px solid #cbd5e1; color: var(--text-primary); font-weight: 600;">⬅ Back to Dashboard</button>
+                <button id="btn-commit-excel" class="btn-action btn-save" type="button">💾 Commit to Supabase</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TERMINATE POND CYCLE MODAL -->
+    <div id="modal-terminate-options" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+        <div class="modal-dialog" style="max-width: 560px;">
+            <div class="modal-header" style="background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%); border-bottom: 1px solid #fecaca;">
+                <div class="modal-title-cluster">
+                    <h3 style="color: #991b1b; display: flex; align-items: center; gap: 0.5rem;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                        </svg>
+                        Harvest &amp; Terminate Cycle
+                    </h3>
+                    <span class="modal-subtitle" style="color: #b91c1c;">Finalize cycle <strong id="terminate-modal-pond-index" class="font-mono">—</strong></span>
+                </div>
+                <button id="btn-close-terminate-icon" class="modal-close" type="button" title="Close (Esc)">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <div class="form-group mb-3">
+                    <label for="terminate-date-input" style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.35rem; display: block;">Harvest Close Date:</label>
+                    <input type="date" id="terminate-date-input" class="form-control font-mono" style="border: 1px solid #cbd5e1; padding: 0.45rem 0.6rem; border-radius: 6px; width: 100%;">
+                </div>
+                <div class="form-group mb-3">
+                    <label for="terminate-status-select" style="font-weight: 700; font-size: 0.82rem; margin-bottom: 0.35rem; display: block;">Harvest Conclusion Reason:</label>
+                    <select id="terminate-status-select" class="form-control" style="border: 1px solid #cbd5e1; padding: 0.45rem 0.6rem; border-radius: 6px; width: 100%;">
+                        <option value="NORMAL HARVEST" selected>NORMAL HARVEST (Full Target Growth Achieved)</option>
+                        <option value="EMERGENCY HARVEST">EMERGENCY HARVEST (Water Quality / Biosecurity Event)</option>
+                        <option value="DISEASE OUTBREAK">DISEASE OUTBREAK (Pathology Intervention)</option>
+                        <option value="MARKET OPPORTUNITY">MARKET OPPORTUNITY (Favorable Commercial Gate Pricing)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group mb-3" style="border: 1px solid #fed7aa; background: #fff7ed; padding: 0.9rem; border-radius: 8px;">
+                    <label style="font-weight: 700; font-size: 0.84rem; color: #9a3412; margin-bottom: 0.5rem; display: block;">Rollover Policy:</label>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.82rem; cursor: pointer; color: #1e293b;">
+                            <input type="radio" name="radio-rollover-mode" id="radio-rollover-yes" checked style="margin-top: 2px;">
+                            <div>
+                                <strong>Terminate &amp; Auto-Rollover (+1 Cycle)</strong>
+                                <span style="display: block; font-size: 0.74rem; color: #64748b;">Closes this cycle and automatically initializes next cycle in IDLE status (if next cycle already exists, duplicates are safely prevented).</span>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.82rem; cursor: pointer; color: #1e293b;">
+                            <input type="radio" name="radio-rollover-mode" id="radio-rollover-no" style="margin-top: 2px;">
+                            <div>
+                                <strong>Terminate Only (Do Not Create Next Cycle)</strong>
+                                <span style="display: block; font-size: 0.74rem; color: #64748b;">Closes this cycle and marks pond as Harvested. No new cycle is generated (ideal for pond maintenance or manual cycle creation later).</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 0.85rem 1.5rem; display: flex; justify-content: flex-end; gap: 0.65rem;">
+                <button id="btn-cancel-terminate-modal" class="btn-action btn-secondary" type="button" style="background: #fff; border: 1px solid #cbd5e1; color: var(--text-primary); font-weight: 600;">
+                    Cancel
+                </button>
+                <button id="btn-confirm-terminate-execution" class="btn-action btn-danger" type="button" style="font-weight: 700;">
+                    Confirm Termination
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REVIVE POND CYCLE MODAL -->
+    <div id="modal-revive-cycle" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+        <div class="modal-dialog" style="max-width: 600px;">
+            <div class="modal-header" style="background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%); border-bottom: 1px solid #a7f3d0;">
+                <div class="modal-title-cluster">
+                    <h3 style="color: #065f46; display: flex; align-items: center; gap: 0.5rem;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
+                        </svg>
+                        Revive Pond Cycle
+                    </h3>
+                    <span class="modal-subtitle" style="color: #047857;">Reopen closed cycle <strong id="revive-modal-pond-index">—</strong> back to active PRODUCTION</span>
+                </div>
+                <button id="btn-close-revive-modal-icon" class="modal-close" type="button" title="Close (Esc)">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <div class="glass-card mb-3" style="background: rgba(240, 253, 244, 0.7); border: 1px solid #bbf7d0; padding: 0.9rem 1.15rem; border-radius: 8px;">
+                    <div style="font-size: 0.85rem; color: #1e293b; line-height: 1.5;">
+                        You are about to revive <strong id="revive-modal-pond-name">this pond</strong>. This will:
+                        <ul style="margin: 0.4rem 0 0.4rem 1.25rem; font-size: 0.8rem; color: #334155;">
+                            <li>Reopen cycle <code id="revive-modal-cycle-code" class="font-bold" style="color: #059669;">—</code> to <strong>PRODUCTION</strong> (ACTiVE).</li>
+                            <li>Clear the closed harvest date and termination lock.</li>
+                        </ul>
+                        When this pond was terminated, subsequent cycle <strong id="revive-modal-next-cycle" class="font-mono font-bold" style="color: #0284c7;">—</strong> was automatically created in IDLE status.
+                    </div>
+                </div>
+
+                <div style="font-weight: 700; font-size: 0.84rem; color: #0f172a; margin-bottom: 0.75rem;">
+                    Please select your preferred action for the newly spawned cycle:
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                    <!-- Option 1: Revive and Delete Next Cycle -->
+                    <div class="revive-option-card" id="option-card-delete" style="border: 2px solid #10b981; border-radius: 8px; padding: 1rem; background: #ffffff; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.1);">
+                        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;">
+                            <div style="font-weight: 700; font-size: 0.9rem; color: #065f46;">
+                                🗑️ Option 1: Revive &amp; Delete Next Cycle (<span class="revive-next-code font-mono">—</span>)
+                            </div>
+                            <span style="background: #dcfce7; color: #15803d; font-size: 0.68rem; font-weight: 700; padding: 2px 6px; border-radius: 4px;">Recommended for Accidental Termination</span>
+                        </div>
+                        <p style="font-size: 0.78rem; color: #475569; margin: 0.4rem 0 0.75rem 0; line-height: 1.4;">
+                            Reopens the current cycle as active and <strong>permanently deletes</strong> the empty newly-spawned cycle (<span class="revive-next-code font-mono">—</span>) from the database so cycle numbers remain sequential.
+                        </p>
+                        <div style="text-align: right;">
+                            <button type="button" id="btn-confirm-revive-delete" class="btn-action" style="background: linear-gradient(180deg, #10b981 0%, #059669 100%); color: #fff; font-weight: 700; padding: 0.45rem 1.1rem; font-size: 0.82rem; border-radius: 6px; border: 1px solid #34d399; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);">
+                                Revive &amp; Delete <span class="revive-next-code font-mono">—</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Option 2: Revive and Keep Next Cycle -->
+                    <div class="revive-option-card" id="option-card-keep" style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 1rem; background: #f8fafc;">
+                        <div style="font-weight: 700; font-size: 0.9rem; color: #334155;">
+                            📦 Option 2: Revive &amp; Keep Next Cycle (<span class="revive-next-code font-mono">—</span>)
+                        </div>
+                        <p style="font-size: 0.78rem; color: #64748b; margin: 0.4rem 0 0.75rem 0; line-height: 1.4;">
+                            Reopens the current cycle as active, but <strong>keeps</strong> the newly-spawned cycle (<span class="revive-next-code font-mono">—</span>) in the database in IDLE status for future use.
+                        </p>
+                        <div style="text-align: right;">
+                            <button type="button" id="btn-confirm-revive-keep" class="btn-action btn-secondary" style="font-weight: 600; padding: 0.45rem 1.1rem; font-size: 0.82rem; border-radius: 6px; background: #fff; border: 1px solid #94a3b8; color: #334155;">
+                                Revive &amp; Keep Both Cycles
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 0.85rem 1.5rem;">
+                <button id="btn-close-revive-modal" class="btn-action btn-secondary" type="button" style="background: #fff; border: 1px solid #cbd5e1; color: var(--text-primary); font-weight: 600;">
+                    Cancel (Keep Cycle Closed)
+                </button>
+            </div>
+        </div>
+    </div>
+    </div> <!-- /#view-dbms -->
+
+    <!-- TOAST NOTIFICATION CONTAINER -->
+    <div id="toast-container" class="toast-stack"></div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

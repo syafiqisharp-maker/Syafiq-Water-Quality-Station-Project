@@ -1,7 +1,7 @@
 # Netlify Configuration for iSHARP Precision Aquaculture Platform
 
 [build]
-  base = "isharp-dbms"
+  base = "isharp-platform"
   publish = "dist"
   command = "npm run build"
 

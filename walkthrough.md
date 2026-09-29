@@ -157,5 +157,23 @@ This file serves as a persistent record of key milestones, architecture decision
 * **Staff Directory Tooling:**
   * Added [migrate_staff_to_supabase.ps1](file:///C:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/database_migration/migrate_staff_to_supabase.ps1) and [populate_staff_directory.ps1](file:///C:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/database_migration/populate_staff_directory.ps1) for extracting, normalizing (3NF), and synchronizing 121 farm personnel into `pond_staff`.
 
+---
+
+## 2026-09-29: Architecture Renaming & 3-System Platform Unification
+* **Project Directory Restructuring:**
+  * Renamed `isharp-dbms/` to **`isharp-platform/`** to eliminate contradiction with the expanded scope.
+  * Updated [netlify.toml](file:///C:/Users/syafiq/My%20Drive/Syafiq%20Water%20Quality%20Station%20Project/netlify.toml) `base = "isharp-platform"`.
+  * Updated `package.json` to `"name": "isharp-aquaculture-platform"`.
+  * Updated `index.html` title to `"iSHARP Aquaculture Platform — Enterprise Farm Intelligence"`.
+* **Internal Source Code Alignment (`src/modules/`):**
+  * Consolidated the 10 deep DBMS tabs cleanly into `src/modules/dbms/` (`masterTab.js`, `samplingTab.js`, `feedingTab.js`, `performanceTab.js`, `stockingTab.js`, `harvestTab.js`, `lifecycleTab.js`, `laboratoryTab.js`, `staffTab.js`, `utilitiesTab.js`).
+  * Source tree now strictly mirrors the 3 enterprise systems:
+    * `src/modules/landing/` $\rightarrow$ Gateway Portal (3 Orbs)
+    * `src/modules/executive/` $\rightarrow$ System 1: Executive Dashboard (216 Ponds)
+    * `src/modules/dbms/` $\rightarrow$ System 2: iSHARP DBMS (10 Cycle Tabs)
+    * `src/modules/fieldOps/` $\rightarrow$ System 3: Field Operations (Supervisor & Operators)
+* **Production Build Verified:** Vite production build executed cleanly in 1.38s with 0 errors.
+
+
 
 
