@@ -23,6 +23,21 @@ export class LabRepository {
     }
 
     /**
+     * Fetches all recent pathology / disease issues across all active ponds in a single batch.
+     * @param {number} [limit=1000]
+     * @returns {Promise<Array<object>>}
+     */
+    static async getAllRecentIssues(limit = 1000) {
+        const endpoint = `pond_issues?order=issue_date.desc&limit=${limit}`;
+        try {
+            return await supabase.request(endpoint) || [];
+        } catch (err) {
+            console.warn("Could not fetch batch laboratory issues:", err);
+            return [];
+        }
+    }
+
+    /**
      * Inserts a batch of pathology / lab issue records into pond_issues.
      * @param {Array<object>} records 
      * @returns {Promise<any>}

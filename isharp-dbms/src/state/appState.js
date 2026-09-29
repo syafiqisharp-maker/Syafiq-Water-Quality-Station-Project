@@ -8,6 +8,7 @@ import { ROLES } from "../config/permissions.js";
 class AppState {
     constructor() {
         this._state = {
+            currentView: "portal", // "portal" | "executive" | "dbms"
             currentPondIndex: null,
             currentPond: null,
             allCycles: [],
@@ -65,9 +66,18 @@ class AppState {
     get filteredCycles() { return this._state.filteredCycles; }
     get userRole() { return this._state.userRole; }
     get activeTab() { return this._state.activeTab; }
+    get currentView() { return this._state.currentView; }
     get isLoading() { return this._state.isLoading; }
 
     // Setters / Actions
+    setView(viewName) {
+        if (!["portal", "executive", "dbms"].includes(viewName)) {
+            viewName = "portal";
+        }
+        if (this._state.currentView === viewName) return;
+        this._state.currentView = viewName;
+        this.emit("viewChanged", viewName);
+    }
     setCycles(cycles) {
         this._state.allCycles = cycles || [];
         this.emit("cyclesLoaded", this._state.allCycles);

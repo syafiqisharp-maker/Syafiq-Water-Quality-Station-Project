@@ -70,6 +70,28 @@ export class PondRepository {
     }
 
     /**
+     * Fetches all active non-closed pond cycles across all modules (PRODUCTION, IDLE, RESERVOIR, etc.)
+     * @returns {Promise<Array<object>>}
+     */
+    static async getActiveCycles() {
+        const endpoint = `stocking_records?pond_status=neq.CLOSE&order=pond_index.asc&limit=1000`;
+        const records = await supabase.request(endpoint);
+        return (records || []).map(r => ({
+            ...r,
+            status: r.pond_status || "PRODUCTION",
+            active: r.pond_active || "ACTiVE",
+            module: r.modl || "MODULE 1",
+            species: r.stck_species || "P. VANNAMEi",
+            genetic_line: r.bs_line || "Standard",
+            pl_origin: r.stck_source || "Hatchery",
+            stck_size: r.stck_size,
+            stck_tank: r.stck_tank,
+            stck_netto: r.stck_pcs || r.stck_netto || 0,
+            stck_total: r.stck_total || ((parseFloat(r.stck_pcs || 0)) + (parseFloat(r.stck_allow || 0)))
+        }));
+    }
+
+    /**
      * Fetches complete details of a single pond cycle by pond_index.
      * @param {string} pondIndex 
      * @returns {Promise<object|null>}
@@ -236,6 +258,20 @@ export class PondRepository {
             }
         });
         return Array.from(unique.values());
+    }
+
+    /**
+     * Fetches active operational ponds from the gatekeeper table.
+     * @returns {Promise<Array<object>>}
+     */
+    static async getActiveOperationalPonds() {
+        const endpoint = `active_operational_ponds?select=pond,pond_index&limit=500`;
+        try {
+            return await supabase.request(endpoint) || [];
+        } catch (err) {
+            console.warn("Could not fetch active operational ponds:", err);
+            return [];
+        }
     }
 }
 

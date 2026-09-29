@@ -12,16 +12,40 @@
     <link rel="stylesheet" href="src/styles/tokens.css">
     <link rel="stylesheet" href="src/styles/base.css">
     <link rel="stylesheet" href="src/styles/components.css">
+    <link rel="stylesheet" href="src/styles/landing.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- App Container -->
-    <div class="app-layout">
-        
-        <!-- Top App Bar -->
-        <header class="app-header">
-            <div class="brand-cluster">
-                <div class="brand-logo-badge" title="iSHARP Aquaculture Platform">
+    <!-- TOP-LEVEL VIEW 1: PORTAL LANDING PAGE -->
+    <div id="view-portal" class="view-pane active-view"></div>
+
+    <!-- TOP-LEVEL VIEW 2: EXECUTIVE DASHBOARD -->
+    <div id="view-executive" class="view-pane" style="display: none;"></div>
+
+    <!-- TOP-LEVEL VIEW 3: OPERATIONAL DBMS -->
+    <div id="view-dbms" class="view-pane" style="display: none;">
+        <!-- App Container -->
+        <div class="app-layout">
+            
+            <!-- Top App Bar -->
+            <header class="app-header">
+                <div class="brand-cluster">
+                    <button id="btn-back-to-portal-dbms" class="btn-portal-back" type="button" data-nav-view="portal" title="Return to Portal Landing Page">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12"></line>
+                            <polyline points="12 19 5 12 12 5"></polyline>
+                        </svg>
+                        <span>Back to Portal</span>
+                    </button>
+                    <button id="btn-to-executive-map" class="btn-portal-back btn-to-map" type="button" data-nav-view="executive" title="Switch directly to Executive 216-Pond Farm Map">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+                            <line x1="8" y1="2" x2="8" y2="18"></line>
+                            <line x1="16" y1="6" x2="16" y2="22"></line>
+                        </svg>
+                        <span>Executive Map</span>
+                    </button>
+                    <div class="brand-logo-badge" title="iSHARP Aquaculture Platform">
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,30,60,0.3));">
                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
                     </svg>
@@ -63,22 +87,6 @@
                         <polyline points="10 9 9 9 8 9"></polyline>
                     </svg>
                     <span>Paste Excel Data</span>
-                </button>
-                <button id="btn-action-new-cycle" class="btn-action btn-new-cycle">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="8" x2="12" y2="16"></line>
-                        <line x1="8" y1="12" x2="16" y2="12"></line>
-                    </svg>
-                    <span>Start Next Cycle</span>
-                </button>
-                <button id="btn-save-active-tab" class="btn-action btn-save">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                        <polyline points="7 3 7 8 15 8"></polyline>
-                    </svg>
-                    <span>Save Changes</span>
                 </button>
             </div>
         </header>
@@ -156,7 +164,6 @@
 
             <div class="filter-feedback">
                 <span id="filtered-count-badge" class="filter-count-badge">Loading...</span>
-                <span class="filter-sort-label">Sort: <strong>Module ➔ Line ➔ Pond ➔ Cycle</strong></span>
             </div>
         </section>
 
@@ -181,20 +188,10 @@
                     </div>
                 </div>
 
-                <!-- Culture Specs -->
-                <div class="banner-item">
-                    <span class="label">SPECIES / GENETIC</span>
-                    <div class="val-group">
-                        <span id="badge-species" class="val-bold">P. VANNAMEi</span>
-                        <span id="badge-genetic" class="val-sub">SPT • Syaqua</span>
-                    </div>
-                </div>
-
                 <!-- Cycle & DOC Counter with Option A Cycle History Dropdown -->
                 <div class="banner-item">
                     <span class="label">CYCLE &amp; DOC</span>
                     <div class="val-group num-group">
-                        <span class="num-box">Cycle <span id="badge-cycle-no">40</span></span>
                         <select id="select-cycle-history" class="cycle-history-dropdown" title="12-Year Historical Cycles for this Pond">
                             <option value="">Loading cycles...</option>
                         </select>
@@ -202,17 +199,8 @@
                     </div>
                 </div>
 
-                <!-- Physical Dimensions & Paddlewheels (PWA) -->
-                <div class="banner-item">
-                    <span class="label">POND ASSETS</span>
-                    <div class="val-group">
-                        <span class="val-bold"><span id="badge-area">0.50</span> ha</span>
-                        <span class="val-sub"><span id="badge-total-hp">0.0 HP</span> Paddlewheels (PWA)</span>
-                    </div>
-                </div>
-
                 <!-- Biosecurity & Health Status -->
-                <div class="banner-item disease-block">
+                <div class="banner-item disease-block" title="Click to view Biosecurity & Disease Pathology Logbook">
                     <span class="label">PATHOLOGY / BIOSECURITY</span>
                     <div class="val-group">
                         <span id="badge-disease-status" class="disease-pill disease-ok">Pathogen Negative (Normal)</span>
@@ -285,6 +273,14 @@
                     <div class="snapshot-grid-hero">
                         <div class="snapshot-pill">
                             <div class="snap-pill-header">
+                                <span class="snap-title">Species / Line</span>
+                                <span class="snap-icon">🧬</span>
+                            </div>
+                            <span id="badge-species" class="snap-val snap-val-species font-bold">P. VANNAMEi</span>
+                            <span id="badge-genetic" class="snap-foot">Standard Line</span>
+                        </div>
+                        <div class="snapshot-pill">
+                            <div class="snap-pill-header">
                                 <span class="snap-title">Stocked Fry</span>
                                 <span class="snap-icon">🦐</span>
                             </div>
@@ -323,9 +319,19 @@
                     
                     <!-- Left: Pond Preparation Date -->
                     <div class="card panel-card pond-prep-card">
-                        <div class="card-header">
-                            <h3>Pond Preparation Date</h3>
-                            <span class="card-sub">Cycle preparation dates from dry-out to stocking</span>
+                        <div class="card-header flex-between">
+                            <div>
+                                <h3>Pond Preparation Date</h3>
+                                <span class="card-sub">Cycle preparation dates from dry-out to stocking</span>
+                            </div>
+                            <button id="btn-save-master" class="btn-action btn-save" title="Save Master cycle data to cloud">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
                         </div>
                         <div class="form-grid-3">
                             <div class="form-group">
@@ -400,10 +406,14 @@
                                 <h3>Paddlewheel Inventory (PWA)</h3>
                                 <span class="card-sub">Pond paddlewheel aeration configuration</span>
                             </div>
-                            <div class="hp-badge">
-                                <span id="summary-total-active-hp" class="hp-number">0.0</span>
-                                <span class="hp-unit">Total PWA HP</span>
-                            </div>
+                            <button id="btn-save-aerators" class="btn-action btn-save" title="Save Paddlewheel inventory to cloud">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
                         </div>
                         <div class="aerator-grid">
                             <div class="aerator-row">
@@ -441,6 +451,12 @@
                                     <button type="button" class="btn-stepper" onclick="const i=document.getElementById('aerator-4hp-units'); i.value=(+i.value||0)+1; i.dispatchEvent(new Event('input', {bubbles:true})); i.dispatchEvent(new Event('change', {bubbles:true}));" title="Increase 4.0 HP Aerators">+</button>
                                     <span class="unit-sub">units</span>
                                 </div>
+                            </div>
+                        </div>
+                        <div class="aerator-card-footer">
+                            <div class="hp-badge">
+                                <span id="summary-total-active-hp" class="hp-number">0.0</span>
+                                <span class="hp-unit">Total PWA HP</span>
                             </div>
                         </div>
                     </div>
@@ -490,9 +506,19 @@
                             <h3>Stocking Events & PL Hatchery Records</h3>
                             <span class="card-sub">Pond PL delivery, allowance, density, and genetic lineage</span>
                         </div>
-                        <button class="btn-action btn-secondary" onclick="app.openExcelModal('stocking')">
-                            + Add Stocking Batch
-                        </button>
+                        <div class="card-header-actions">
+                            <button id="btn-save-stocking" class="btn-action btn-save" title="Save Stocking parameters to cloud">
+                                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                    <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                    <polyline points="7 3 7 8 15 8"></polyline>
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
+                            <button class="btn-action btn-secondary" onclick="app.openExcelModal('stocking')">
+                                + Add Stocking Batch
+                            </button>
+                        </div>
                     </div>
                     <div class="form-grid-3 mb-4">
                         <div class="form-group">
@@ -1174,6 +1200,7 @@
             </div>
         </div>
     </div>
+    </div> <!-- /#view-dbms -->
 
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="toast-container" class="toast-stack"></div>

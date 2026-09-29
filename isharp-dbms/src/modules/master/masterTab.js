@@ -37,6 +37,8 @@ export class MasterTab {
             badgeTotalHp: document.getElementById("badge-total-hp"),
 
             // Snapshots
+            snapSpecies: document.getElementById("badge-species") || document.getElementById("snap-species"),
+            snapGenetic: document.getElementById("badge-genetic") || document.getElementById("snap-genetic"),
             snapStockedPcs: document.getElementById("snap-stocked-pcs"),
             snapStockedFoot: document.getElementById("snap-stocked-foot"),
             snapLatestAbw: document.getElementById("snap-latest-abw"),
@@ -47,6 +49,9 @@ export class MasterTab {
             snapHarvestFoot: document.getElementById("snap-harvest-foot"),
             snapCycleStatus: document.getElementById("snap-cycle-status")
         };
+
+        this.btnSave = document.getElementById("btn-save-master");
+        this.btnSaveAerators = document.getElementById("btn-save-aerators");
 
         this.bindEvents();
         appState.subscribe("pondChanged", (pond) => this.render(pond));
@@ -60,6 +65,14 @@ export class MasterTab {
                 input.addEventListener("input", () => this.recalculateAeratorHP());
             }
         });
+
+        // Inline Save buttons
+        if (this.btnSave) {
+            this.btnSave.addEventListener("click", () => this.savePreparationDates());
+        }
+        if (this.btnSaveAerators) {
+            this.btnSaveAerators.addEventListener("click", () => this.saveAeratorInventory());
+        }
     }
 
     async render(pond) {
@@ -95,6 +108,14 @@ export class MasterTab {
      */
     async loadSnapshots(pond) {
         if (!pond) return;
+
+        // 0. Species & Genetic Line
+        if (this.dom.snapSpecies) {
+            this.dom.snapSpecies.textContent = pond.species || pond.stck_species || "P. VANNAMEi";
+        }
+        if (this.dom.snapGenetic) {
+            this.dom.snapGenetic.textContent = pond.genetic_line || pond.bs_line || "Standard Line";
+        }
 
         // 1. Stocked Pieces & Density
         const pcs = parseInt(pond.stck_netto || pond.stck_pcs || 0, 10);
@@ -223,63 +244,84 @@ export class MasterTab {
         }
     }
 
-    async saveData() {
+    async savePreparationDates() {
         const pondIndex = appState.currentPondIndex;
         if (!pondIndex) return;
 
         const role = appState.userRole;
-        const canEditMaster = hasPermission(role, PERMISSIONS.EDIT_MASTER_CYCLE);
-        const canEditAerators = hasPermission(role, PERMISSIONS.EDIT_AERATORS);
-
-        if (!canEditMaster && !canEditAerators) {
-            Toast.error("Your current role does not have permission to modify Master cycle records.");
+        if (!hasPermission(role, PERMISSIONS.EDIT_MASTER_CYCLE)) {
+            Toast.error("Your current role does not have permission to modify Master cycle dates.");
             return;
         }
 
         try {
             appState.setLoading(true);
-            Toast.info("Saving Master cycle changes...");
+            Toast.info("Saving preparation dates...");
 
-            // 1. Save Master Dates if permitted
-            if (canEditMaster) {
-                const updates = {
-                    date_cycle: this.dom.inputDateCycle?.value || null,
-                    date_cleaning: this.dom.inputDateCleaning?.value || null,
-                    date_repair: this.dom.inputDateRepair?.value || null,
-                    date_filling: this.dom.inputDateFilling?.value || null,
-                    date_culture: this.dom.inputDateCulture?.value || null,
-                    date_baby_box: this.dom.inputDateBabyBox?.value || null,
-                    date_qaqc: this.dom.inputDateQaqc?.value || null,
-                    date_ready: this.dom.inputDateReady?.value || null,
-                    date_plan_stock: this.dom.inputDatePlanStock?.value || null,
-                    idle_days: parseInt(this.dom.inputIdleDays?.value || 0, 10),
-                    idle_status: this.dom.inputIdleStatus?.value || null,
-                    water_type: this.dom.inputWaterType?.value || null
-                };
-                await PondRepository.updateCycle(pondIndex, updates);
-            }
-
-            // 2. Save Aerator inventory
-            if (canEditAerators) {
-                const aeratorPayload = [
-                    { hp_rating: 1.0, total_units: parseInt(this.dom.aerator1hp?.value || 0, 10) },
-                    { hp_rating: 2.0, total_units: parseInt(this.dom.aerator2hp?.value || 0, 10) },
-                    { hp_rating: 4.0, total_units: parseInt(this.dom.aerator4hp?.value || 0, 10) }
-                ];
-                await InventoryRepository.syncAeratorInventory(pondIndex, aeratorPayload);
-            }
-
-            Toast.success("Master cycle data saved successfully!");
+            const updates = {
+                date_cycle: this.dom.inputDateCycle?.value || null,
+                date_cleaning: this.dom.inputDateCleaning?.value || null,
+                date_repair: this.dom.inputDateRepair?.value || null,
+                date_filling: this.dom.inputDateFilling?.value || null,
+                date_culture: this.dom.inputDateCulture?.value || null,
+                date_baby_box: this.dom.inputDateBabyBox?.value || null,
+                date_qaqc: this.dom.inputDateQaqc?.value || null,
+                date_ready: this.dom.inputDateReady?.value || null,
+                date_plan_stock: this.dom.inputDatePlanStock?.value || null,
+                idle_days: parseInt(this.dom.inputIdleDays?.value || 0, 10),
+                idle_status: this.dom.inputIdleStatus?.value || null,
+                water_type: this.dom.inputWaterType?.value || null
+            };
+            await PondRepository.updateCycle(pondIndex, updates);
+            Toast.success("Pond preparation dates saved successfully!");
         } catch (err) {
-            console.error("Save Master error:", err);
+            console.error("Save preparation dates error:", err);
             Toast.error(`Save failed: ${err.message}`);
         } finally {
             appState.setLoading(false);
         }
     }
 
+    async saveAeratorInventory() {
+        const pondIndex = appState.currentPondIndex;
+        if (!pondIndex) return;
+
+        const role = appState.userRole;
+        if (!hasPermission(role, PERMISSIONS.EDIT_AERATORS)) {
+            Toast.error("Your current role does not have permission to modify Aerator inventory.");
+            return;
+        }
+
+        try {
+            appState.setLoading(true);
+            Toast.info("Saving paddlewheel inventory...");
+
+            const aeratorPayload = [
+                { hp_rating: 1.0, total_units: parseInt(this.dom.aerator1hp?.value || 0, 10) },
+                { hp_rating: 2.0, total_units: parseInt(this.dom.aerator2hp?.value || 0, 10) },
+                { hp_rating: 4.0, total_units: parseInt(this.dom.aerator4hp?.value || 0, 10) }
+            ];
+            await InventoryRepository.syncAeratorInventory(pondIndex, aeratorPayload);
+            Toast.success("Paddlewheel inventory saved successfully!");
+        } catch (err) {
+            console.error("Save aerator inventory error:", err);
+            Toast.error(`Save failed: ${err.message}`);
+        } finally {
+            appState.setLoading(false);
+        }
+    }
+
+    async saveData() {
+        await Promise.all([
+            this.savePreparationDates(),
+            this.saveAeratorInventory()
+        ]);
+    }
+
     applyRolePermissions() {
-        const canEdit = hasPermission(appState.userRole, PERMISSIONS.EDIT_MASTER_CYCLE);
+        const canEditMaster = hasPermission(appState.userRole, PERMISSIONS.EDIT_MASTER_CYCLE);
+        const canEditAerators = hasPermission(appState.userRole, PERMISSIONS.EDIT_AERATORS);
+
         const inputs = [
             this.dom.inputDateCycle, this.dom.inputDateCleaning, this.dom.inputDateRepair,
             this.dom.inputDateFilling, this.dom.inputDateCulture, this.dom.inputDateBabyBox,
@@ -289,9 +331,37 @@ export class MasterTab {
 
         inputs.forEach(inp => {
             if (inp) {
-                inp.disabled = !canEdit;
-                inp.style.opacity = canEdit ? "1" : "0.7";
+                inp.disabled = !canEditMaster;
+                inp.style.opacity = canEditMaster ? "1" : "0.7";
             }
         });
+
+        // Aerator inputs & steppers
+        [this.dom.aerator1hp, this.dom.aerator2hp, this.dom.aerator4hp].forEach(inp => {
+            if (inp) {
+                inp.disabled = !canEditAerators;
+                inp.style.opacity = canEditAerators ? "1" : "0.7";
+            }
+        });
+
+        const stepperButtons = document.querySelectorAll(".paddlewheel-card .btn-stepper");
+        stepperButtons.forEach(btn => {
+            btn.disabled = !canEditAerators;
+            btn.style.opacity = canEditAerators ? "1" : "0.5";
+            btn.style.pointerEvents = canEditAerators ? "auto" : "none";
+        });
+
+        // Save buttons
+        if (this.btnSave) {
+            this.btnSave.disabled = !canEditMaster;
+            this.btnSave.style.opacity = canEditMaster ? "1" : "0.5";
+            this.btnSave.style.pointerEvents = canEditMaster ? "auto" : "none";
+        }
+
+        if (this.btnSaveAerators) {
+            this.btnSaveAerators.disabled = !canEditAerators;
+            this.btnSaveAerators.style.opacity = canEditAerators ? "1" : "0.5";
+            this.btnSaveAerators.style.pointerEvents = canEditAerators ? "auto" : "none";
+        }
     }
 }

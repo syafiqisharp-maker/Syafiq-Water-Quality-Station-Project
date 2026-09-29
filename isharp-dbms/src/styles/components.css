@@ -204,7 +204,7 @@
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .role-badge-container {
@@ -644,12 +644,26 @@
     box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
 }
 
+.disease-block {
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.disease-block:hover .disease-pill {
+    transform: translateY(-1px);
+    filter: brightness(1.04);
+}
+
 .disease-pill {
     padding: 4px 10px;
     border-radius: var(--radius-full);
     font-size: 0.74rem;
     font-weight: 800;
     letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: var(--transition-fast);
 }
 
 .disease-ok {
@@ -657,6 +671,20 @@
     color: var(--status-production-text);
     border: 1px solid #34d399;
     box-shadow: 0 1px 4px rgba(16, 185, 129, 0.2), var(--gloss-top);
+}
+
+.disease-warning {
+    background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+    border: 1px solid #f59e0b;
+    box-shadow: 0 1px 4px rgba(245, 158, 11, 0.2), var(--gloss-top);
+}
+
+.disease-danger {
+    background: linear-gradient(180deg, #fee2e2 0%, #fecaca 100%);
+    color: #991b1b;
+    border: 1px solid #f87171;
+    box-shadow: 0 1px 4px rgba(239, 68, 68, 0.25), var(--gloss-top);
 }
 
 /* ==========================================================================
@@ -873,6 +901,13 @@
     display: block;
 }
 
+.card-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
 /* ==========================================================================
    7. FORM CONTROLS & INSET GLOSSY INPUTS
    ========================================================================== */
@@ -1013,6 +1048,24 @@
     margin-top: 2px;
 }
 
+.paddlewheel-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.paddlewheel-card .aerator-grid {
+    flex: 1;
+}
+
+.aerator-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed rgba(186, 230, 253, 0.7);
+}
+
 /* Realtime Cycle Snapshot Pods */
 .cycle-snapshots-hero {
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.94) 0%, rgba(240, 249, 255, 0.9) 100%);
@@ -1022,8 +1075,8 @@
 
 .snapshot-grid-hero {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.15rem;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
 }
 
 .snapshot-grid {
@@ -1079,6 +1132,15 @@
     letter-spacing: -0.01em;
 }
 
+.snap-val-species {
+    font-size: 1.08rem;
+    font-family: var(--font-heading);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .snap-foot {
     font-size: 0.72rem;
     color: var(--text-muted);
@@ -1102,7 +1164,13 @@
     min-width: 340px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1250px) {
+    .snapshot-grid-hero {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 850px) {
     .snapshot-grid-hero {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1855,11 +1923,10 @@
         grid-template-columns: 1fr;
     }
     .banner-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1rem;
-    }
-    .banner-item:nth-child(3) {
-        border-right: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem;
+        justify-content: space-between;
     }
     .panel-layout {
         flex-direction: column;
@@ -1881,7 +1948,9 @@
         justify-content: flex-end;
     }
     .banner-grid {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
     }
     .banner-item {
         border-right: none;
@@ -1914,5 +1983,709 @@
     border: 1px solid #bae6fd;
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
+}
+
+/* ==========================================================================
+   13. EXECUTIVE PORTAL & 216-POND INTERACTIVE FARM MAP
+   ========================================================================== */
+
+/* Top Navigation Buttons */
+.btn-portal-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.42rem 0.85rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(186, 230, 253, 0.9);
+    border-radius: var(--radius-sm);
+    color: #0369a1;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 1px 3px rgba(3, 105, 161, 0.08);
+}
+
+.btn-portal-back:hover {
+    background: #e0f2fe;
+    border-color: #7dd3fc;
+    color: #0284c7;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(2, 132, 199, 0.15);
+}
+
+.btn-portal-back.btn-to-map {
+    background: rgba(14, 116, 144, 0.09);
+    border-color: rgba(14, 116, 144, 0.25);
+    color: #0e7490;
+}
+
+.btn-portal-back.btn-to-map:hover {
+    background: #cffafe;
+    border-color: #38bdf8;
+    color: #0369a1;
+}
+
+/* Executive View Layout */
+.executive-view-layout {
+    min-height: 100vh;
+    background: linear-gradient(180deg, #f0fdf4 0%, #f0f9ff 35%, #f8fafc 100%);
+    display: flex;
+    flex-direction: column;
+}
+
+.exec-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1.75rem;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(186, 230, 253, 0.8);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    box-shadow: 0 2px 10px rgba(12, 74, 110, 0.05);
+}
+
+.exec-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.exec-header-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+}
+
+.exec-header-sub {
+    font-size: 0.78rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.exec-content-body {
+    padding: 1.5rem 1.75rem 3rem;
+    max-width: 1750px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Executive KPI Quick Strip */
+.exec-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.exec-kpi-card {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    position: relative;
+    overflow: hidden;
+}
+
+.exec-kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #38bdf8, #10b981);
+}
+
+.exec-kpi-title {
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #64748b;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+}
+
+.exec-kpi-num {
+    font-size: 1.85rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 0.25rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.exec-kpi-sub {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+/* Section Panels */
+.exec-section-panel {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+    overflow: hidden;
+}
+
+.exec-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.9rem 1.4rem;
+    background: rgba(248, 250, 252, 0.8);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.exec-section-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.exec-section-body {
+    padding: 1.25rem 1.4rem;
+}
+
+/* Farm Map Toolbar */
+.farm-map-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+}
+
+.farm-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.farm-filter-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-right: 0.25rem;
+}
+
+.farm-filter-btn {
+    padding: 0.32rem 0.65rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.farm-filter-btn:hover {
+    border-color: #0284c7;
+    color: #0284c7;
+}
+
+.farm-filter-btn.active {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow: 0 2px 4px rgba(2, 132, 199, 0.25);
+}
+
+.farm-search-input {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.8rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    outline: none;
+    width: 170px;
+    background: #ffffff;
+    transition: border-color 0.15s ease;
+}
+
+.farm-search-input:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+}
+
+/* 216-Pond Grid Architecture */
+.farm-grid-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+}
+
+.farm-module-block {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 0.85rem 1rem 1rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+}
+
+.farm-module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.farm-module-name {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.farm-module-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 9999px;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.farm-row-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.farm-row-container:last-child {
+    margin-bottom: 0;
+}
+
+.farm-row-label {
+    width: 60px;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: #64748b;
+    text-align: right;
+    padding-right: 0.5rem;
+}
+
+.farm-row-ponds {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(68px, 1fr));
+    gap: 0.45rem;
+    flex-grow: 1;
+}
+
+/* Individual Pond Tile */
+.pond-tile {
+    position: relative;
+    border-radius: 8px;
+    padding: 0.45rem 0.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 64px;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, opacity 0.2s ease;
+    user-select: none;
+    border: 1px solid transparent;
+}
+
+.pond-tile:hover {
+    transform: translateY(-2px) scale(1.03);
+    z-index: 10;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+}
+
+.pond-tile.dimmed {
+    opacity: 0.15 !important;
+    pointer-events: none;
+    transform: none !important;
+}
+
+/* Status & Biosecurity Colors */
+/* 🔴 Red Alert: Pathogen Positive */
+.pond-tile.risk-red {
+    background: linear-gradient(145deg, #fef2f2 0%, #fee2e2 100%);
+    border-color: #f87171;
+    box-shadow: 0 1px 3px rgba(239, 68, 68, 0.15);
+}
+
+.pond-tile.risk-red .pond-tile-doc {
+    color: #b91c1c;
+}
+
+.pond-tile.risk-red .pond-badge-indicator {
+    background: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+/* 🟡 Yellow Warning: Elevated Risk */
+.pond-tile.risk-yellow {
+    background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%);
+    border-color: #fbbf24;
+    box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15);
+}
+
+.pond-tile.risk-yellow .pond-tile-doc {
+    color: #b45309;
+}
+
+.pond-tile.risk-yellow .pond-badge-indicator {
+    background: #f59e0b;
+}
+
+/* 🟢 Clean Production */
+.pond-tile.risk-green {
+    background: linear-gradient(145deg, #f0fdf4 0%, #dcfce7 100%);
+    border-color: #86efac;
+    box-shadow: 0 1px 3px rgba(34, 197, 94, 0.12);
+}
+
+.pond-tile.risk-green .pond-tile-doc {
+    color: #15803d;
+}
+
+.pond-tile.risk-green .pond-badge-indicator {
+    background: #22c55e;
+}
+
+/* ⚪ / 🔵 Idle / Prep */
+.pond-tile.risk-idle {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.pond-tile.risk-idle .pond-tile-doc {
+    color: #94a3b8;
+}
+
+.pond-tile.risk-idle .pond-badge-indicator {
+    background: #cbd5e1;
+}
+
+/* Pond Tile Content Anatomy */
+.pond-tile-top {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    line-height: 1;
+}
+
+.pond-tile-id {
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: #475569;
+}
+
+.pond-badge-indicator {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.pond-tile-doc {
+    font-size: 1.15rem;
+    font-weight: 900;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1;
+    margin: 0.2rem 0;
+    letter-spacing: -0.02em;
+}
+
+.pond-tile-bottom {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 1;
+}
+
+.pond-species-badge {
+    font-size: 0.58rem;
+    font-weight: 800;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+}
+
+.pond-species-badge.sp-van {
+    background: #0284c7;
+    color: #ffffff;
+}
+
+.pond-species-badge.sp-mon {
+    background: #7c3aed;
+    color: #ffffff;
+}
+
+.pond-species-badge.sp-idle {
+    background: #e2e8f0;
+    color: #64748b;
+}
+
+/* Hover Tooltip */
+.farm-map-tooltip {
+    position: fixed;
+    z-index: 1000;
+    pointer-events: none;
+    background: rgba(15, 23, 42, 0.95);
+    color: #ffffff;
+    padding: 0.55rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: none;
+    min-width: 180px;
+}
+
+.tooltip-title {
+    font-weight: 800;
+    font-size: 0.82rem;
+    margin-bottom: 0.25rem;
+    color: #38bdf8;
+    display: flex;
+    justify-content: space-between;
+}
+
+.tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    color: #cbd5e1;
+}
+
+.tooltip-row strong {
+    color: #ffffff;
+}
+
+/* Slide-Out Detail Drawer */
+.pond-drawer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    z-index: 998;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.25s ease;
+}
+
+.pond-drawer-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.pond-detail-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 440px;
+    max-width: 90vw;
+    background: #ffffff;
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.18);
+    z-index: 999;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+}
+
+.pond-detail-drawer.open {
+    transform: translateX(0);
+}
+
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.drawer-pond-title {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #0f172a;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.drawer-pond-sub {
+    font-size: 0.78rem;
+    color: #64748b;
+    margin-top: 0.15rem;
+}
+
+.drawer-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #475569;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.drawer-close-btn:hover {
+    background: #fee2e2;
+    color: #ef4444;
+    border-color: #fca5a5;
+}
+
+.drawer-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.drawer-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.drawer-stat-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.drawer-stat-lbl {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+}
+
+.drawer-stat-val {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #0f172a;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.drawer-section-title {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: #1e293b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.drawer-issues-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.drawer-issue-item {
+    padding: 0.6rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    font-size: 0.76rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.drawer-issue-item.risk-red {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #991b1b;
+}
+
+.drawer-issue-item.risk-yellow {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+}
+
+.drawer-footer {
+    padding: 1.25rem 1.5rem;
+    background: #f8fafc;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    gap: 0.75rem;
+}
+
+.drawer-footer .btn-open-dbms {
+    flex-grow: 1;
+    padding: 0.65rem 1rem;
+    background: #0284c7;
+    color: #ffffff;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 0.86rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.drawer-footer .btn-open-dbms:hover {
+    background: #0369a1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
 }
 

@@ -11,8 +11,9 @@ import { Navbar } from "./components/Navbar.js";
 import { ExecutiveFilterBar } from "./components/ExecutiveFilterBar.js";
 import { MasterBanner } from "./components/MasterBanner.js";
 import { ExcelModal } from "./features/excelImporter/excelModal.js";
-
-import { isCycleClosed } from "./domain/rollover.js";
+import { ViewRouter } from "./routing/viewRouter.js";
+import { LandingPage } from "./modules/landing/landingPage.js";
+import { ExecutiveView } from "./modules/executive/executiveTab.js";
 
 // Tab Modules
 import { MasterTab } from "./modules/master/masterTab.js";
@@ -35,6 +36,12 @@ class App {
         try {
             console.log("🦐 Bootstrapping iSHARP DBMS 2.0 (Frutiger Aero Edition)...");
 
+            // 0. Initialize View Router, Landing Page, and Executive Dashboard
+            this.landingPage = new LandingPage("view-portal");
+            this.executiveView = new ExecutiveView("view-executive");
+            this.router = new ViewRouter();
+            this.landingPage.setRouter(this.router);
+
             // 1. Initialize Subsystems & Components
             this.excelModal = new ExcelModal((category, pondIndex) => {
                 this.onExcelImportComplete(category, pondIndex);
@@ -43,17 +50,7 @@ class App {
             this.harvestTab = new HarvestTab((cat) => this.excelModal.open(cat || "harvest"));
             this.lifecycleTab = new LifecycleTab((pondIndex) => this.navbar.selectPondByIndex(pondIndex));
 
-            this.navbar = new Navbar(
-                () => this.excelModal.open("sampling"),
-                () => {
-                    if (isCycleClosed(appState.currentPond)) {
-                        this.lifecycleTab.openReviveModal();
-                    } else {
-                        this.lifecycleTab.openTerminateModal(true);
-                    }
-                },
-                () => this.saveActiveTabData()
-            );
+            this.navbar = new Navbar(() => this.excelModal.open("sampling"));
 
             this.filterBar = new ExecutiveFilterBar();
             this.masterBanner = new MasterBanner((pondIndex) => {
@@ -151,6 +148,7 @@ class App {
         } else if (category === "issues") {
             const labController = this.tabs["tab-laboratory"];
             if (labController) labController.loadIssues(pondIndex);
+            if (this.masterBanner) this.masterBanner.updateDiseaseBadge(pondIndex);
         } else if (category === "harvest") {
             const harvestController = this.tabs["tab-harvest"];
             if (harvestController && appState.currentPond) harvestController.render(appState.currentPond);

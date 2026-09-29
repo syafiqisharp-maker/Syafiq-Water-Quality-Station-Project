@@ -23,6 +23,8 @@ export class StockingTab {
             tbodyBatches: document.getElementById("tbody-stocking-batches")
         };
 
+        this.btnSave = document.getElementById("btn-save-stocking");
+
         this.bindEvents();
         appState.subscribe("pondChanged", (pond) => this.render(pond));
         appState.subscribe("roleChanged", () => this.applyRolePermissions());
@@ -37,6 +39,11 @@ export class StockingTab {
 
         if (this.dom.stckNetto) this.dom.stckNetto.addEventListener("input", calcGross);
         if (this.dom.stckAllow) this.dom.stckAllow.addEventListener("input", calcGross);
+
+        // Inline Save button
+        if (this.btnSave) {
+            this.btnSave.addEventListener("click", () => this.saveData());
+        }
     }
 
     async render(pond) {
@@ -185,15 +192,22 @@ export class StockingTab {
 
     applyRolePermissions() {
         const canEdit = hasPermission(appState.userRole, PERMISSIONS.EDIT_STOCKING_PARAMS);
-        [
+        const inputs = [
             this.dom.stckDate, this.dom.stckSource, this.dom.stckSpecies,
             this.dom.stckNetto, this.dom.stckAllow, this.dom.stckLine,
             this.dom.stckSize, this.dom.stckTank
-        ].forEach(inp => {
+        ];
+        inputs.forEach(inp => {
             if (inp) {
                 inp.disabled = !canEdit;
                 inp.style.opacity = canEdit ? "1" : "0.7";
             }
         });
+
+        if (this.btnSave) {
+            this.btnSave.disabled = !canEdit;
+            this.btnSave.style.opacity = canEdit ? "1" : "0.5";
+            this.btnSave.style.pointerEvents = canEdit ? "auto" : "none";
+        }
     }
 }
