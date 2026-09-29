@@ -1,0 +1,26 @@
+# Netlify Configuration for iSHARP Precision Aquaculture Platform
+
+[build]
+  base = "isharp-dbms"
+  publish = "dist"
+  command = "npm run build"
+
+# Single-Page Application (SPA) redirect rule
+# Ensures any direct link (e.g. /#/executive or subpaths) routes correctly to index.html
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Security and caching headers
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
