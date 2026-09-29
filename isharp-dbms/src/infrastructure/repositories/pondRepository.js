@@ -1,72 +1,66 @@
 /**
  * iSHARP DBMS 2.0 — Pond Repository
- * Data Access Layer for stocking_records and active_operational_ponds
+ * Data Access Layer for growout_pond_master, view_growout_pond_cycles, and active_operational_ponds
  */
 
 import { supabase } from "../supabase.js";
 
 export class PondRepository {
     /**
-     * Fetches pond cycles matching executive filters.
+     * Fetches pond cycles matching executive filters from the unified view.
      * @param {object} filters 
-     * @param {string} [filters.status] e.g. "PRODUCTION", "iDLE", "CLOSE", or "ALL"
+     * @param {string} [filters.status] e.g. "PRODUCTION", "IDLE", "CLOSE", or "ALL"
      * @param {string} [filters.module] e.g. "MODULE 1", "MODULE 2", or "ALL"
-     * @param {string} [filters.active] e.g. "ACTiVE", "iN ACTiVE", or "ALL"
+     * @param {string} [filters.active] e.g. "ACTIVE", "INACTIVE", or "ALL"
      * @returns {Promise<Array<object>>}
      */
     static async getCycles(filters = {}) {
         let queryParams = [
-            "select=pond_index,pond,modl,row_no,cycle_no,crop_no,pond_status,pond_active,stck_date,date_close,aerator_1hp,aerator_2hp,area,stck_species,bs_line,stck_source,stck_size,stck_tank,stck_pcs,stck_allow,stck_total",
+            "select=pond_index,pond,modl,row_no,cycle_no,crop_no,pond_status,pond_active,stck_date,date_close,aerator_1hp,aerator_2hp,area,stck_species,bs_line,stck_source,stck_size,stck_tank,stck_pcs,stck_allow,stck_total,batch_count",
             "order=pond_index.asc"
         ];
 
-        const status = filters.status || "ALL";
+        const status = (filters.status || "ALL").toUpperCase();
         const moduleVal = filters.module || "ALL";
-        const active = filters.active || "ALL";
+        const rawActive = (filters.active || "ALL").toUpperCase().replace(/\s+/g, "");
 
         if (status !== "ALL") {
-            if (status === "PRODUCTION") {
-                queryParams.push("pond_status=eq.PRODUCTION");
-            } else if (status === "iDLE") {
-                queryParams.push("pond_status=ilike.idle");
-            } else if (status === "CLOSE") {
-                queryParams.push("pond_status=eq.CLOSE");
-            } else if (status === "MAINTENANCE") {
-                queryParams.push("pond_status=ilike.maintenance");
-            } else if (status === "RESERVOIR") {
-                queryParams.push("pond_status=ilike.reservoir");
-            } else if (status === "PREPARATION") {
-                queryParams.push("pond_status=ilike.*prep*");
+            if (["PRODUCTION", "IDLE", "CLOSE", "MAINTENANCE", "RESERVOIR", "PREPARATION", "NOT IN USE"].includes(status)) {
+                queryParams.push(`pond_status=eq.${encodeURIComponent(status)}`);
             }
         }
         if (moduleVal !== "ALL") {
             queryParams.push(`modl=eq.${encodeURIComponent(moduleVal)}`);
         }
-        if (active !== "ALL") {
-            if (active === "ACTiVE") {
-                queryParams.push("pond_active=ilike.active");
-            } else if (active === "iN ACTiVE") {
-                queryParams.push("pond_active=ilike.*in*active*");
+        if (rawActive !== "ALL") {
+            if (rawActive === "ACTIVE") {
+                queryParams.push("pond_active=eq.ACTIVE");
+            } else if (rawActive === "INACTIVE") {
+                queryParams.push("pond_active=eq.INACTIVE");
             }
         }
 
-        const endpoint = `stocking_records?${queryParams.join("&")}&limit=1000`;
+        const endpoint = `view_growout_pond_cycles?${queryParams.join("&")}&limit=1000`;
         const records = await supabase.request(endpoint);
 
         // Normalize schema fields for consistent UI consumption
-        return (records || []).map(r => ({
-            ...r,
-            status: r.pond_status || "PRODUCTION",
-            active: r.pond_active || "ACTiVE",
-            module: r.modl || "MODULE 1",
-            species: r.stck_species || "P. VANNAMEi",
-            genetic_line: r.bs_line || "Standard",
-            pl_origin: r.stck_source || "Hatchery",
-            stck_size: r.stck_size,
-            stck_tank: r.stck_tank,
-            stck_netto: r.stck_pcs || r.stck_netto || 0,
-            stck_total: r.stck_total || ((parseFloat(r.stck_pcs || 0)) + (parseFloat(r.stck_allow || 0)))
-        }));
+        return (records || []).map(r => {
+            const isProd = (r.pond_status || "").toUpperCase() === "PRODUCTION";
+            return {
+                ...r,
+                status: r.pond_status || "PRODUCTION",
+                active: r.pond_active || "ACTIVE",
+                module: r.modl || "MODULE 1",
+                species: r.stck_species || (isProd ? "P. VANNAMEi" : "—"),
+                genetic_line: r.bs_line || (isProd ? "Standard" : "—"),
+                pl_origin: r.stck_source || (isProd ? "Hatchery" : "—"),
+                stck_size: isProd ? r.stck_size : null,
+                stck_tank: isProd ? r.stck_tank : null,
+                stck_netto: isProd ? (r.stck_pcs || 0) : 0,
+                stck_total: isProd ? (r.stck_total || (parseFloat(r.stck_pcs || 0) + parseFloat(r.stck_allow || 0))) : 0,
+                batch_count: r.batch_count || 0
+            };
+        });
     }
 
     /**
@@ -74,21 +68,25 @@ export class PondRepository {
      * @returns {Promise<Array<object>>}
      */
     static async getActiveCycles() {
-        const endpoint = `stocking_records?pond_status=neq.CLOSE&order=pond_index.asc&limit=1000`;
+        const endpoint = `view_growout_pond_cycles?pond_status=neq.CLOSE&order=pond_index.asc&limit=1000`;
         const records = await supabase.request(endpoint);
-        return (records || []).map(r => ({
-            ...r,
-            status: r.pond_status || "PRODUCTION",
-            active: r.pond_active || "ACTiVE",
-            module: r.modl || "MODULE 1",
-            species: r.stck_species || "P. VANNAMEi",
-            genetic_line: r.bs_line || "Standard",
-            pl_origin: r.stck_source || "Hatchery",
-            stck_size: r.stck_size,
-            stck_tank: r.stck_tank,
-            stck_netto: r.stck_pcs || r.stck_netto || 0,
-            stck_total: r.stck_total || ((parseFloat(r.stck_pcs || 0)) + (parseFloat(r.stck_allow || 0)))
-        }));
+        return (records || []).map(r => {
+            const isProd = (r.pond_status || "").toUpperCase() === "PRODUCTION";
+            return {
+                ...r,
+                status: r.pond_status || "PRODUCTION",
+                active: r.pond_active || "ACTIVE",
+                module: r.modl || "MODULE 1",
+                species: r.stck_species || (isProd ? "P. VANNAMEi" : "—"),
+                genetic_line: r.bs_line || (isProd ? "Standard" : "—"),
+                pl_origin: r.stck_source || (isProd ? "Hatchery" : "—"),
+                stck_size: isProd ? r.stck_size : null,
+                stck_tank: isProd ? r.stck_tank : null,
+                stck_netto: isProd ? (r.stck_pcs || 0) : 0,
+                stck_total: isProd ? (r.stck_total || (parseFloat(r.stck_pcs || 0) + parseFloat(r.stck_allow || 0))) : 0,
+                batch_count: r.batch_count || 0
+            };
+        });
     }
 
     /**
@@ -98,24 +96,26 @@ export class PondRepository {
      */
     static async getCycleDetails(pondIndex) {
         if (!pondIndex) return null;
-        const endpoint = `stocking_records?select=*&pond_index=eq.${encodeURIComponent(pondIndex)}&limit=1`;
+        const endpoint = `view_growout_pond_cycles?select=*&pond_index=eq.${encodeURIComponent(pondIndex)}&limit=1`;
         const res = await supabase.request(endpoint);
         if (!res || res.length === 0) return null;
         const r = res[0];
+        const isProd = (r.pond_status || "").toUpperCase() === "PRODUCTION";
         return {
             ...r,
             status: r.pond_status || "PRODUCTION",
-            active: r.pond_active || "ACTiVE",
+            active: r.pond_active || "ACTIVE",
             module: r.modl || "MODULE 1",
-            species: r.stck_species || "P. VANNAMEi",
-            genetic_line: r.bs_line || "Standard",
-            pl_origin: r.stck_source || "Hatchery",
-            stck_netto: r.stck_pcs || r.stck_netto || 0,
-            stck_size: r.stck_size,
-            stck_tank: r.stck_tank,
-            stck_allow: r.stck_allow || 0,
-            stck_total: r.stck_total || ((parseFloat(r.stck_pcs || 0)) + (parseFloat(r.stck_allow || 0))),
-            date_babybox: r.date_baby_box || r.date_babybox || null
+            species: r.stck_species || (isProd ? "P. VANNAMEi" : "—"),
+            genetic_line: r.bs_line || (isProd ? "Standard" : "—"),
+            pl_origin: r.stck_source || (isProd ? "Hatchery" : "—"),
+            stck_netto: isProd ? (r.stck_pcs || 0) : 0,
+            stck_size: isProd ? r.stck_size : null,
+            stck_tank: isProd ? r.stck_tank : null,
+            stck_allow: isProd ? (r.stck_allow || 0) : 0,
+            stck_total: isProd ? (r.stck_total || (parseFloat(r.stck_pcs || 0) + parseFloat(r.stck_allow || 0))) : 0,
+            date_babybox: isProd ? (r.date_baby_box || r.date_babybox || null) : null,
+            batch_count: r.batch_count || 0
         };
     }
 
@@ -142,28 +142,55 @@ export class PondRepository {
      */
     static async getCycleHistory(physicalPond) {
         if (!physicalPond) return [];
-        const endpoint = `stocking_records?select=pond_index,pond,crop_no,cycle_no,pond_status,pond_active,stck_date,date_close,area&pond=eq.${encodeURIComponent(physicalPond)}&order=pond_index.desc`;
+        const endpoint = `view_growout_pond_cycles?select=pond_index,pond,crop_no,cycle_no,pond_status,pond_active,stck_date,date_close,area&pond=eq.${encodeURIComponent(physicalPond)}&order=pond_index.desc`;
         const records = await supabase.request(endpoint);
         return (records || []).map(r => ({
             ...r,
             status: r.pond_status || "PRODUCTION",
-            active: r.pond_active || "ACTiVE"
+            active: r.pond_active || "ACTIVE"
         }));
     }
 
     /**
-     * Updates fields for an existing cycle in stocking_records.
+     * Updates cycle metadata in growout_pond_master.
      * @param {string} pondIndex 
      * @param {object} updates 
      * @returns {Promise<object>}
      */
     static async updateCycle(pondIndex, updates) {
         if (!pondIndex) throw new Error("pondIndex is required for update.");
-        const endpoint = `stocking_records?pond_index=eq.${encodeURIComponent(pondIndex)}`;
+        const endpoint = `growout_pond_master?pond_index=eq.${encodeURIComponent(pondIndex)}`;
         return await supabase.request(endpoint, {
             method: "PATCH",
             body: JSON.stringify(updates)
         });
+    }
+
+    /**
+     * Saves or updates a stocking batch in pond_stocking_batches (Single Source of Truth).
+     * @param {string} pondIndex 
+     * @param {object} batchData 
+     * @returns {Promise<object>}
+     */
+    static async saveStockingBatch(pondIndex, batchData) {
+        if (!pondIndex) throw new Error("pondIndex is required.");
+        
+        const existingBatches = await this.getStockingBatches(pondIndex);
+        if (existingBatches && existingBatches.length > 0) {
+            const primaryId = existingBatches[0].id;
+            return await supabase.request(`pond_stocking_batches?id=eq.${encodeURIComponent(primaryId)}`, {
+                method: "PATCH",
+                body: JSON.stringify(batchData)
+            });
+        } else {
+            return await supabase.request("pond_stocking_batches", {
+                method: "POST",
+                body: JSON.stringify({
+                    pond_index: pondIndex,
+                    ...batchData
+                })
+            });
+        }
     }
 
     /**
@@ -212,11 +239,11 @@ export class PondRepository {
      * @param {string} params.pond
      * @param {number} params.cycleNo
      * @param {number} [params.area=0.50]
-     * @param {string} [params.status="iDLE"]
+     * @param {string} [params.status="IDLE"]
      * @param {string|null} [params.planStockDate=null]
      * @returns {Promise<object>}
      */
-    static async createCustomCycle({ pond, cycleNo, area = 0.50, status = "iDLE", planStockDate = null }) {
+    static async createCustomCycle({ pond, cycleNo, area = 0.50, status = "IDLE", planStockDate = null }) {
         if (!pond) throw new Error("Pond code is required.");
         if (!cycleNo) throw new Error("Cycle number is required.");
         return await supabase.rpc("fn_create_custom_cycle", {
@@ -245,7 +272,7 @@ export class PondRepository {
      * @returns {Promise<Array<{pond: string, modl: string, area: number}>>}
      */
     static async getDistinctPonds() {
-        const endpoint = `stocking_records?select=pond,modl,area&order=pond.asc`;
+        const endpoint = `growout_pond_master?select=pond,modl,area&order=pond.asc`;
         const data = await supabase.request(endpoint);
         const unique = new Map();
         (data || []).forEach(r => {

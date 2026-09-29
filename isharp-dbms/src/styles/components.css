@@ -2394,6 +2394,22 @@
     background: #cbd5e1;
 }
 
+/* ⚠️ Idle Overdue (> 30 Days) Rule */
+.pond-tile.risk-idle.idle-overdue {
+    background: #fffbeb;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.2);
+}
+
+.pond-tile.risk-idle.idle-overdue .pond-tile-doc {
+    color: #b45309;
+    font-weight: 800;
+}
+
+.pond-tile.risk-idle.idle-overdue .pond-badge-indicator {
+    background: #f59e0b;
+}
+
 /* Pond Tile Content Anatomy */
 .pond-tile-top {
     width: 100%;

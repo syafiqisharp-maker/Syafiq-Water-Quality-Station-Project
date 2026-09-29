@@ -42,7 +42,10 @@ export class ExecutiveView {
                         </div>
                     </div>
 
-                    <div class="exec-header-right">
+                    <div class="exec-header-right" style="display: flex; gap: 0.6rem;">
+                        <button class="btn-action btn-secondary" type="button" data-nav-view="field-ops" style="font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem;">
+                            <span>Field Operations ➔</span>
+                        </button>
                         <button class="btn-action btn-secondary" type="button" data-nav-view="dbms" style="font-weight: 700; font-size: 0.82rem; padding: 0.45rem 1rem;">
                             <span>Go to Operations DBMS →</span>
                         </button>

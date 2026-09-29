@@ -467,7 +467,7 @@ export class LifecycleTab {
         const pondSelect = this.dom.selectCreatePond?.value;
         const customPondInput = this.dom.inputCustomPond?.value?.trim();
         const cycleNo = parseInt(this.dom.inputCycleNo?.value, 10);
-        const status = this.dom.selectCreateStatus?.value || "iDLE";
+        const status = this.dom.selectCreateStatus?.value || "IDLE";
         const area = parseFloat(this.dom.inputCreateArea?.value) || 0.50;
         const planDate = this.dom.inputCreateStockDate?.value || null;
 

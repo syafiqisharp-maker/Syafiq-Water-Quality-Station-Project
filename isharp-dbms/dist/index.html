@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-CXRwI4JN.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-lvvAvWET.css">
+  <script type="module" crossorigin src="/assets/index-sxWZK7vT.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-DX2A-Cqp.css">
 </head>
 <body>
     <!-- TOP-LEVEL VIEW 1: PORTAL LANDING PAGE -->
@@ -19,7 +19,10 @@
     <!-- TOP-LEVEL VIEW 2: EXECUTIVE DASHBOARD -->
     <div id="view-executive" class="view-pane" style="display: none;"></div>
 
-    <!-- TOP-LEVEL VIEW 3: OPERATIONAL DBMS -->
+    <!-- TOP-LEVEL VIEW 3: FIELD OPERATIONS -->
+    <div id="view-field-ops" class="view-pane" style="display: none;"></div>
+
+    <!-- TOP-LEVEL VIEW 4: OPERATIONAL DBMS -->
     <div id="view-dbms" class="view-pane" style="display: none;">
         <!-- App Container -->
         <div class="app-layout">
@@ -41,6 +44,14 @@
                             <line x1="16" y1="6" x2="16" y2="22"></line>
                         </svg>
                         <span>Executive Map</span>
+                    </button>
+                    <button id="btn-to-field-ops" class="btn-portal-back btn-to-map" type="button" data-nav-view="field-ops" title="Switch directly to Supervisor Field Operations (24 Ponds)">
+                        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+                            <path d="M12 9v4"></path>
+                            <path d="M12 17h.01"></path>
+                        </svg>
+                        <span>Field Operations</span>
                     </button>
                     <div class="brand-logo-badge" title="iSHARP Aquaculture Platform">
                     <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#ffffff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="filter: drop-shadow(0 2px 4px rgba(0,30,60,0.3));">
@@ -819,7 +830,7 @@
                             </div>
                             <div style="display: flex; gap: 0.5rem; align-items: center;">
                                 <span id="lifecycle-status-badge" class="status-badge status-production">PRODUCTION</span>
-                                <span id="lifecycle-active-badge" class="status-badge status-production">ACTiVE</span>
+                                <span id="lifecycle-active-badge" class="status-badge status-production">ACTIVE</span>
                             </div>
                         </div>
 
@@ -898,8 +909,11 @@
                                 <div class="form-group">
                                     <label for="select-create-status" style="font-weight: 700; font-size: 0.8rem; margin-bottom: 0.35rem; display: block;">Initial Cycle Status:</label>
                                     <select id="select-create-status" class="form-control" style="background: #fff; border: 1px solid #cbd5e1; padding: 0.45rem; border-radius: 6px; width: 100%;">
-                                        <option value="iDLE" selected>iDLE (Awaiting Stocking / Preparation)</option>
+                                        <option value="IDLE" selected>IDLE (Resting / Sun Drying / Empty)</option>
+                                        <option value="PREPARATION">PREPARATION (Liner repair / Filling / Liming / QAQC)</option>
                                         <option value="PRODUCTION">PRODUCTION (Active Shrimp Stock)</option>
+                                        <option value="RESERVOIR">RESERVOIR (Water Holding / Treatment)</option>
+                                        <option value="MAINTENANCE">MAINTENANCE (Major civil / mechanical overhaul)</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -953,25 +967,72 @@
             <!-- TAB 9: STAFF + REMARKS (Personnel & Field Notes) -->
             <div id="tab-staff" class="tab-pane" role="tabpanel">
                 <div class="panel-layout">
-                    <div class="card panel-card" style="flex: 1;">
-                        <div class="card-header">
-                            <h3>Assigned Pond Personnel</h3>
-                            <span class="card-sub">Staff allocated to this production cycle</span>
+                    <div class="card panel-card" style="flex: 1.3;">
+                        <div class="card-header flex-between" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3>Assigned Pond Personnel</h3>
+                                <span class="card-sub">Cycle crew allocation &amp; harvest target incentive tracking</span>
+                            </div>
+                            <span class="badge" id="staff-cycle-badge" style="background: rgba(2, 132, 199, 0.1); color: #0284c7; border: 1px solid #bae6fd; font-size: 0.72rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 700;">No Cycle Selected</span>
                         </div>
-                        <div class="form-grid-1">
-                            <div class="form-group">
-                                <label for="input-staff-pm">Pond Manager (PM)</label>
-                                <input type="text" id="input-staff-pm" class="form-control" placeholder="Manager Name">
-                            </div>
-                            <div class="form-group">
-                                <label for="input-staff-sv">Field Supervisor (SV)</label>
-                                <input type="text" id="input-staff-sv" class="form-control" placeholder="Supervisor Name">
-                            </div>
-                            <div class="form-group">
-                                <label for="input-staff-po">Primary Operator (PO)</label>
-                                <input type="text" id="input-staff-po" class="form-control" placeholder="Operator Name">
-                            </div>
+
+                        <div class="alert-info-glass" style="font-size: 0.75rem; color: #475569; background: rgba(240, 249, 255, 0.85); border: 1px solid #bae6fd; border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+                            <span style="font-size: 1rem;">💡</span>
+                            <span>Enter the staff's <strong>Employee ID</strong> (e.g. <code>0042</code>, <code>1157</code>, <code>1216</code>). The system looks up their official name automatically.</span>
                         </div>
+
+                        <!-- Staff ID Entry Grid -->
+                        <div class="staff-allocation-form" style="display: flex; flex-direction: column; gap: 0.6rem;">
+                            
+                            <!-- 1. Pond Manager (PM) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">👔 Pond Manager</label>
+                                <input type="text" id="input-pm-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 0042)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-pm-name" class="form-control" placeholder="Manager Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 2. Field Supervisor (SV) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">📋 Supervisor</label>
+                                <input type="text" id="input-sv-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 1157)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-sv-name" class="form-control" placeholder="Supervisor Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 3. Row Leader (RL) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🚜 Row Leader</label>
+                                <input type="text" id="input-rl-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 1120)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-rl-name" class="form-control" placeholder="Row Leader Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 4. Primary Operator (PO) -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🦐 Primary Operator</label>
+                                <input type="text" id="input-po-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 1216)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-po-name" class="form-control" placeholder="Primary Operator Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                            <!-- 5. Support Operator -->
+                            <div class="staff-entry-row" style="display: grid; grid-template-columns: 120px 105px 1fr; gap: 0.5rem; align-items: center;">
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🛠️ Support Operator</label>
+                                <input type="text" id="input-support-id" list="staff-directory-datalist" class="form-control" placeholder="ID (e.g. 2057)" style="font-size: 0.8rem; font-weight: 700; text-align: center; letter-spacing: 0.05em;">
+                                <input type="text" id="input-support-name" class="form-control" placeholder="Support Operator Name will appear" readonly style="background: rgba(248, 250, 252, 0.85); font-size: 0.8rem; color: #0f172a; font-weight: 600;">
+                            </div>
+
+                        </div>
+
+                        <!-- Form Actions: Save Button & Reset -->
+                        <div class="staff-actions-bar" style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid rgba(226, 232, 240, 0.8); display: flex; justify-content: space-between; align-items: center;">
+                            <button type="button" id="btn-reset-staff" class="btn-action btn-secondary" style="font-size: 0.78rem; padding: 0.4rem 0.8rem;">
+                                <span>🔄 Clear Form</span>
+                            </button>
+                            <button type="button" id="btn-save-staff" class="btn-action btn-primary" style="font-size: 0.82rem; font-weight: 700; padding: 0.45rem 1.25rem; display: flex; align-items: center; gap: 0.4rem;">
+                                <span>💾 Save Personnel Allocation</span>
+                            </button>
+                        </div>
+
+                        <!-- HTML5 Datalist for autocomplete -->
+                        <datalist id="staff-directory-datalist"></datalist>
                     </div>
                     <div class="card panel-card" style="flex: 2;">
                         <div class="card-header flex-between">

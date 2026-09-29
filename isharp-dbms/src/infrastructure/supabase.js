@@ -53,7 +53,8 @@ class SupabaseClient {
             // For 204 No Content
             if (response.status === 204) return null;
 
-            return await response.json();
+            const text = await response.text();
+            return text && text.trim() ? JSON.parse(text) : null;
         } catch (error) {
             clearTimeout(timeoutId);
             if (error.name === "AbortError") {

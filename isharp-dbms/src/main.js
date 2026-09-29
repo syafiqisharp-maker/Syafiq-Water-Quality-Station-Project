@@ -14,6 +14,7 @@ import { ExcelModal } from "./features/excelImporter/excelModal.js";
 import { ViewRouter } from "./routing/viewRouter.js";
 import { LandingPage } from "./modules/landing/landingPage.js";
 import { ExecutiveView } from "./modules/executive/executiveTab.js";
+import { FieldOpsView } from "./modules/fieldOps/fieldOpsView.js";
 
 // Tab Modules
 import { MasterTab } from "./modules/master/masterTab.js";
@@ -36,9 +37,10 @@ class App {
         try {
             console.log("🦐 Bootstrapping iSHARP DBMS 2.0 (Frutiger Aero Edition)...");
 
-            // 0. Initialize View Router, Landing Page, and Executive Dashboard
+            // 0. Initialize View Router, Landing Page, Executive Dashboard, and Field Operations
             this.landingPage = new LandingPage("view-portal");
             this.executiveView = new ExecutiveView("view-executive");
+            this.fieldOpsView = new FieldOpsView("view-field-ops");
             this.router = new ViewRouter();
             this.landingPage.setRouter(this.router);
 

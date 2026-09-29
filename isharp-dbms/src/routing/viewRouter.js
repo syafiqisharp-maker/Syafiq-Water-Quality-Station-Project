@@ -10,6 +10,7 @@ export class ViewRouter {
         this.views = {
             portal: document.getElementById("view-portal"),
             executive: document.getElementById("view-executive"),
+            "field-ops": document.getElementById("view-field-ops"),
             dbms: document.getElementById("view-dbms")
         };
 
@@ -46,6 +47,8 @@ export class ViewRouter {
 
         if (hash === "#/executive" || hash === "#executive") {
             targetView = "executive";
+        } else if (hash === "#/field-ops" || hash === "#field-ops") {
+            targetView = "field-ops";
         } else if (hash === "#/dbms" || hash === "#dbms") {
             targetView = "dbms";
         } else {
@@ -57,7 +60,7 @@ export class ViewRouter {
     }
 
     navigate(viewName) {
-        if (!["portal", "executive", "dbms"].includes(viewName)) {
+        if (!["portal", "executive", "field-ops", "dbms"].includes(viewName)) {
             viewName = "portal";
         }
         window.location.hash = `#/${viewName}`;

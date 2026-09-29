@@ -441,12 +441,26 @@ export class PondGridMap {
 
         const isProd = (cycle.pond_status || '').toUpperCase() === 'PRODUCTION';
         const doc = cycle.stck_date ? calculateDOC(cycle.stck_date, cycle.date_close) : 0;
+        
+        let idleDays = 0;
+        if (!isProd) {
+            if (cycle.date_cycle) {
+                const start = new Date(cycle.date_cycle);
+                if (!isNaN(start.getTime())) {
+                    const now = new Date();
+                    idleDays = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                }
+            } else if (cycle.idle_days) {
+                idleDays = parseInt(cycle.idle_days, 10) || 0;
+            }
+        }
+
         const species = (cycle.stck_species || cycle.species || '').toUpperCase();
         const isVan = species.includes("VAN");
         const isMon = species.includes("MON");
-        const speciesCode = isVan ? "VAN" : isMon ? "MON" : "VAN";
-        const speciesLabel = isVan ? "VAN" : isMon ? "MON" : "VAN";
-        const speciesBadgeClass = isVan ? "sp-van" : "sp-mon";
+        const speciesCode = isProd ? (isVan ? "VAN" : isMon ? "MON" : "VAN") : "IDLE";
+        const speciesLabel = isProd ? (isVan ? "VAN" : isMon ? "MON" : "VAN") : "IDLE";
+        const speciesBadgeClass = isProd ? (isVan ? "sp-van" : "sp-mon") : "sp-idle";
 
         // Culture Stage
         let stageCode = "EARLY";
@@ -476,27 +490,30 @@ export class PondGridMap {
 
         if (!isProd) {
             health = "IDLE";
-            healthDesc = "Idle / Pond Preparation";
+            healthDesc = `Idle pond (${idleDays}d from Cycle Start Date${cycle.date_cycle ? ': ' + cycle.date_cycle : ''})`;
         }
 
         let cssClass = "risk-green";
         if (health === "RED") cssClass = "risk-red";
         else if (health === "YELLOW") cssClass = "risk-yellow";
-        else if (health === "IDLE") cssClass = "risk-idle";
+        else if (health === "IDLE") {
+            cssClass = (idleDays > 30) ? "risk-idle idle-overdue" : "risk-idle";
+        }
 
         return {
             pondCode,
             pondIndex: cycle.pond_index,
             isActive: isProd,
             doc,
-            docDisplay: isProd ? `${doc}` : "—",
+            docDisplay: isProd ? `${doc}` : `${idleDays}d`,
             speciesCode,
-            speciesLabel: isProd ? speciesLabel : "IDLE",
-            speciesBadgeClass: isProd ? speciesBadgeClass : "sp-idle",
+            speciesLabel,
+            speciesBadgeClass,
             health,
             healthDescription: healthDesc,
             stageCode: isProd ? stageCode : "IDLE",
-            cssClass
+            cssClass,
+            idleDays
         };
     }
 
@@ -524,6 +541,20 @@ export class PondGridMap {
 
         const cycle = this.activeCycleMap.get(pondCode);
         const issues = pondIndex ? (this.issuesMap.get(String(pondIndex)) || []) : [];
+        const isProd = cycle && (cycle.pond_status || '').toUpperCase() === 'PRODUCTION';
+
+        let idleDays = 0;
+        if (cycle && !isProd) {
+            if (cycle.date_cycle) {
+                const start = new Date(cycle.date_cycle);
+                if (!isNaN(start.getTime())) {
+                    const now = new Date();
+                    idleDays = Math.max(0, Math.floor((now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                }
+            } else if (cycle.idle_days) {
+                idleDays = parseInt(cycle.idle_days, 10) || 0;
+            }
+        }
 
         // Render drawer loading skeleton
         this.drawer.innerHTML = `
@@ -538,20 +569,24 @@ export class PondGridMap {
             <div class="drawer-body">
                 <div class="drawer-stat-grid">
                     <div class="drawer-stat-box">
-                        <div class="drawer-stat-lbl">Culture Age</div>
-                        <div class="drawer-stat-val">${cycle && cycle.stck_date ? calculateDOC(cycle.stck_date, cycle.date_close) + ' DOC' : '—'}</div>
+                        <div class="drawer-stat-lbl">${isProd ? 'Culture Age' : 'Idle Duration'}</div>
+                        <div class="drawer-stat-val" style="${!isProd && idleDays > 30 ? 'color: #b45309; font-weight: 800;' : ''}">
+                            ${isProd 
+                                ? (cycle && cycle.stck_date ? calculateDOC(cycle.stck_date, cycle.date_close) + ' DOC' : '—') 
+                                : `${idleDays} Days ${idleDays > 30 ? '⚠️ (>30d)' : ''}`}
+                        </div>
                     </div>
                     <div class="drawer-stat-box">
                         <div class="drawer-stat-lbl">Species</div>
-                        <div class="drawer-stat-val">${cycle ? (cycle.stck_species || 'P. VANNAMEI') : 'IDLE'}</div>
+                        <div class="drawer-stat-val">${isProd && cycle ? (cycle.stck_species || 'P. VANNAMEI') : '—'}</div>
                     </div>
                     <div class="drawer-stat-box">
                         <div class="drawer-stat-lbl">Stocking Date</div>
-                        <div class="drawer-stat-val" style="font-size: 0.95rem;">${cycle && cycle.stck_date ? cycle.stck_date : '—'}</div>
+                        <div class="drawer-stat-val" style="font-size: 0.95rem;">${isProd && cycle && cycle.stck_date ? cycle.stck_date : '—'}</div>
                     </div>
                     <div class="drawer-stat-box">
                         <div class="drawer-stat-lbl">Stocked Pieces</div>
-                        <div class="drawer-stat-val" style="font-size: 1.05rem;">${cycle && cycle.stck_total ? Number(cycle.stck_total).toLocaleString() : '—'}</div>
+                        <div class="drawer-stat-val" style="font-size: 1.05rem;">${isProd && cycle && cycle.stck_total ? Number(cycle.stck_total).toLocaleString() : '—'}</div>
                     </div>
                 </div>
 

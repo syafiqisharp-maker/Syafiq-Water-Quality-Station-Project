@@ -5,18 +5,17 @@
 
 /**
  * Calculates total active mechanical horsepower across standard pond aerators.
- * Formula: (units1HP * 1.0) + (units2HP * 2.0) + (units4HP * 4.0)
+ * Farm standard: 1.0 HP and 2.0 HP paddlewheels only.
+ * Formula: (units1HP * 1.0) + (units2HP * 2.0)
  * @param {number} u1 Count of 1 HP aerators
  * @param {number} u2 Count of 2 HP aerators
- * @param {number} u4 Count of 4 HP aerators
  * @returns {number} Total HP rounded to 1 decimal place
  */
-export function calculateTotalActiveHP(u1, u2, u4) {
+export function calculateTotalActiveHP(u1, u2) {
     const units1 = Math.max(0, parseInt(u1, 10) || 0);
     const units2 = Math.max(0, parseInt(u2, 10) || 0);
-    const units4 = Math.max(0, parseInt(u4, 10) || 0);
 
-    const total = (units1 * 1.0) + (units2 * 2.0) + (units4 * 4.0);
+    const total = (units1 * 1.0) + (units2 * 2.0);
     return Math.round(total * 10) / 10;
 }
 

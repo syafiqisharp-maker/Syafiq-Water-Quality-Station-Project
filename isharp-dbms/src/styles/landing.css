@@ -189,16 +189,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 4.5rem;
+    gap: 3rem;
     width: 100%;
-    max-width: 1000px;
+    max-width: 1120px;
     margin: auto 0;
 }
 
-@media (max-width: 820px) {
+@media (max-width: 960px) {
     .portal-split-stage {
         flex-direction: column;
-        gap: 2.5rem;
+        gap: 2rem;
     }
 }
 
@@ -234,7 +234,7 @@
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
 }
 
-/* Executive Orb Coloring (Ocean Sky & Emerald) */
+/* Executive Orb Coloring (Ocean Sky & Deep Blue) */
 .orb-executive {
     background: radial-gradient(circle at 40% 30%, #ffffff 0%, #7dd3fc 30%, #0284c7 70%, #034870 100%);
 }
@@ -251,7 +251,29 @@
     pointer-events: none;
 }
 
-/* DBMS Orb Coloring (Pure Crystalline Cyan & Turquoise) */
+/* Field Operations Orb Coloring (Vibrant Emerald & Marine Turquoise) */
+.orb-field-ops {
+    background: radial-gradient(circle at 40% 30%, #ffffff 0%, #6ee7b7 30%, #059669 70%, #064e3b 100%);
+    box-shadow: 
+        0 20px 45px rgba(5, 150, 105, 0.35),
+        0 6px 14px rgba(6, 78, 59, 0.2),
+        inset 0 -12px 24px rgba(5, 150, 105, 0.4),
+        inset 0 12px 24px rgba(255, 255, 255, 0.95);
+}
+
+.orb-field-ops::before {
+    content: '';
+    position: absolute;
+    top: 5px;
+    left: 20px;
+    right: 20px;
+    height: 70px;
+    border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+}
+
+/* DBMS Orb Coloring (Pure Crystalline Cyan & Sapphire) */
 .orb-dbms {
     background: radial-gradient(circle at 40% 30%, #ffffff 0%, #67e8f9 30%, #0891b2 70%, #083344 100%);
 }

@@ -50,8 +50,11 @@ export class StockingTab {
         if (!pond) return;
 
         if (this.dom.stckDate) this.dom.stckDate.value = pond.stck_date || "";
-        if (this.dom.stckSource) this.dom.stckSource.value = pond.stck_source || pond.pl_origin || "";
-        if (this.dom.stckSpecies) this.dom.stckSpecies.value = pond.stck_species || pond.species || "P. VANNAMEi";
+        const cleanOrigin = (pond.stck_source && pond.stck_source !== "—") ? pond.stck_source : (pond.pl_origin && pond.pl_origin !== "—" ? pond.pl_origin : "");
+        if (this.dom.stckSource) this.dom.stckSource.value = cleanOrigin;
+        
+        const cleanSpecies = (pond.stck_species && pond.stck_species !== "—") ? pond.stck_species : (pond.species && pond.species !== "—" ? pond.species : "");
+        if (this.dom.stckSpecies) this.dom.stckSpecies.value = cleanSpecies || "P. VANNAMEi";
         if (this.dom.stckNetto) this.dom.stckNetto.value = pond.stck_pcs || pond.stck_netto || "";
         if (this.dom.stckAllow) this.dom.stckAllow.value = pond.stck_allow !== undefined && pond.stck_allow !== null ? pond.stck_allow : "";
         
@@ -60,7 +63,8 @@ export class StockingTab {
         const grossVal = pond.stck_total !== undefined && pond.stck_total !== null ? pond.stck_total : (nettoVal + allowVal);
         if (this.dom.stckGross) this.dom.stckGross.value = grossVal || "";
 
-        if (this.dom.stckLine) this.dom.stckLine.value = pond.bs_line || pond.genetic_line || "";
+        const cleanLine = (pond.bs_line && pond.bs_line !== "—") ? pond.bs_line : (pond.genetic_line && pond.genetic_line !== "—" ? pond.genetic_line : "");
+        if (this.dom.stckLine) this.dom.stckLine.value = cleanLine;
         if (this.dom.stckSize) {
             const rawSize = pond.stck_size !== undefined && pond.stck_size !== null ? pond.stck_size : (pond.pl_size || "");
             this.dom.stckSize.value = rawSize ? (String(rawSize).toUpperCase().startsWith("PL") ? String(rawSize) : `PL ${rawSize}`) : "";
@@ -170,7 +174,8 @@ export class StockingTab {
                 stck_tank: this.dom.stckTank?.value || null
             };
 
-            await PondRepository.updateCycle(pondIndex, updates);
+            await PondRepository.saveStockingBatch(pondIndex, updates);
+            await this.loadBatches(appState.currentPond);
             
             // Sync active state
             if (appState.currentPond) {
@@ -181,7 +186,7 @@ export class StockingTab {
                 });
             }
 
-            Toast.success("Stocking parameters saved successfully!");
+            Toast.success("Stocking batch parameters saved successfully!");
         } catch (err) {
             console.error("Save Stocking error:", err);
             Toast.error(`Save failed: ${err.message}`);

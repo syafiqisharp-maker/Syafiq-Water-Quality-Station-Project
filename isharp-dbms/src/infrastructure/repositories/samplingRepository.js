@@ -13,7 +13,7 @@ export class SamplingRepository {
      */
     static async getSamplingByPond(pondIndex) {
         if (!pondIndex) return [];
-        const endpoint = `biometrics_sampling?pond_index=eq.${encodeURIComponent(pondIndex)}&order=smpl_doc.asc`;
+        const endpoint = `biometrics_sampling?pond_index=eq.${encodeURIComponent(pondIndex)}&order=smpl_doc.desc`;
         return await supabase.request(endpoint);
     }
 

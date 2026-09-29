@@ -7,7 +7,7 @@ class FilterStore {
     constructor() {
         this.status = "PRODUCTION"; // Default to active crops
         this.module = "ALL";
-        this.active = "ACTiVE";
+        this.active = "ACTIVE";
         this.searchQuery = "";
         this._listeners = new Set();
     }
@@ -35,9 +35,9 @@ class FilterStore {
         this.status = status;
         // Auto-sync active cycle state based on status
         if (status === "CLOSE") {
-            this.active = "iN ACTiVE";
-        } else if (["PRODUCTION", "iDLE", "MAINTENANCE", "RESERVOIR", "PREPARATION"].includes(status)) {
-            this.active = "ACTiVE";
+            this.active = "INACTIVE";
+        } else if (["PRODUCTION", "IDLE", "MAINTENANCE", "RESERVOIR", "PREPARATION"].includes(status)) {
+            this.active = "ACTIVE";
         } else if (status === "ALL") {
             this.active = "ALL";
         }
@@ -47,9 +47,9 @@ class FilterStore {
     setActive(active) {
         this.active = active;
         // Auto-sync status if active state changes
-        if (active === "iN ACTiVE" && this.status !== "ALL") {
+        if (active === "INACTIVE" && this.status !== "ALL") {
             this.status = "CLOSE";
-        } else if (active === "ACTiVE" && this.status === "CLOSE") {
+        } else if (active === "ACTIVE" && this.status === "CLOSE") {
             this.status = "PRODUCTION";
         }
         this._notify();

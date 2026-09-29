@@ -110,11 +110,14 @@ export class MasterTab {
         if (!pond) return;
 
         // 0. Species & Genetic Line
+        const isProd = (pond.pond_status || pond.status || "").toUpperCase() === "PRODUCTION";
+        const species = pond.species || pond.stck_species;
         if (this.dom.snapSpecies) {
-            this.dom.snapSpecies.textContent = pond.species || pond.stck_species || "P. VANNAMEi";
+            this.dom.snapSpecies.textContent = (species && species !== "—") ? species : (isProd ? "P. VANNAMEi" : "—");
         }
+        const genetic = pond.genetic_line || pond.bs_line;
         if (this.dom.snapGenetic) {
-            this.dom.snapGenetic.textContent = pond.genetic_line || pond.bs_line || "Standard Line";
+            this.dom.snapGenetic.textContent = (genetic && genetic !== "—") ? genetic : (isProd ? "Standard Line" : "—");
         }
 
         // 1. Stocked Pieces & Density

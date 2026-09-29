@@ -72,3 +72,34 @@ Every modification action must respect user roles defined in `src/config/permiss
 - Must provide clear visual column guides to users before pasting.
 - Must provide a "Copy Excel Template" one-click action.
 - Data must be validated cell-by-cell with real-time green/red visual previews before committing to Supabase.
+
+---
+
+## 5. Single Source of Truth & Database Query Standards
+
+- **Unified Views for Cycles:** When querying culture cycles, stocking dates (`stck_date`), species, or breeding lines, always query `view_growout_pond_cycles`. Do not query `stck_date` on the raw table `growout_pond_master`, as multi-batch stocking is normalized in `pond_stocking_batches`.
+- **Personnel Directory & Assignment:**
+  - `pond_staff` is the master directory containing personnel identity (`staff_no`, `staff_name`, `staff_position`, `is_active`).
+  - Cycle assignments (`pm_staff_no`, `sv_staff_no`, `rl_staff_no`, `po_staff_no`, `support_staff_no`) are stored strictly on `growout_pond_master`.
+- **Hardware & Field Inventory:**
+  - Feeding trays, autofeeders, hut condition, and supervisor field remarks are stored strictly on `pond_inventories` keyed by `pond_index`.
+
+---
+
+## 6. Paddlewheel Standard (1.0 HP & 2.0 HP Only)
+
+- On this farm, **only 1.0 HP and 2.0 HP paddlewheels exist**.
+- There is **no such thing as 4.0 HP units**. Any 4.0 HP inputs or calculations are strictly prohibited.
+- Total Active HP formula:
+  $$\text{Total Active HP} = (1.0 \times \text{aerator\_1hp}) + (2.0 \times \text{aerator\_2hp})$$
+
+---
+
+## 7. Field Operations & Zero-Fake-Telemetry Policy
+
+- **Never fabricate or simulate sensor telemetry**: If an IoT device is not installed or offline, never invent random DO, pH, or water temperature values.
+- Instead, render clean, professional placeholder cards indicating:
+  `📡 IoT Node Offline — Awaiting Sensor Deployment (DO: -- | pH: -- | T: --)`
+- Use live `weather_logs` for meteorological mast telemetry (Solar Lux, Rainfall, Air Temp, Humidity, Pressure).
+- Biometrics sampling queries must always order by `smpl_doc.desc` so the latest sampling record is resolved first.
+

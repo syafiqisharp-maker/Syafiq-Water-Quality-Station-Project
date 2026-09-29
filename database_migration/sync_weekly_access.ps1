@@ -125,18 +125,18 @@ function Get-SupabaseMaxIndex([string]$tableName) {
 }
 
 # -------------------------------------------------------------
-# STAGE 1: Synchronize Master Cycles (stocking_records)
+# STAGE 1: Synchronize Master Cycles (growout_pond_master)
 # Upsert active cycles + recently closed/modified cycles + any new cycles
 # -------------------------------------------------------------
 Write-Output ""
-Write-Output "[1/7] Synchronizing Master Culture Cycles (stocking_records)..."
+Write-Output "[1/7] Synchronizing Master Culture Cycles (growout_pond_master)..."
 
 # Fetch all existing pond_index in Supabase to guarantee referential integrity
 $sbPondIndices = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 $offset = 0
 $limit = 1000
 while ($true) {
-    $queryUrl = "$supabaseUrl/rest/v1/stocking_records?select=pond_index&limit=" + $limit + "&offset=" + $offset
+    $queryUrl = "$supabaseUrl/rest/v1/growout_pond_master?select=pond_index&limit=" + $limit + "&offset=" + $offset
     $res = Invoke-RestMethod -Uri $queryUrl -Headers $headers -Method Get
     if ($res.Count -eq 0) { break }
     foreach ($row in $res) {
@@ -158,13 +158,26 @@ while ($reader.Read()) {
     $pIdx = SafeString $reader["PondIndex"]
     if (-not $pIdx) { continue }
 
-    $pActive = SafeString $reader["pond active"]
-    $pStatus = SafeString $reader["pond status"]
+    $rawActive = SafeString $reader["pond active"]
+    $rawStatus = SafeString $reader["pond status"]
     $dtClose = SafeDate $reader["date close"]
+
+    # Normalize casing and status to clean architectural standard
+    $cleanActive = if ($rawActive) {
+        $norm = $rawActive.Replace(" ", "").ToUpper()
+        if ($norm -eq "INACTIVE") { "INACTIVE" } else { "ACTIVE" }
+    } else { "ACTIVE" }
+
+    $cleanStatus = if ($rawStatus) {
+        $s = $rawStatus.Trim().ToUpper()
+        if ($s -in @("NOT IN USED", "NOT IN USE", "NOT_IN_USE")) { "NOT IN USE" }
+        elseif ($s -in @("PRODUCTION", "IDLE", "PREPARATION", "RESERVOIR", "MAINTENANCE", "CLOSE")) { $s }
+        else { $s }
+    } else { "IDLE" }
 
     # Filter: sync if active, or if not yet in Supabase, or if closed within the last 60 days
     $isNew = -not $sbPondIndices.Contains($pIdx)
-    $isActive = ($pActive -eq "ACTiVE")
+    $isActive = ($cleanActive -eq "ACTIVE")
     $isRecentClose = ($dtClose -ne $null -and [datetime]$dtClose -ge (Get-Date).AddDays(-60))
 
     if (-not ($isNew -or $isActive -or $isRecentClose)) {
@@ -181,8 +194,8 @@ while ($reader.Read()) {
         row_no = SafeString $reader["row"]
         crop_no = SafeString $reader["cropno"]
         cycle_no = SafeString $reader["cycleno"]
-        pond_status = $(if ($pStatus) { $pStatus } else { "iDLE" })
-        pond_active = $(if ($pActive) { $pActive } else { "ACTiVE" })
+        pond_status = $cleanStatus
+        pond_active = $cleanActive
         area = $(if ($reader["area"] -ne [DBNull]::Value) { SafeDecimal $reader["area"] } else { 0.50 })
         pond_type = $(if ($reader["pond type"] -ne [DBNull]::Value) { SafeString $reader["pond type"] } else { "FULL LiNiNG" })
         pond_usage = $(if ($reader["pond usage"] -ne [DBNull]::Value) { SafeString $reader["pond usage"] } else { "GROWOUT" })
@@ -210,8 +223,8 @@ while ($reader.Read()) {
 $reader.Close()
 
 if ($masterBatch.Count -gt 0) {
-    Post-BatchToSupabase "stocking_records" $masterBatch "pond_index"
-    Write-Output "  [OK] Upserted $masterCount active/recent culture cycles."
+    Post-BatchToSupabase "growout_pond_master" $masterBatch "pond_index"
+    Write-Output "  [OK] Upserted $masterCount active/recent culture cycles into growout_pond_master."
 } else {
     Write-Output "  [OK] All master cycles already up-to-date."
 }
@@ -222,7 +235,7 @@ if ($masterBatch.Count -gt 0) {
 # -------------------------------------------------------------
 Write-Output ""
 Write-Output "[2/7] Synchronizing Active Gatekeeper (active_operational_ponds)..."
-$cmd.CommandText = "SELECT PondIndex, pond FROM [GrowoutPondMaster] WHERE [pond status] = 'PRODUCTION' AND [pond active] = 'ACTiVE'"
+$cmd.CommandText = "SELECT PondIndex, pond FROM [GrowoutPondMaster] WHERE [pond status] = 'PRODUCTION' AND ([pond active] = 'ACTiVE' OR [pond active] = 'ACTIVE')"
 $reader = $cmd.ExecuteReader()
 $accessActiveDict = @{}
 while ($reader.Read()) {
@@ -271,14 +284,14 @@ Write-Output "  [OK] Gatekeeper updated: $($accessActiveDict.Count) active ponds
 
 # -------------------------------------------------------------
 # STAGE 3: Incremental GrowoutPondStocking -> pond_stocking_batches
+# Single Source of Truth for all stocking batches
 # -------------------------------------------------------------
 Write-Output ""
-Write-Output "[3/7] Incremental Sync: GrowoutPondStocking..."
+Write-Output "[3/7] Incremental Sync: GrowoutPondStocking -> pond_stocking_batches..."
 $maxStocking = Get-SupabaseMaxIndex "pond_stocking_batches"
 $cmd.CommandText = "SELECT PondIndex, stckdate, stcksource, stckspcs, stckpcs, stcktype, stckallow, stcktotal, stcktank, stcksize, stckplstts, BSLine, indexNo FROM [GrowoutPondStocking] WHERE indexNo > $maxStocking ORDER BY indexNo ASC"
 $reader = $cmd.ExecuteReader()
 $batch = @()
-$masterStockBatch = @()
 $newStockingCount = 0
 while ($reader.Read()) {
     $pIdx = SafeString $reader["PondIndex"]
@@ -312,36 +325,17 @@ while ($reader.Read()) {
         bs_line = $bsLine
     }
 
-    # Also update master stocking_records so DOC and primary stocking details render in DBMS
-    $masterStockBatch += [ordered]@{
-        pond_index = $pIdx
-        stck_date = $stckDate
-        stck_source = $stckSource
-        stck_species = $stckSpecies
-        stck_pcs = $stckPcs
-        stck_type = $stckType
-        stck_allow = $stckAllow
-        stck_total = $stckTotal
-        stck_tank = $stckTank
-        stck_size = $stckSize
-        stck_plstts = $stckPlstts
-        bs_line = $bsLine
-    }
-
     $newStockingCount++
     if ($batch.Count -ge 500) {
         Post-BatchToSupabase "pond_stocking_batches" $batch "index_no"
-        Post-BatchToSupabase "stocking_records" $masterStockBatch "pond_index"
         $batch = @()
-        $masterStockBatch = @()
     }
 }
 $reader.Close()
 if ($batch.Count -gt 0) {
     Post-BatchToSupabase "pond_stocking_batches" $batch "index_no"
-    Post-BatchToSupabase "stocking_records" $masterStockBatch "pond_index"
 }
-Write-Output "  [OK] Added $newStockingCount new stocking batches and updated stocking_records (Max ID was $maxStocking)."
+Write-Output "  [OK] Added $newStockingCount new stocking batches to pond_stocking_batches (Max ID was $maxStocking)."
 
 
 # -------------------------------------------------------------

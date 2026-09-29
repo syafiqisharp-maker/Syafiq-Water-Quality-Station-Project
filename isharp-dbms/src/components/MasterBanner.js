@@ -69,14 +69,21 @@ export class MasterBanner {
 
         // Active State Badge
         if (this.dom.badgePondActive) {
-            const isActive = (pond.active || "").toLowerCase().includes("act");
-            this.dom.badgePondActive.textContent = pond.active || "ACTiVE";
+            const isActive = (pond.active || pond.pond_active || "").toUpperCase() === "ACTIVE";
+            this.dom.badgePondActive.textContent = pond.active || pond.pond_active || "ACTIVE";
             this.dom.badgePondActive.className = `status-badge ${isActive ? "status-production" : "status-close"}`;
         }
 
         // Species & Genetics
-        if (this.dom.badgeSpecies) this.dom.badgeSpecies.textContent = pond.species || pond.stck_species || "P. VANNAMEi";
-        if (this.dom.badgeGenetic) this.dom.badgeGenetic.textContent = pond.genetic_line || pond.bs_line || "Standard Line";
+        const isProd = (pond.status || pond.pond_status || "").toUpperCase() === "PRODUCTION";
+        const species = pond.species || pond.stck_species;
+        if (this.dom.badgeSpecies) {
+            this.dom.badgeSpecies.textContent = (species && species !== "—") ? species : (isProd ? "P. VANNAMEi" : "—");
+        }
+        const genetic = pond.genetic_line || pond.bs_line;
+        if (this.dom.badgeGenetic) {
+            this.dom.badgeGenetic.textContent = (genetic && genetic !== "—") ? genetic : (isProd ? "Standard Line" : "—");
+        }
 
         // Cycle & Crop Numbers
         const parts = String(pond.pond_index || "").split(".");
