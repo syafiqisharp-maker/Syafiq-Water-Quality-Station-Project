@@ -135,9 +135,9 @@ export class ManagementEntryPage {
                             <input type="text" id="mgmt-rl-name" class="form-control" placeholder="Row Leader Name (Auto-resolved)" readonly style="background: rgba(241, 245, 249, 0.8); font-size: 0.84rem; color: #0f172a; font-weight: 600;">
                         </div>
 
-                        <!-- Primary Operator (PO) -->
+                        <!-- Pond Operator (PO) -->
                         <div style="display: grid; grid-template-columns: 140px 130px 1fr; gap: 0.85rem; align-items: center; background: #f8fafc; padding: 0.65rem 0.9rem; border-radius: 10px; border: 1px solid #e2e8f0;">
-                            <label style="font-size: 0.82rem; font-weight: 700; color: #334155; margin: 0;">🦐 Primary Operator</label>
+                            <label style="font-size: 0.82rem; font-weight: 700; color: #334155; margin: 0;">🦐 Pond Operator</label>
                             <input type="text" id="mgmt-po-id" list="mgmt-staff-datalist" class="form-control" placeholder="ID (e.g. 1216)" value="${pond.po_staff_no || ''}" style="font-size: 0.85rem; font-weight: 700; text-align: center; background: #ffffff;">
                             <input type="text" id="mgmt-po-name" class="form-control" placeholder="Operator Name (Auto-resolved)" readonly style="background: rgba(241, 245, 249, 0.8); font-size: 0.84rem; color: #0f172a; font-weight: 600;">
                         </div>

@@ -78,7 +78,7 @@ export class ManagementEntryModal {
                             </div>
                             <!-- PO -->
                             <div style="display: grid; grid-template-columns: 110px 95px 1fr; gap: 0.45rem; align-items: center;">
-                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🦐 Operator</label>
+                                <label style="font-size: 0.75rem; font-weight: 700; color: #334155; margin: 0;">🦐 Pond Operator</label>
                                 <input type="text" id="mgmt-staff-po-id" list="staff-directory-datalist" class="form-control" placeholder="ID (1216)" style="font-size: 0.8rem; font-weight: 700; text-align: center;">
                                 <input type="text" id="mgmt-staff-po-name" class="form-control" placeholder="Operator Name" readonly style="background: rgba(255, 255, 255, 0.85); font-size: 0.78rem;">
                             </div>

@@ -91,7 +91,7 @@ export class PondWqsDetail {
             evalResult = {
                 level: "optimal",
                 bannerIcon: "📋",
-                title: `Standard Feed Tray Protocol (DOC ${doc})`,
+                title: "Feeding Action Plan",
                 badgeText: "NORMAL FEED",
                 reasons: [
                     { 
@@ -248,12 +248,9 @@ export class PondWqsDetail {
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span style="font-size: 1.6rem;">${evalResult.bannerIcon}</span>
                                 <h3 style="margin: 0; font-size: 1.2rem; color: ${bannerColor}; font-weight: 900;">
-                                    ${evalResult.title}
+                                    Feeding Action Plan
                                 </h3>
                             </div>
-                            <span style="font-size: 0.78rem; color: #475569; margin-left: 2.3rem; display: block; margin-top: 0.2rem;">
-                                Precision feeding directive evaluated against dissolved oxygen baseline, thermal limit, and live weather telemetry.
-                            </span>
                         </div>
                         <span class="badge" style="font-size: 0.82rem; font-weight: 800; padding: 0.35rem 0.85rem; border-radius: 999px; background: ${bannerBorder}; color: #ffffff;">
                             ${evalResult.badgeText}
@@ -263,11 +260,10 @@ export class PondWqsDetail {
                     <!-- "Why?" Diagnostics List -->
                     <div style="margin-left: 2.3rem; display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.6rem;">
                         ${evalResult.reasons.map(r => `
-                            <div style="display: flex; align-items: flex-start; gap: 0.5rem; background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 8px; padding: 0.5rem 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 8px; padding: 0.5rem 0.75rem;">
                                 <span style="font-size: 1.1rem; line-height: 1;">${r.icon}</span>
                                 <div style="font-size: 0.8rem; color: #1e293b;">
                                     <strong>${r.headline}</strong>
-                                    ${r.desc ? `<div style="font-size: 0.74rem; color: #64748b; margin-top: 0.15rem;">${r.desc}</div>` : ''}
                                 </div>
                             </div>
                         `).join("")}
@@ -364,10 +360,9 @@ export class PondWqsDetail {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.6rem;">
                         <div>
                             <h3 style="margin: 0; font-size: 1.02rem; color: #0f172a; font-weight: 800; display: flex; align-items: center; gap: 0.45rem;">
-                                <span>☀️ Live Weather Station Telemetry</span>
+                                <span>☀️ Weather Station iSHARP</span>
                                 <span style="font-size: 0.68rem; font-weight: 700; background: #dcfce7; color: #15803d; padding: 0.15rem 0.5rem; border-radius: 6px;">● ONLINE (${weatherTime})</span>
                             </h3>
-                            <span style="font-size: 0.74rem; color: #64748b;">Direct telemetry feed from farm meteorological mast (weather_logs)</span>
                         </div>
                     </div>
 
@@ -428,9 +423,9 @@ export class PondWqsDetail {
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.6rem;">
                         <div>
                             <h3 style="margin: 0; font-size: 1.02rem; color: #0f172a; font-weight: 800;">
-                                👥 Assigned Crew &amp; Aeration Roster
+                                👥 Personnel &amp; Aset Status
                             </h3>
-                            <span style="font-size: 0.74rem; color: #64748b;">Single source of truth with DBMS and growout_pond_master.</span>
+                            <span style="font-size: 0.74rem; color: #64748b;">Sync with main database (DBMS,Supabase).</span>
                         </div>
                         <button type="button" id="btn-edit-hardware-crew" class="btn-action btn-secondary" style="font-size: 0.8rem; font-weight: 800; padding: 0.35rem 0.85rem;">
                             <span>Edit in Management Entry ➔</span>
@@ -438,16 +433,16 @@ export class PondWqsDetail {
                     </div>
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem;">
-                        <!-- Primary Operator -->
+                        <!-- Pond Operator -->
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem;">
-                            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">🦐 Primary Operator</span>
+                            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">🦐 Pond Operator</span>
                             <div id="wqs-preview-po" style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin-top: 0.25rem;">Loading...</div>
                         </div>
 
-                        <!-- Supervisor -->
+                        <!-- Row Leader -->
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem;">
-                            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">📋 Field Supervisor</span>
-                            <div id="wqs-preview-sv" style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin-top: 0.25rem;">Loading...</div>
+                            <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">🚜 Row Leader</span>
+                            <div id="wqs-preview-rl" style="font-size: 0.88rem; font-weight: 800; color: #0f172a; margin-top: 0.25rem;">Loading...</div>
                         </div>
 
                         <!-- Active Paddlewheels (1HP & 2HP Only) -->
@@ -556,20 +551,29 @@ export class PondWqsDetail {
             // Resolve staff
             await StaffRepository.getStaffDirectory();
             const poEl = this.container.querySelector("#wqs-preview-po");
-            const svEl = this.container.querySelector("#wqs-preview-sv");
+            const rlEl = this.container.querySelector("#wqs-preview-rl");
 
-            if (this.pond.po_staff_no) {
-                const s = StaffRepository.findStaffByNo(this.pond.po_staff_no);
-                if (poEl) poEl.textContent = s ? `${s.staff_name} [${this.pond.po_staff_no}]` : `Staff #${this.pond.po_staff_no}`;
+            // Connect to main database (growout_pond_master) to fetch live row leader and operator assignments
+            const cycleStaff = await StaffRepository.getCycleStaff(pondIndex);
+            if (cycleStaff) {
+                Object.assign(this.pond, cycleStaff);
+            }
+
+            const poStaffNo = cycleStaff?.po_staff_no || this.pond.po_staff_no;
+            const rlStaffNo = cycleStaff?.rl_staff_no || this.pond.rl_staff_no;
+
+            if (poStaffNo) {
+                const s = StaffRepository.findStaffByNo(poStaffNo);
+                if (poEl) poEl.textContent = s ? `${s.staff_name} [${poStaffNo}]` : `Staff #${poStaffNo}`;
             } else {
                 if (poEl) poEl.textContent = "Unassigned";
             }
 
-            if (this.pond.sv_staff_no) {
-                const s = StaffRepository.findStaffByNo(this.pond.sv_staff_no);
-                if (svEl) svEl.textContent = s ? `${s.staff_name} [${this.pond.sv_staff_no}]` : `Staff #${this.pond.sv_staff_no}`;
+            if (rlStaffNo) {
+                const s = StaffRepository.findStaffByNo(rlStaffNo);
+                if (rlEl) rlEl.textContent = s ? `${s.staff_name} [${rlStaffNo}]` : `Staff #${rlStaffNo}`;
             } else {
-                if (svEl) svEl.textContent = "Unassigned";
+                if (rlEl) rlEl.textContent = "Unassigned";
             }
 
             // Resolve hut condition & inventory
