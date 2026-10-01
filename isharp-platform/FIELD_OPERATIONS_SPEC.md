@@ -3,7 +3,7 @@
 > **Target Audience:** Field Operators, Row Leaders, and Field Supervisors  
 > **Hardware Target:** Mobile Smartphones & Rugged Outdoor Field Tablets  
 > **Single Source of Truth:** Cloud Supabase Database (`public` schema)  
-> **Last Updated:** 2026-09-30
+> **Last Updated:** 2026-10-01
 
 ---
 
@@ -153,6 +153,11 @@ Designed to satisfy both **Field Workers** (who need to log 12–24 ponds in und
 | **2026-09-30 16:55** | Mobile Modal Fix | Fix modal flex squashing & switcher button layout in `DailyRecordsPage.js` & `field-ops-mobile.css` | Replaced `.quick-chip-btn` with fixed-width `.btn-modal-pond-nav` (`68px`) on switcher bar so pond info text is never squashed into a 1-character column. Set `.modal-dialog` to `display: block` with natural `-webkit-overflow-scrolling: touch` and added `flex-shrink: 0` to `.daily-entry-card` to eliminate flexbox min-height collapsing of Feeding and Water sections. |
 | **2026-10-01 09:40** | Theme & Aero Glass | Frutiger Aero Crystal 18% Glassmorphism & Organic Pods | Prototyped standalone preview (`preview_field_ops_frutiger_aero.html`). Tuned glass opacity to Crystal 18% (`--glass-opacity: 0.18`), eliminated opaque white double-layer containers, added asymmetric organic pod silhouettes (`border-radius: 24px 12px 24px 12px`), crescent specular light arcing, and anti-washout text shadow for direct sunlight legibility. |
 | **2026-10-01 09:45** | Asset Generation | Generate 3 Biophilic Frutiger Aero Backgrounds | Generated 3 distinct 16:9 ultra-HD underwater wallpapers (`seagrass_sand_sunbeams.jpg`, `lagoon_caustics_sand.jpg`, `aero_seabed_rays.jpg`) featuring shallow seagrass meadows, ripple-textured sandbeds, and piercing volumetric sunlight rays. Deployed to `public/assets/` and integrated into `preview_field_ops_frutiger_aero.html` with Crystal 18% as default. |
+| **2026-10-01 11:20** | Aero Integration | Full Platform Parity with Frutiger Aero Preview | Integrated Aero 28% glass tokens into `index.html` and `field-ops-mobile.css`. Added animated ambient bubbles (`#aero-bubbles-container`), floating glass orbs, horizon ocean banner, and typography system (`Outfit`, `Plus Jakarta Sans`, `Space Grotesk`). |
+| **2026-10-01 11:45** | Daily Records UX | Port 100% Preview Modal Design to `DailyRecordsPage.js` | Completely refreshed the daily entry form modal to match the preview aesthetic: frosted glass pods, gradient section headers, large touch-friendly steppers, radial swatch orbs, and elevated micro-badges. |
+| **2026-10-01 12:15** | Modal Containment | Fix Mobile Scroll & Sticky Footer Docking | Resolved modal body overflow containment so the dialog scrolls smoothly on iOS/Android while keeping the action buttons (`Cancel`, `Save`, `Save & Next`) pinned to the bottom dock without squashing inputs. |
+| **2026-10-01 12:35** | 24-Pond Map UX | High-Contrast Distinction for Inactive / Idle Ponds (Option A) | Implemented Option A "Drained Pool Glass & Dashed Perimeter": idle ponds use a subtle dashed border (`1.5px dashed rgba(148,163,184,0.65)`), recessed silver status bead, and muted `#94a3b8` typography, creating immediate visual contrast against vibrant active production pond tiles. |
+| **2026-10-01 12:48** | Telemetry Grid | DO & pH Telemetry Pill Strip with Rule 7 Placeholders | Added twin telemetry pills (`🫧 DO: -- mg/L` and `🧪 pH: -- pH`) to active pond cards in `FieldOpsMap.js`, binding real sensor telemetry when available while displaying clean non-fabricated placeholders per Rule 7. |
 
 ---
 
@@ -161,7 +166,8 @@ Designed to satisfy both **Field Workers** (who need to log 12–24 ponds in und
 - **Vite Production Bundler:**
   ```bash
   cmd.exe /c "npm run build"
-  # Output: 53 modules transformed cleanly (dist/index.html 89.63 kB, CSS 74.48 kB, JS 327.22 kB, 0 errors)
+  # Output: 53 modules transformed cleanly (dist/index.html 89.75 kB, CSS 94.36 kB, JS 326.31 kB, 0 errors)
   ```
 - **Database Schema Integrity:** Verified via Supabase `information_schema.columns` and round-trip queries on `public.daily_pond_records` and `public.mineral_probiotic_used`.
+- **Git Branch:** `feature/field-ops-frutiger-aero` (isolated feature branch, undergoing 7-day field soak testing before merging to `main`).
 
