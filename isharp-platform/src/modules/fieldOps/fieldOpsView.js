@@ -60,7 +60,7 @@ export class FieldOpsView {
                 </div>
 
                 <!-- 9 Module Selection Cards -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; width: 100%; max-width: 860px; margin-bottom: 2rem;">
+                <div class="module-select-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; width: 100%; max-width: 860px; margin-bottom: 2rem;">
                     ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(m => {
                         const mStr = String(m).padStart(2, "0");
                         const r1 = String((m - 1) * 2 + 1).padStart(2, "0");
@@ -81,22 +81,28 @@ export class FieldOpsView {
                 <!-- Back to Landing Page -->
                 <div>
                     <button type="button" class="btn-action btn-secondary" data-nav-view="portal" style="font-size: 0.84rem; font-weight: 700; padding: 0.5rem 1.4rem; border-radius: 999px;">
-                        <span>← Back to Welcome Portal</span>
+                        <span class="btn-text-full">← Back to Welcome Portal</span>
+                        <span class="btn-text-short">← Back to Portal</span>
                     </button>
                 </div>
 
                 <!-- Password Modal -->
                 <div id="module-passcode-modal" class="modal-overlay" style="display: none;">
                     <div class="modal-dialog modal-glass" style="max-width: 380px; width: 90%; text-align: center; padding: 1.75rem 1.5rem;">
-                        <div style="font-size: 2.2rem; margin-bottom: 0.5rem;">🔐</div>
+                        <div style="width: 54px; height: 54px; border-radius: 50%; background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%); color: #0284c7; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem auto; box-shadow: inset 0 2px 4px #ffffff, 0 4px 12px rgba(2, 132, 199, 0.18);">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                        </div>
                         <h3 id="modal-target-module-title" style="margin: 0 0 0.35rem 0; font-size: 1.25rem; font-weight: 900; color: #0f172a;">Module Authentication</h3>
-                        <p style="font-size: 0.78rem; color: #64748b; margin-bottom: 1.25rem;">Enter the supervisor access password for this module</p>
+                        <p style="font-size: 0.78rem; color: #475569; margin-bottom: 1.25rem;">Enter the supervisor access password for this module</p>
                         
-                        <input type="password" id="input-module-passcode" class="form-control" placeholder="Enter password (e.g. m01pass)" style="font-size: 0.95rem; text-align: center; font-weight: 700; letter-spacing: 0.1em; padding: 0.6rem 0.8rem; margin-bottom: 1.2rem;" />
+                        <input type="password" id="input-module-passcode" class="form-control" placeholder="Password (e.g. m01pass)" style="font-size: 0.92rem; text-align: center; font-weight: 700; padding: 0.65rem 0.8rem; margin-bottom: 1.2rem; min-height: 44px;" />
                         
                         <div style="display: flex; gap: 0.6rem; justify-content: center;">
-                            <button type="button" id="btn-cancel-passcode" class="btn-action btn-secondary" style="font-size: 0.82rem; padding: 0.45rem 1rem;">Cancel</button>
-                            <button type="button" id="btn-verify-passcode" class="btn-action btn-primary" style="font-size: 0.82rem; font-weight: 800; padding: 0.45rem 1.25rem;">Unlock Module</button>
+                            <button type="button" id="btn-cancel-passcode" class="btn-action btn-secondary" style="font-size: 0.84rem; padding: 0.5rem 1.1rem; min-height: 44px;">Cancel</button>
+                            <button type="button" id="btn-verify-passcode" class="btn-action btn-primary" style="font-size: 0.84rem; font-weight: 800; padding: 0.5rem 1.25rem; min-height: 44px;">Unlock Module</button>
                         </div>
                     </div>
                 </div>
@@ -129,6 +135,12 @@ export class FieldOpsView {
 
         btnCancel.addEventListener("click", () => {
             modal.style.display = "none";
+        });
+
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) {
+                modal.style.display = "none";
+            }
         });
 
         const doVerify = async () => {
@@ -194,33 +206,33 @@ export class FieldOpsView {
                 <header class="field-ops-header flex-between" style="background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 1); border-radius: 18px; padding: 0.85rem 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.08); flex-wrap: wrap; gap: 0.75rem;">
                     
                     <!-- Left: Navigation & Branding -->
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <button type="button" class="btn-action btn-secondary" data-nav-view="portal" style="font-size: 0.78rem; font-weight: 700; padding: 0.4rem 0.85rem;">
-                            <span>← Back to Portal</span>
+                    <div class="field-ops-header-top" style="display: flex; align-items: center; gap: 0.85rem;">
+                        <button type="button" class="btn-action btn-secondary" data-nav-view="portal" style="font-size: 0.78rem; font-weight: 700; padding: 0.45rem 0.85rem; border-radius: 8px;">
+                            <span>← Portal</span>
                         </button>
                         <div>
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <h1 style="margin: 0; font-size: 1.25rem; font-weight: 900; color: #0f172a;">
-                                    Field Operations — Module ${modStr}
+                            <div style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                                <h1 style="margin: 0; font-size: 1.2rem; font-weight: 900; color: #0f172a;">
+                                    Field Ops — M${modStr}
                                 </h1>
-                                <span style="font-size: 0.72rem; font-weight: 800; background: #0284c7; color: #ffffff; padding: 0.2rem 0.55rem; border-radius: 6px;">
+                                <span style="font-size: 0.7rem; font-weight: 800; background: #0284c7; color: #ffffff; padding: 0.15rem 0.5rem; border-radius: 6px;">
                                     24 PONDS
                                 </span>
                             </div>
-                            <span style="font-size: 0.74rem; color: #64748b;">
+                            <span style="font-size: 0.72rem; color: #64748b;" class="hide-mobile">
                                 Live Water Quality Station Telemetry &amp; Feeding Action Plans
                             </span>
                         </div>
                     </div>
 
                     <!-- Right: Supervisor Info & Module Switch -->
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <div style="display: flex; align-items: center; gap: 0.4rem; background: rgba(240, 249, 255, 0.9); border: 1px solid #bae6fd; padding: 0.35rem 0.75rem; border-radius: 8px; font-size: 0.78rem; font-weight: 700; color: #0369a1;">
+                    <div class="field-ops-header-controls" style="display: flex; align-items: center; gap: 0.65rem;">
+                        <div style="display: flex; align-items: center; gap: 0.35rem; background: rgba(240, 249, 255, 0.9); border: 1px solid #bae6fd; padding: 0.35rem 0.65rem; border-radius: 8px; font-size: 0.76rem; font-weight: 700; color: #0369a1;">
                             <span>👤</span>
-                            <span>Supervisor M${modStr}</span>
+                            <span>M${modStr} Supervisor</span>
                         </div>
-                        <button type="button" id="btn-switch-module" class="btn-action btn-secondary" style="font-size: 0.76rem; font-weight: 700; padding: 0.4rem 0.85rem;">
-                            <span>🔓 Switch Module</span>
+                        <button type="button" id="btn-switch-module" class="btn-action btn-secondary" style="font-size: 0.76rem; font-weight: 700; padding: 0.45rem 0.8rem; border-radius: 8px;">
+                            <span>🔓 Switch</span>
                         </button>
                     </div>
 
@@ -258,6 +270,7 @@ export class FieldOpsView {
 
         // Helper to switch cleanly between the 4 views
         const showView = (viewName) => {
+            if (dailyMount) dailyMount.classList.remove("daily-mount-modal-only");
             if (mapMount) mapMount.style.display = viewName === "map" ? "block" : "none";
             if (detailMount) detailMount.style.display = viewName === "detail" ? "block" : "none";
             if (mgmtMount) mgmtMount.style.display = viewName === "mgmt" ? "block" : "none";
@@ -274,6 +287,20 @@ export class FieldOpsView {
             onBackToMap: () => {
                 showView("map");
                 this.mapComponent.loadModulePonds();
+            },
+            onRecordSaved: () => {
+                if (this.mapComponent) {
+                    this.mapComponent.loadModulePonds();
+                }
+            },
+            onCloseQuickModal: () => {
+                if (dailyMount) {
+                    dailyMount.classList.remove("daily-mount-modal-only");
+                    dailyMount.style.display = "none";
+                }
+                if (this.mapComponent) {
+                    this.mapComponent.loadModulePonds();
+                }
             }
         });
 
@@ -303,7 +330,8 @@ export class FieldOpsView {
             onOpenDailyRecords: (targetPond) => {
                 this.activePond = targetPond;
                 showView("daily");
-                this.dailyRecordsPage.render(targetPond);
+                const activePonds = this.mapComponent ? this.mapComponent.getActivePondsList() : [];
+                this.dailyRecordsPage.render(targetPond, activePonds);
             },
             onOpenManagement: (targetPond) => {
                 this.activePond = targetPond;
@@ -312,11 +340,23 @@ export class FieldOpsView {
             }
         });
 
-        // 4. 24-Pond Overview Map
-        this.mapComponent = new FieldOpsMap("field-ops-map-mount", this.currentModule, (pond, telemetry) => {
-            this.activePond = pond;
-            showView("detail");
-            this.pondDetail.render(pond, telemetry);
-        });
+        // 4. 24-Pond Overview Map (Supervisor View + Worker 1-Tap Quick Log)
+        this.mapComponent = new FieldOpsMap(
+            "field-ops-map-mount",
+            this.currentModule,
+            (pond, telemetry) => {
+                this.activePond = pond;
+                showView("detail");
+                this.pondDetail.render(pond, telemetry);
+            },
+            (targetPond, activePondsList) => {
+                this.activePond = targetPond;
+                if (dailyMount) {
+                    dailyMount.classList.add("daily-mount-modal-only");
+                    dailyMount.style.display = "block";
+                }
+                this.dailyRecordsPage.openQuickModal(targetPond, activePondsList);
+            }
+        );
     }
 }

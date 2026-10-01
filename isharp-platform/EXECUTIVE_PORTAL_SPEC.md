@@ -149,6 +149,12 @@ The operational DBMS (10 modules: Master, Sampling, Feeding, Harvest, Stocking, 
 | 2026-09-29 | Phase 2 Implementation | Dedicated `PondGridMap.js` component with Drawer & Tooltip | Decouples map layout, cell state computation, and biosecurity logic from `executiveTab.js` while maintaining reactive bindings with `appState.js`. |
 | 2026-09-29 | Data Ingestion Fix | Query non-closed cycles via `pond_status=neq.CLOSE` | Overcomes PostgREST 1,000-row limit that previously truncated data at Module 01 historical cycles; now correctly surfaces all 137 active cycles across all 9 modules (`01` through `09`). |
 | 2026-09-29 | UI Simplification | Removed hover tooltip and redundant section text | Floating tooltip was redundant with the map display; clicking directly opens the rich slide-out drawer. Removed "Rows 01 & 02 • 24 Ponds" and "9 Modules × 2 Rows × 12 Ponds" to keep the layout minimal and uncluttered. |
+| 2026-09-30 | Field Ops Mobile | Strict mobile optimization for `#view-field-ops` | Outdoor field staff use phones/tablets; Executive and DBMS portals remain desktop-only. |
+| 2026-09-30 | Field Ops Simplification | Simplified section titles & removed subtitles | "Module XX - Row YY", "Feeding Action Plan", "Growout Book Records", "Weather Station iSHARP", "Personnel & Aset Status". |
+| 2026-09-30 | Mortality Measurement | Migrated from pieces (pcs) to kilograms (kg) | Practical farm estimation weighs scooped dead shrimp by kg. Added `mortality_kg numeric(8,2)` to `daily_pond_records` in Supabase. |
+| 2026-09-30 | Landing Page Rebrand | Rebranded to `"BAB AQUACULTURE PLATFORM"` & `"Aquaculture Platform 2026"` | Removed all subtitles under the 3 gateway cards (`Executive Dashboard`, `Field Operations`, `iSHARP DBMS`) for a clean, executive gateway. |
+| 2026-09-30 | Timezone-Safe Dates | Replaced UTC `toISOString()` with local calendar date helpers | Fixed off-by-one day bug in Malaysia (`UTC+8`) so the green `TODAY` badge and DOC calculations always match local farm time. |
+| 2026-09-30 | Rapid Field Logging UX | Adopted 3-in-1 Dual-Persona Workflow & True 3D CSS Water Orbs | Added 1-Tap `➕ Log` & `✓ Logged` badges on the 24-Pond Map, Smart Yesterday Carry-Forward, `⚡ Save & Next ➔` pond switcher, and confined `.water-swatch-orb` chips with simple colour names (`Lt Green`, `Green`, `Dk Green`, `Brn Green`, `Tea`, `Brown`, `Clear`, `Turbid`). |
 
 ---
 

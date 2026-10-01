@@ -51,6 +51,10 @@ export class DailyRecordsRepository {
             throw new Error("Pond index and log date are required.");
         }
 
+            const mortKg = (record.mortality_kg !== undefined && record.mortality_kg !== "")
+                ? parseFloat(record.mortality_kg)
+                : ((record.mortality_count !== undefined && record.mortality_count !== "") ? parseFloat(record.mortality_count) : 0.0);
+
         const payload = {
             pond_index: record.pond_index,
             pond: record.pond || (record.pond_index.includes(".") ? record.pond_index : record.pond_index),
@@ -59,7 +63,8 @@ export class DailyRecordsRepository {
             feed_tray_remnant_pct: record.feed_tray_remnant_pct !== undefined && record.feed_tray_remnant_pct !== "" ? parseInt(record.feed_tray_remnant_pct, 10) : 0,
             water_level_cm: record.water_level_cm !== undefined && record.water_level_cm !== "" ? parseFloat(record.water_level_cm) : null,
             water_colour: record.water_colour || null,
-            mortality_count: record.mortality_count !== undefined && record.mortality_count !== "" ? parseInt(record.mortality_count, 10) : 0,
+            mortality_kg: isNaN(mortKg) ? 0.0 : Math.round(mortKg * 100) / 100,
+            mortality_count: isNaN(mortKg) ? 0 : Math.round(mortKg),
             remarks: record.remarks || null,
             updated_at: new Date().toISOString()
         };

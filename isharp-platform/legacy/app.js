@@ -826,7 +826,7 @@ class IsharpDBMS {
                     <td class="font-mono">${r.feed_tray_remnant_pct || 0}%</td>
                     <td class="font-mono">${r.water_level_cm ? r.water_level_cm + ' cm' : '—'}</td>
                     <td><span class="disease-pill disease-ok">${r.water_colour || 'Healthy Green'}</span></td>
-                    <td class="font-mono ${r.mortality_count > 0 ? 'text-danger font-bold' : ''}">${r.mortality_count || 0}</td>
+                    <td class="font-mono ${((r.mortality_kg || r.mortality_count) > 0) ? 'text-danger font-bold' : ''}">${(r.mortality_kg !== undefined && r.mortality_kg !== null) ? parseFloat(r.mortality_kg).toFixed(1) + ' kg' : (r.mortality_count ? r.mortality_count + ' kg' : '0 kg')}</td>
                     <td>${r.remarks || '—'}</td>
                 </tr>
             `).join("");

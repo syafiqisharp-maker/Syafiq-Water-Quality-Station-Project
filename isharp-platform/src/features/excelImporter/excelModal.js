@@ -20,10 +20,10 @@ export const EXCEL_SCHEMAS = {
     },
     feed: {
         title: "Daily Feeding Journal",
-        headers: ["Date (YYYY-MM-DD)", "Shift", "Feed (kg)", "Tray Remnant (%)", "Water Level (cm)", "Water Colour", "Mortality", "Remarks"],
+        headers: ["Date (YYYY-MM-DD)", "Shift", "Feed (kg)", "Tray Remnant (%)", "Water Level (cm)", "Water Colour", "Mortality (kg)", "Remarks"],
         example: "2026-07-15\tMorning\t120.5\t15\t110\tHealthy Green\t0\tNormal feeding",
         notes: "Shift can be Morning, Afternoon, Evening, or Full Day. Tray remnant is integer %.",
-        dbFields: ["log_date", "shift", "feed_kg", "feed_tray_remnant_pct", "water_level_cm", "water_colour", "mortality_count", "remarks"]
+        dbFields: ["log_date", "shift", "feed_kg", "feed_tray_remnant_pct", "water_level_cm", "water_colour", "mortality_kg", "remarks"]
     },
     issues: {
         title: "Laboratory & Pathology Log",
@@ -284,7 +284,8 @@ export class ExcelModal {
                     feed_tray_remnant_pct: parseInt(cols[3], 10) || 0,
                     water_level_cm: parseInt(cols[4], 10) || null,
                     water_colour: cols[5] || "Healthy Green",
-                    mortality_count: parseInt(cols[6], 10) || 0,
+                    mortality_kg: parseFloat(cols[6]) || 0.0,
+                    mortality_count: Math.round(parseFloat(cols[6]) || 0),
                     remarks: cols[7] || null
                 }));
 

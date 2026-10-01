@@ -16,6 +16,40 @@ import { MineralProbioticRepository } from "../../infrastructure/repositories/mi
 import { calculateDOC } from "../../domain/biometrics.js";
 import { Toast } from "../../components/Toast.js";
 
+/**
+ * Returns YYYY-MM-DD in local time without UTC offset skew
+ */
+function getLocalDateStr(d = new Date()) {
+    const dt = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const day = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
+/**
+ * Parses YYYY-MM-DD safely into a local Date object
+ */
+function parseLocalDate(str) {
+    if (!str) return new Date();
+    if (str instanceof Date) return new Date(str.getFullYear(), str.getMonth(), str.getDate());
+    const parts = String(str).split("T")[0].split("-").map(Number);
+    if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    return new Date(str);
+}
+
+/**
+ * Formats YYYY-MM-DD to "DD Mon" safely without timezone shifts
+ */
+function formatLocalDateDisplay(dateStr) {
+    if (!dateStr) return "—";
+    const d = parseLocalDate(dateStr);
+    return isNaN(d.getTime()) ? dateStr : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
 // Standard farm chemicals & minerals autocomplete list (from iSHARP Farm Inventory)
 const STANDARD_MINERALS = [
     "CALCIUM CARBONATE",
@@ -47,15 +81,88 @@ const STANDARD_PROBIOTICS = [
     "RHODOPSEUDOMONAS"
 ];
 
+// Realistic Aquaculture Pond Water Colour Swatches (True 3D CSS Orbs + Simple Names)
+const WATER_COLOUR_OPTIONS = [
+    {
+        value: "Light Green",
+        label: "Lt Green",
+        fullLabel: "Lt Green",
+        orbBg: "radial-gradient(circle at 35% 30%, #ecfccb 0%, #a3e635 55%, #65a30d 100%)",
+        orbBorder: "#4d7c0f"
+    },
+    {
+        value: "Green",
+        label: "Green",
+        fullLabel: "Green",
+        orbBg: "radial-gradient(circle at 35% 30%, #bbf7d0 0%, #22c55e 55%, #15803d 100%)",
+        orbBorder: "#15803d"
+    },
+    {
+        value: "Dark Green",
+        label: "Dk Green",
+        fullLabel: "Dk Green",
+        orbBg: "radial-gradient(circle at 35% 30%, #4ade80 0%, #14532d 60%, #052e16 100%)",
+        orbBorder: "#052e16"
+    },
+    {
+        value: "Brownish Green",
+        label: "Brn Green",
+        fullLabel: "Brn Green",
+        orbBg: "radial-gradient(circle at 35% 30%, #bef264 0%, #656d1b 52%, #422006 100%)",
+        orbBorder: "#3f3f14"
+    },
+    {
+        value: "Tea",
+        aliases: ["Tea / Light Brown", "Tea Brown", "Tea Brn"],
+        label: "Tea",
+        fullLabel: "Tea",
+        orbBg: "radial-gradient(circle at 35% 30%, #fde68a 0%, #d97706 55%, #92400e 100%)",
+        orbBorder: "#92400e"
+    },
+    {
+        value: "Brown",
+        label: "Brown",
+        fullLabel: "Brown",
+        orbBg: "radial-gradient(circle at 35% 30%, #bcaaa4 0%, #5d4037 55%, #271206 100%)",
+        orbBorder: "#271206"
+    },
+    {
+        value: "Clear",
+        label: "Clear",
+        fullLabel: "Clear",
+        orbBg: "radial-gradient(circle at 35% 30%, #ffffff 0%, #e0f2fe 55%, #7dd3fc 100%)",
+        orbBorder: "#0284c7"
+    },
+    {
+        value: "Turbid",
+        label: "Turbid",
+        fullLabel: "Turbid",
+        orbBg: "radial-gradient(circle at 35% 30%, #e2e8f0 0%, #94a3b8 55%, #475569 100%)",
+        orbBorder: "#475569"
+    }
+];
+
+function getWaterColourMeta(val) {
+    if (!val) return null;
+    const norm = String(val).trim().toLowerCase();
+    return WATER_COLOUR_OPTIONS.find(o =>
+        o.value.toLowerCase() === norm ||
+        o.label.toLowerCase() === norm ||
+        (o.aliases && o.aliases.some(a => a.toLowerCase() === norm))
+    ) || null;
+}
+
 export class DailyRecordsPage {
     /**
      * @param {string} containerId Element ID where page is mounted
-     * @param {object} callbacks Navigation callbacks { onBackToPond, onBackToMap }
+     * @param {object} callbacks Navigation callbacks { onBackToPond, onBackToMap, onRecordSaved, onCloseQuickModal }
      */
     constructor(containerId = "field-ops-daily-records-mount", callbacks = {}) {
         this.container = document.getElementById(containerId);
         this.callbacks = callbacks;
         this.currentPond = null;
+        this.activePondsList = [];
+        this.isModalOnlyMode = false;
         this.records = [];
         this.treatments = [];
         this.usageSummary = { minerals: [], probiotics: [], totalMineralKg: 0, totalProbioticL: 0 };
@@ -64,20 +171,10 @@ export class DailyRecordsPage {
     }
 
     /**
-     * Renders the Daily Records Logbook for a pond cycle
-     * @param {object} pond Cycle record
+     * Loads records, treatments, and cycle usage summary for a pond
      */
-    async render(pond) {
+    async loadPondData(pond) {
         this.currentPond = pond;
-        if (!this.container) return;
-
-        this.container.innerHTML = `
-            <div style="padding: 2.5rem 1.5rem; text-align: center; color: #0284c7; font-weight: 700;">
-                <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
-                <span>Loading Daily Records Logbook for Pond ${pond.pond || pond.pond_index}...</span>
-            </div>
-        `;
-
         try {
             const [records, treatments, summary] = await Promise.all([
                 DailyRecordsRepository.getRecordsForPond(pond.pond_index),
@@ -102,8 +199,52 @@ export class DailyRecordsPage {
             this.records = [];
             this.treatments = [];
         }
+    }
 
+    /**
+     * Renders the Daily Records Logbook for a pond cycle
+     * @param {object} pond Cycle record
+     * @param {Array} activePondsList Optional list of active ponds in the module for sequential switching
+     */
+    async render(pond, activePondsList = []) {
+        this.isModalOnlyMode = false;
+        if (this.container) {
+            this.container.classList.remove("daily-mount-modal-only");
+        }
+        if (activePondsList && activePondsList.length > 0) {
+            this.activePondsList = activePondsList;
+        }
+        if (!this.container) return;
+
+        this.container.innerHTML = `
+            <div style="padding: 2.5rem 1.5rem; text-align: center; color: #0284c7; font-weight: 700;">
+                <div class="spinner" style="margin: 0 auto 0.75rem auto;"></div>
+                <span>Loading Daily Records Logbook for Pond ${pond.pond || pond.pond_index}...</span>
+            </div>
+        `;
+
+        await this.loadPondData(pond);
         this.renderView();
+    }
+
+    /**
+     * Opens Today's Entry Modal directly over the 24-Pond Map in 1 tap
+     * @param {object} pond Cycle record
+     * @param {Array} activePondsList List of active ponds in module for sequential "Save & Next"
+     */
+    async openQuickModal(pond, activePondsList = []) {
+        this.isModalOnlyMode = true;
+        if (activePondsList && activePondsList.length > 0) {
+            this.activePondsList = activePondsList;
+        }
+        if (!this.container) return;
+
+        await this.loadPondData(pond);
+        this.renderView();
+
+        const todayStr = getLocalDateStr();
+        const existing = this.records.find(r => r.log_date === todayStr) || null;
+        this.openEntryModal(todayStr, existing, { autoFocusFeed: false });
     }
 
     renderView() {
@@ -119,7 +260,7 @@ export class DailyRecordsPage {
         let totalFeedKg = 0;
         let trayRemnantSum = 0;
         let trayRemnantCount = 0;
-        let totalMortalities = 0;
+        let totalMortalitiesKg = 0;
 
         this.records.forEach(r => {
             if (r.feed_kg) totalFeedKg += parseFloat(r.feed_kg || 0);
@@ -127,7 +268,10 @@ export class DailyRecordsPage {
                 trayRemnantSum += parseInt(r.feed_tray_remnant_pct, 10);
                 trayRemnantCount++;
             }
-            if (r.mortality_count) totalMortalities += parseInt(r.mortality_count || 0, 10);
+            const mortVal = (r.mortality_kg !== undefined && r.mortality_kg !== null)
+                ? parseFloat(r.mortality_kg)
+                : (r.mortality_count ? parseFloat(r.mortality_count) : 0);
+            if (!isNaN(mortVal)) totalMortalitiesKg += mortVal;
         });
 
         const avgTrayRemnant = trayRemnantCount > 0 ? Math.round(trayRemnantSum / trayRemnantCount) : 0;
@@ -140,16 +284,18 @@ export class DailyRecordsPage {
                 
                 <!-- 1. Breadcrumbs & Top Navigation Bar -->
                 <div class="daily-nav-bar flex-between" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 1); border-radius: 16px; padding: 0.85rem 1.4rem; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.08); flex-wrap: wrap; gap: 0.75rem;">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div class="btn-group" style="display: flex; align-items: center; gap: 0.75rem;">
                         <button type="button" id="btn-daily-back-pond" class="btn-action btn-secondary" style="font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.85rem;">
-                            <span>← Back to Pond View</span>
+                            <span class="btn-text-full">← Back to Pond View</span>
+                            <span class="btn-text-short">← Pond View</span>
                         </button>
                         <button type="button" id="btn-daily-back-map" class="btn-action btn-secondary" style="font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.85rem;">
-                            <span>🗺️ Back to 24-Pond Map</span>
+                            <span class="btn-text-full">🗺️ Back to 24-Pond Map</span>
+                            <span class="btn-text-short">🗺️ Back to Map</span>
                         </button>
                     </div>
 
-                    <div style="display: flex; align-items: center; gap: 0.6rem;">
+                    <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
                         <span style="font-size: 0.78rem; font-weight: 800; background: #e0f2fe; color: #0284c7; padding: 0.25rem 0.65rem; border-radius: 999px;">
                             Pond ${pondLabel}
                         </span>
@@ -165,32 +311,28 @@ export class DailyRecordsPage {
                 <!-- 2. Page Header & Quick Log Action -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #e2e8f0; padding-bottom: 0.85rem; flex-wrap: wrap; gap: 1rem;">
                     <div>
-                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
                             <span style="font-size: 1.6rem;">📖</span>
-                            <h1 style="margin: 0; font-size: 1.55rem; font-weight: 900; color: #0f172a;">
-                                Pond Daily Operational Records
+                            <h1 style="margin: 0; font-size: 1.45rem; font-weight: 900; color: #0f172a;">
+                                Growout Book Records
                             </h1>
-                            <span style="font-size: 0.72rem; font-weight: 800; background: #0284c7; color: #ffffff; padding: 0.2rem 0.6rem; border-radius: 6px;">
-                                DAILY LEDGER
-                            </span>
                         </div>
-                        <p style="margin: 0.35rem 0 0 0; font-size: 0.84rem; color: #64748b;">
-                            Continuous day-by-day record of feed, tray remnant, water condition, and treatments from <code>daily_pond_records</code> &amp; <code>mineral_probiotic_used</code> for <strong>Pond ${pondLabel}</strong>.
-                        </p>
                     </div>
 
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <div class="daily-quick-actions" style="display: flex; align-items: center; gap: 0.75rem;">
                         <button type="button" id="btn-view-usage-summary" class="btn-action btn-secondary" style="font-size: 0.84rem; font-weight: 700; padding: 0.52rem 1.15rem; display: flex; align-items: center; gap: 0.4rem;">
-                            <span>📊 Treatment Totals</span>
+                            <span class="btn-text-full">📊 Treatment Totals</span>
+                            <span class="btn-text-short">📊 Totals</span>
                         </button>
                         <button type="button" id="btn-quick-log-today" class="btn-action btn-primary" style="font-size: 0.88rem; font-weight: 800; padding: 0.55rem 1.35rem; display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);">
-                            <span>➕ Log Today (DOC ${doc})</span>
+                            <span class="btn-text-full">➕ Log Today (DOC ${doc})</span>
+                            <span class="btn-text-short">➕ Log Today</span>
                         </button>
                     </div>
                 </div>
 
                 <!-- 3. Cycle Metrics Summary Bar (Feed, Tray %, Mortalities, Mineral & Probiotic Totals) -->
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+                <div class="daily-metrics-summary-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
                     
                     <div style="background: rgba(255, 255, 255, 0.95); border: 1px solid #e2e8f0; border-radius: 14px; padding: 0.9rem 1.1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Stocking Date</span>
@@ -230,8 +372,8 @@ export class DailyRecordsPage {
 
                     <div style="background: rgba(255, 255, 255, 0.95); border: 1px solid #e2e8f0; border-radius: 14px; padding: 0.9rem 1.1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase;">Total Mortalities</span>
-                        <div style="font-size: 1.15rem; font-weight: 800; color: ${totalMortalities > 0 ? '#b91c1c' : '#15803d'}; margin-top: 0.2rem;">
-                            ${totalMortalities} pcs
+                        <div style="font-size: 1.15rem; font-weight: 800; color: ${totalMortalitiesKg > 0 ? '#b91c1c' : '#15803d'}; margin-top: 0.2rem;">
+                            ${totalMortalitiesKg.toFixed(1)} kg
                         </div>
                         <span style="font-size: 0.72rem; color: #64748b;">Observed / scooped</span>
                     </div>
@@ -254,8 +396,13 @@ export class DailyRecordsPage {
                         </span>
                     </div>
 
-                    <!-- Scrollable Responsive Table Container -->
-                    <div class="logbook-table-container" style="overflow-x: auto; max-height: 650px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
+                    <!-- Mobile Timeline Card View (Screens <= 768px) -->
+                    <div class="daily-mobile-timeline show-mobile" style="display: none; flex-direction: column; gap: 0.65rem;">
+                        ${timelineRows.map(row => this.renderMobileCard(row)).join("")}
+                    </div>
+
+                    <!-- Scrollable Responsive Table Container (Screens > 768px) -->
+                    <div class="logbook-table-container hide-mobile" style="overflow-x: auto; max-height: 650px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px;">
                         <table style="width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.82rem; text-align: left;">
                             <thead style="position: sticky; top: 0; background: #f8fafc; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
                                 <tr style="color: #475569; font-size: 0.74rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em;">
@@ -267,7 +414,7 @@ export class DailyRecordsPage {
                                     <th style="padding: 0.75rem 0.85rem; border-bottom: 2px solid #cbd5e1; width: 120px;">Colour</th>
                                     <th style="padding: 0.75rem 0.85rem; border-bottom: 2px solid #cbd5e1; min-width: 180px;">Minerals Applied</th>
                                     <th style="padding: 0.75rem 0.85rem; border-bottom: 2px solid #cbd5e1; min-width: 180px;">Probiotics Applied</th>
-                                    <th style="padding: 0.75rem 0.85rem; border-bottom: 2px solid #cbd5e1; width: 85px;">Mort.</th>
+                                    <th style="padding: 0.75rem 0.85rem; border-bottom: 2px solid #cbd5e1; width: 95px;">Mort. (kg)</th>
                                     <th style="padding: 0.75rem 0.85rem; border-bottom: 2px solid #cbd5e1; min-width: 140px;">Remarks</th>
                                     <th style="padding: 0.75rem 0.85rem; border-bottom: 2px solid #cbd5e1; width: 85px; text-align: center;">Action</th>
                                 </tr>
@@ -279,25 +426,53 @@ export class DailyRecordsPage {
                     </div>
                 </section>
 
-                <!-- 5. ENTRY / EDIT MODAL (With Autocomplete & Dynamic Mineral/Probiotic Rows) -->
+                <!-- 5. ENTRY / EDIT MODAL (Zero-Keyboard 1-Tap Steppers, Smart Carry-Forward, Progressive Disclosure & Sequential Pond Switcher) -->
                 <div id="modal-daily-entry" class="modal-overlay" style="display: none; align-items: center; justify-content: center; z-index: 9999;">
-                    <div class="modal-dialog modal-glass" style="max-width: 780px; width: 94%; max-height: 90vh; overflow-y: auto; padding: 1.75rem 2rem; border-radius: 20px;">
+                    <div class="modal-dialog modal-glass" style="max-width: 780px; width: 94%; max-height: 92vh; overflow-y: auto; padding: 1.4rem 1.75rem; border-radius: 20px;">
                         
                         <!-- Modal Title Bar -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.65rem;">
                             <div style="display: flex; align-items: center; gap: 0.6rem;">
-                                <span style="font-size: 1.4rem;">📝</span>
+                                <span style="font-size: 1.35rem;">📝</span>
                                 <div>
-                                    <h3 id="modal-entry-title" style="margin: 0; font-size: 1.25rem; font-weight: 900; color: #0f172a;">
+                                    <h3 id="modal-entry-title" style="margin: 0; font-size: 1.18rem; font-weight: 900; color: #0f172a;">
                                         Log Daily Record — Pond ${pondLabel}
                                     </h3>
-                                    <span id="modal-entry-subtitle" style="font-size: 0.76rem; color: #64748b;">
-                                        Enter feed, water parameters, and daily treatments
+                                    <span id="modal-entry-subtitle" style="font-size: 0.75rem; color: #64748b;">
+                                        1-tap rapid field logging &amp; daily treatments
                                     </span>
                                 </div>
                             </div>
-                            <button type="button" id="btn-close-entry-modal" style="background: none; border: none; font-size: 1.4rem; color: #64748b; cursor: pointer; padding: 0.2rem 0.5rem;">✕</button>
+                            <button type="button" id="btn-close-entry-modal" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 1.1rem; font-weight: 800; color: #475569; cursor: pointer; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">✕</button>
                         </div>
+
+                        <!-- Sequential Pond Switcher Bar (When multiple active ponds exist in module) -->
+                        ${(this.activePondsList && this.activePondsList.length > 1) ? (() => {
+                            const currIdx = this.activePondsList.findIndex(p =>
+                                (p.pond_index && p.pond_index === pond.pond_index) ||
+                                (p.pond && p.pond === pond.pond)
+                            );
+                            const displayIdx = currIdx >= 0 ? currIdx + 1 : 1;
+                            return `
+                                <div id="modal-pond-switcher-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 0.45rem 0.65rem; margin-bottom: 0.9rem; flex-shrink: 0;">
+                                    <button type="button" id="btn-modal-prev-pond" class="btn-modal-pond-nav" style="flex: 0 0 auto; width: 68px; padding: 0.35rem 0.5rem; font-size: 0.76rem; font-weight: 800; min-height: 36px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; color: #0369a1; cursor: pointer; text-align: center;">
+                                        ◀ Prev
+                                    </button>
+                                    <div style="text-align: center; flex: 1; min-width: 0; padding: 0 0.35rem;">
+                                        <div style="font-size: 0.88rem; font-weight: 900; color: #0369a1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            Pond ${pondLabel} · DOC ${doc || '—'}
+                                        </div>
+                                        <div style="font-size: 0.7rem; font-weight: 700; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                            Active Pond ${displayIdx} of ${this.activePondsList.length}
+                                            ${this.isModalOnlyMode ? ` · <button type="button" id="btn-modal-open-full-book" style="background: none; border: none; color: #0284c7; font-weight: 800; font-size: 0.7rem; text-decoration: underline; cursor: pointer; padding: 0;">📖 Full Book</button>` : ''}
+                                        </div>
+                                    </div>
+                                    <button type="button" id="btn-modal-next-pond" class="btn-modal-pond-nav" style="flex: 0 0 auto; width: 68px; padding: 0.35rem 0.5rem; font-size: 0.76rem; font-weight: 800; min-height: 36px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; color: #0369a1; cursor: pointer; text-align: center;">
+                                        Next ▶
+                                    </button>
+                                </div>
+                            `;
+                        })() : ''}
 
                         <!-- Autocomplete Datalists -->
                         <datalist id="minerals-autocomplete">
@@ -307,84 +482,128 @@ export class DailyRecordsPage {
                             ${STANDARD_PROBIOTICS.map(p => `<option value="${p}"></option>`).join("")}
                         </datalist>
 
-                        <form id="form-daily-record" style="display: flex; flex-direction: column; gap: 1.25rem;">
+                        <form id="form-daily-record" style="display: flex; flex-direction: column; gap: 0.95rem; min-height: min-content;">
                             
+                            <!-- Smart Yesterday Carry-Forward Indicator -->
+                            <div id="carry-forward-badge" style="display: none; background: #f0fdf4; border: 1px solid #86efac; color: #166534; padding: 0.45rem 0.8rem; border-radius: 10px; font-size: 0.75rem; font-weight: 700; align-items: center; justify-content: space-between; gap: 0.5rem; flex-shrink: 0;">
+                                <span id="carry-forward-text">↺ Pre-filled from last log — tap steppers to adjust</span>
+                                <span style="font-size: 0.66rem; background: #dcfce7; color: #15803d; padding: 0.12rem 0.45rem; border-radius: 999px; font-weight: 800; white-space: nowrap;">Smart Fill</span>
+                            </div>
+
                             <!-- Date & DOC Selector -->
-                            <div style="display: grid; grid-template-columns: 1fr 140px; gap: 1rem; background: #f8fafc; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid #e2e8f0; align-items: center;">
+                            <div class="daily-entry-date-doc daily-entry-card" style="display: grid; grid-template-columns: 1fr 130px; gap: 0.85rem; background: #f8fafc; padding: 0.7rem 0.9rem; border-radius: 12px; border: 1px solid #e2e8f0; align-items: center; flex-shrink: 0;">
                                 <div>
-                                    <label style="font-size: 0.78rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.35rem;">
+                                    <label style="font-size: 0.76rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
                                         📅 Record Date
                                     </label>
-                                    <input type="date" id="input-entry-date" class="form-control" style="font-size: 0.9rem; font-weight: 700; padding: 0.45rem 0.75rem; background: #ffffff;" required />
+                                    <input type="date" id="input-entry-date" class="form-control" style="font-size: 0.88rem; font-weight: 700; padding: 0.4rem 0.7rem; background: #ffffff;" required />
                                 </div>
                                 <div style="text-align: center;">
-                                    <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; display: block;">Culture Age</span>
-                                    <div id="modal-calc-doc" style="font-size: 1.15rem; font-weight: 900; color: #0284c7; margin-top: 0.2rem;">
+                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; display: block;">Culture Age</span>
+                                    <div id="modal-calc-doc" style="font-size: 1.1rem; font-weight: 900; color: #0284c7; margin-top: 0.15rem;">
                                         DOC —
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Section: Feeding & Tray Remnant -->
-                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
-                                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.88rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
+                            <!-- Section: Feeding & Tray Remnant (With 1-Tap Steppers & Preset Chips) -->
+                            <div class="daily-entry-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.9rem 0.95rem; flex-shrink: 0;">
+                                <h4 style="margin: 0 0 0.65rem 0; font-size: 0.86rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
                                     <span>🌾 Feeding &amp; Tray Observation</span>
                                 </h4>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                    <div>
-                                        <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
+                                <div class="daily-entry-grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; width: 100%;">
+                                    <div style="min-width: 0; width: 100%;">
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
                                             Daily Feed (kg)
                                         </label>
-                                        <input type="number" id="input-feed-kg" class="form-control" step="0.1" min="0" placeholder="e.g. 45.0" style="font-size: 0.9rem; font-weight: 700;" />
+                                        <input type="number" id="input-feed-kg" class="form-control" step="0.1" min="0" placeholder="e.g. 45.0" style="width: 100%; font-size: 0.95rem; font-weight: 800; color: #0f172a; box-sizing: border-box;" />
+                                        <div class="quick-stepper-row" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.4rem; width: 100%;">
+                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="-5">-5</button>
+                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="-1">-1</button>
+                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="1">+1</button>
+                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="5">+5</button>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
+                                    <div style="min-width: 0; width: 100%;">
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
                                             Tray Remnant Leftover (%)
                                         </label>
-                                        <input type="number" id="input-tray-pct" class="form-control" step="1" min="0" max="100" placeholder="e.g. 5" style="font-size: 0.9rem; font-weight: 700;" />
+                                        <input type="number" id="input-tray-pct" class="form-control" step="1" min="0" max="100" placeholder="0" style="width: 100%; font-size: 0.95rem; font-weight: 800; color: #0f172a; box-sizing: border-box;" />
+                                        <div class="quick-stepper-row" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.3rem; margin-top: 0.4rem; width: 100%;">
+                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="0">0%</button>
+                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="5">5%</button>
+                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="10">10%</button>
+                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="15">15%</button>
+                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="25">25%</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Section: Water Physical Condition -->
-                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
-                                <h4 style="margin: 0 0 0.75rem 0; font-size: 0.88rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
+                            <!-- Section: Water Physical Condition (With 1-Tap Steppers & True Colour Orb Swatches) -->
+                            <div class="daily-entry-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.9rem 0.95rem; flex-shrink: 0;">
+                                <h4 style="margin: 0 0 0.65rem 0; font-size: 0.86rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
                                     <span>💧 Pond Water Physical Conditions</span>
                                 </h4>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                    <div>
-                                        <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
+                                <div class="daily-entry-grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; width: 100%;">
+                                    <div style="min-width: 0; width: 100%;">
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
                                             Water Level / Depth (cm)
                                         </label>
-                                        <input type="number" id="input-water-level" class="form-control" step="1" min="0" placeholder="e.g. 110" style="font-size: 0.9rem; font-weight: 700;" />
+                                        <input type="number" id="input-water-level" class="form-control" step="1" min="0" placeholder="e.g. 110" style="width: 100%; font-size: 0.95rem; font-weight: 800; color: #0f172a; box-sizing: border-box;" />
+                                        <div class="quick-stepper-row" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.4rem; width: 100%;">
+                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="-5">-5</button>
+                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="-2">-2</button>
+                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="2">+2</button>
+                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="5">+5</button>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
+                                    <div style="min-width: 0; width: 100%;">
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
                                             Observed Water Colour
                                         </label>
-                                        <select id="select-water-colour" class="form-control" style="font-size: 0.88rem; font-weight: 600;">
+                                        <!-- Hidden select synced for form submission -->
+                                        <select id="select-water-colour" style="display: none;">
                                             <option value="">— Select Water Colour —</option>
-                                            <option value="Light Green">🟢 Light Green (Good Diatom/Chlorella)</option>
-                                            <option value="Green">🟢 Green</option>
-                                            <option value="Dark Green">🟢 Dark Green (Dense Bloom)</option>
-                                            <option value="Brownish Green">🟤 Brownish Green (Optimal)</option>
-                                            <option value="Tea / Light Brown">🟤 Tea / Light Brown (Diatom Dominated)</option>
-                                            <option value="Brown">🟤 Brown / Dark Brown</option>
-                                            <option value="Clear">⚪ Clear / Low Bloom</option>
-                                            <option value="Turbid">⚪ Turbid / Silty</option>
+                                            ${WATER_COLOUR_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("")}
                                         </select>
+                                        <!-- Live Selected Colour Display Box with True 3D CSS Orb -->
+                                        <div id="selected-water-colour-display" title="Tap a colour below or tap here to cycle" style="width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 0.55rem; padding: 0.45rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; font-size: 0.92rem; font-weight: 800; color: #0f172a; box-sizing: border-box; cursor: pointer; user-select: none;">
+                                            <span style="display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0;">
+                                                <span id="selected-colour-orb" class="water-swatch-orb" style="width: 16px; height: 16px; background: radial-gradient(circle at 35% 30%, #bef264 0%, #656d1b 52%, #422006 100%); border-color: #3f3f14;"></span>
+                                                <span id="selected-colour-label" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Brn Green</span>
+                                            </span>
+                                            <span style="font-size: 0.68rem; font-weight: 700; color: #64748b; flex-shrink: 0;">Tap below</span>
+                                        </div>
+                                        <!-- 8 Confined 1-Tap Water Colour Swatch Buttons -->
+                                        <div id="water-colour-chips" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.32rem; margin-top: 0.4rem; width: 100%; box-sizing: border-box;">
+                                            ${WATER_COLOUR_OPTIONS.map(o => `
+                                                <button type="button" class="btn-colour-chip quick-chip-btn" data-colour="${o.value}" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.28rem; min-width: 0; width: 100%; padding: 0.35rem 0.2rem; font-size: 0.72rem;">
+                                                    <span class="water-swatch-orb" style="background: ${o.orbBg}; border-color: ${o.orbBorder};"></span>
+                                                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${o.label}</span>
+                                                </button>
+                                            `).join("")}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Section: Minerals Applied (Stored in mineral_probiotic_used) -->
-                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
+                            <!-- Progressive Disclosure: 1-Tap Toggle Bar for Optional Sections -->
+                            <div class="optional-sections-toggle-bar" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; background: #f8fafc; padding: 0.55rem 0.8rem; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                                <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-right: 0.15rem;">Add Optional:</span>
+                                <button type="button" id="btn-toggle-minerals-sec" class="quick-toggle-pill">🧪 + Minerals</button>
+                                <button type="button" id="btn-toggle-probiotics-sec" class="quick-toggle-pill">🦠 + Probiotics</button>
+                                <button type="button" id="btn-toggle-mortality-sec" class="quick-toggle-pill">⚠️ + Mortality / Note</button>
+                            </div>
+
+                            <!-- Collapsible Section: Minerals Applied (Stored in mineral_probiotic_used) -->
+                            <div id="section-minerals-card" style="display: none; background: #ffffff; border: 1px solid #bae6fd; border-radius: 12px; padding: 0.9rem 1rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
                                     <div>
-                                        <h4 style="margin: 0; font-size: 0.88rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
+                                        <h4 style="margin: 0; font-size: 0.86rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
                                             <span>🧪 Minerals &amp; Chemical Treatments</span>
                                         </h4>
-                                        <span style="font-size: 0.72rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for accurate kg summation</span>
+                                        <span style="font-size: 0.7rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for kg summation</span>
                                     </div>
                                     <button type="button" id="btn-add-mineral-row" class="btn-action btn-secondary" style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem;">
                                         <span>+ Add Mineral</span>
@@ -395,14 +614,14 @@ export class DailyRecordsPage {
                                 </div>
                             </div>
 
-                            <!-- Section: Probiotics Applied (Stored in mineral_probiotic_used) -->
-                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
+                            <!-- Collapsible Section: Probiotics Applied (Stored in mineral_probiotic_used) -->
+                            <div id="section-probiotics-card" style="display: none; background: #ffffff; border: 1px solid #fde68a; border-radius: 12px; padding: 0.9rem 1rem;">
                                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
                                     <div>
-                                        <h4 style="margin: 0; font-size: 0.88rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
+                                        <h4 style="margin: 0; font-size: 0.86rem; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 0.4rem;">
                                             <span>🦠 Probiotics &amp; Ferments Applied</span>
                                         </h4>
-                                        <span style="font-size: 0.72rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for accurate L/kg summation</span>
+                                        <span style="font-size: 0.7rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for L/kg summation</span>
                                     </div>
                                     <button type="button" id="btn-add-probiotic-row" class="btn-action btn-secondary" style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem;">
                                         <span>+ Add Probiotic</span>
@@ -413,36 +632,41 @@ export class DailyRecordsPage {
                                 </div>
                             </div>
 
-                            <!-- Section: Mortality & Remarks -->
-                            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem;">
-                                <div style="display: grid; grid-template-columns: 160px 1fr; gap: 1rem;">
-                                    <div>
-                                        <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
-                                            Daily Mortality (pcs)
+                            <!-- Collapsible Section: Mortality & Remarks -->
+                            <div id="section-mortality-card" style="display: none; background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 0.9rem 1rem;">
+                                <div class="daily-entry-mortality-grid" style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0.85rem; width: 100%;">
+                                    <div style="min-width: 0; width: 100%;">
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
+                                            Daily Mortality (kg)
                                         </label>
-                                        <input type="number" id="input-mortality" class="form-control" min="0" step="1" placeholder="0" style="font-size: 0.9rem; font-weight: 700;" />
+                                        <input type="number" id="input-mortality" class="form-control" min="0" step="0.1" placeholder="0.0" style="width: 100%; font-size: 0.9rem; font-weight: 700; box-sizing: border-box;" />
                                     </div>
-                                    <div>
-                                        <label style="font-size: 0.76rem; font-weight: 700; color: #475569; display: block; margin-bottom: 0.3rem;">
+                                    <div style="min-width: 0; width: 100%;">
+                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
                                             Daily Observations &amp; Remarks
                                         </label>
-                                        <input type="text" id="input-remarks" class="form-control" placeholder="e.g. Shrimp active on trays, liming after rain" style="font-size: 0.85rem;" />
+                                        <input type="text" id="input-remarks" class="form-control" placeholder="e.g. Shrimp active on trays, liming after rain" style="width: 100%; font-size: 0.85rem; box-sizing: border-box;" />
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Modal Submit Actions -->
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
-                                <button type="button" id="btn-delete-entry" class="btn-action" style="font-size: 0.8rem; color: #ef4444; background: #fee2e2; border: 1px solid #fecaca; padding: 0.5rem 1rem; display: none;">
-                                    <span>🗑️ Delete Record</span>
+                            <!-- Modal Submit Actions (Single-row layout with bottom clearance) -->
+                            <div class="daily-modal-footer-actions" style="display: flex; justify-content: space-between; align-items: center; gap: 0.45rem; margin-top: 0.35rem; flex-wrap: nowrap;">
+                                <button type="button" id="btn-delete-entry" class="btn-action" title="Delete Record" style="font-size: 0.78rem; color: #ef4444; background: #fee2e2; border: 1px solid #fecaca; padding: 0.45rem 0.75rem; display: none; flex-shrink: 0;">
+                                    <span>🗑️</span>
                                 </button>
-                                <div style="display: flex; gap: 0.6rem; margin-left: auto;">
-                                    <button type="button" id="btn-cancel-modal" class="btn-action btn-secondary" style="font-size: 0.84rem; padding: 0.5rem 1.1rem;">
+                                <div style="display: flex; gap: 0.45rem; margin-left: auto; flex: 1; justify-content: flex-end; align-items: center;">
+                                    <button type="button" id="btn-cancel-modal" class="btn-action btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 0.8rem;">
                                         Cancel
                                     </button>
-                                    <button type="submit" id="btn-save-record" class="btn-action btn-primary" style="font-size: 0.84rem; font-weight: 800; padding: 0.5rem 1.4rem;">
-                                        💾 Save Daily Record
+                                    <button type="submit" id="btn-save-record" class="btn-action btn-primary" style="font-size: 0.82rem; font-weight: 800; padding: 0.5rem 0.95rem;">
+                                        💾 Save
                                     </button>
+                                    ${(this.activePondsList && this.activePondsList.length > 1) ? `
+                                        <button type="button" id="btn-save-and-next" class="btn-action" style="font-size: 0.82rem; font-weight: 900; padding: 0.5rem 0.95rem; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; border: 1px solid #15803d; border-radius: 10px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25); cursor: pointer;">
+                                            ⚡ Save &amp; Next ➔
+                                        </button>
+                                    ` : ''}
                                 </div>
                             </div>
 
@@ -546,10 +770,11 @@ export class DailyRecordsPage {
         const rows = [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const todayStr = getLocalDateStr(today);
 
         let startDate;
         if (pond.stck_date) {
-            startDate = new Date(pond.stck_date);
+            startDate = parseLocalDate(pond.stck_date);
             startDate.setHours(0, 0, 0, 0);
         } else {
             startDate = new Date(today);
@@ -558,14 +783,14 @@ export class DailyRecordsPage {
 
         let cur = new Date(startDate);
         while (cur <= today) {
-            const dateStr = cur.toISOString().split("T")[0];
-            const doc = pond.stck_date ? calculateDOC(pond.stck_date, cur) : 0;
+            const dateStr = getLocalDateStr(cur);
+            const doc = pond.stck_date ? calculateDOC(pond.stck_date, dateStr) : 0;
             const existing = recordsMap.get(dateStr) || null;
 
             rows.push({
                 dateStr,
                 doc,
-                isToday: dateStr === today.toISOString().split("T")[0],
+                isToday: dateStr === todayStr,
                 record: existing,
                 treatments: this.treatmentsByDate.get(dateStr) || []
             });
@@ -578,7 +803,7 @@ export class DailyRecordsPage {
                 rows.push({
                     dateStr: r.log_date,
                     doc: pond.stck_date ? calculateDOC(pond.stck_date, r.log_date) : 0,
-                    isToday: false,
+                    isToday: r.log_date === todayStr,
                     record: r,
                     treatments: this.treatmentsByDate.get(r.log_date) || []
                 });
@@ -594,8 +819,7 @@ export class DailyRecordsPage {
      */
     renderTableRow(row) {
         const { dateStr, doc, isToday, record, treatments } = row;
-        const dObj = new Date(dateStr);
-        const formattedDate = dObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+        const formattedDate = formatLocalDateDisplay(dateStr);
 
         const rowBg = isToday ? 'background: #f0fdf4;' : '';
         const docBadge = isToday
@@ -677,12 +901,19 @@ export class DailyRecordsPage {
         
         let colourBadge = '—';
         if (record && record.water_colour) {
-            colourBadge = `<span style="font-size: 0.72rem; font-weight: 600; background: #f1f5f9; color: #334155; padding: 0.15rem 0.45rem; border-radius: 4px; border: 1px solid #e2e8f0;">${record.water_colour}</span>`;
+            const cMeta = getWaterColourMeta(record.water_colour);
+            if (cMeta) {
+                colourBadge = `<span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-weight: 700; background: #f8fafc; color: #1e293b; padding: 0.18rem 0.5rem; border-radius: 6px; border: 1px solid #cbd5e1;"><span class="water-swatch-orb" style="width: 11px; height: 11px; background: ${cMeta.orbBg}; border-color: ${cMeta.orbBorder};"></span><span>${cMeta.label}</span></span>`;
+            } else {
+                colourBadge = `<span style="font-size: 0.72rem; font-weight: 600; background: #f1f5f9; color: #334155; padding: 0.15rem 0.45rem; border-radius: 4px; border: 1px solid #e2e8f0;">${record.water_colour}</span>`;
+            }
         }
 
-        const mortCount = (record && record.mortality_count) ? parseInt(record.mortality_count, 10) : 0;
-        const mortBadge = mortCount > 0 
-            ? `<span style="font-size: 0.72rem; font-weight: 800; background: #fee2e2; color: #b91c1c; padding: 0.15rem 0.45rem; border-radius: 4px;">${mortCount} pcs</span>`
+        const mortKg = (record && record.mortality_kg !== undefined && record.mortality_kg !== null)
+            ? parseFloat(record.mortality_kg)
+            : ((record && record.mortality_count) ? parseFloat(record.mortality_count) : 0);
+        const mortBadge = mortKg > 0 
+            ? `<span style="font-size: 0.72rem; font-weight: 800; background: #fee2e2; color: #b91c1c; padding: 0.15rem 0.45rem; border-radius: 4px;">${mortKg.toFixed(1)} kg</span>`
             : `<span style="color: #64748b;">0</span>`;
 
         const remarksText = (record && record.remarks) ? record.remarks : '—';
@@ -708,6 +939,185 @@ export class DailyRecordsPage {
                 </td>
             </tr>
         `;
+    }
+
+    /**
+     * Renders a mobile-optimized card for a single day in the timeline
+     */
+    renderMobileCard(row) {
+        const { dateStr, doc, isToday, record, treatments } = row;
+        const formattedDate = formatLocalDateDisplay(dateStr);
+
+        const docBadge = isToday
+            ? `<span style="font-size: 0.76rem; font-weight: 900; background: #15803d; color: #ffffff; padding: 0.2rem 0.55rem; border-radius: 6px;">DOC ${doc || '—'} · TODAY</span>`
+            : `<span style="font-size: 0.76rem; font-weight: 800; background: #e0f2fe; color: #0284c7; padding: 0.2rem 0.55rem; border-radius: 6px;">DOC ${doc || '—'}</span>`;
+
+        let remnantBadge = '—';
+        if (record && record.feed_tray_remnant_pct !== null && record.feed_tray_remnant_pct !== undefined) {
+            const pct = parseInt(record.feed_tray_remnant_pct, 10);
+            let badgeBg = '#dcfce7';
+            let badgeColor = '#15803d';
+            if (pct > 20) {
+                badgeBg = '#fee2e2';
+                badgeColor = '#b91c1c';
+            } else if (pct > 10) {
+                badgeBg = '#fef3c7';
+                badgeColor = '#b45309';
+            }
+            remnantBadge = `<span style="font-size: 0.75rem; font-weight: 800; background: ${badgeBg}; color: ${badgeColor}; padding: 0.15rem 0.45rem; border-radius: 4px;">${pct}%</span>`;
+        }
+
+        const feedText = (record && record.feed_kg) ? `${parseFloat(record.feed_kg).toFixed(1)} kg` : '—';
+        const waterLvl = (record && record.water_level_cm) ? `${record.water_level_cm} cm` : '—';
+        const mortKg = (record && record.mortality_kg !== undefined && record.mortality_kg !== null)
+            ? parseFloat(record.mortality_kg)
+            : ((record && record.mortality_count) ? parseFloat(record.mortality_count) : 0);
+        const remarksText = (record && record.remarks) ? record.remarks : '';
+
+        return `
+            <div class="daily-mobile-card" style="background: ${isToday ? '#f0fdf4' : '#ffffff'}; border: 1.5px solid ${isToday ? '#86efac' : '#e2e8f0'}; border-radius: 12px; padding: 0.85rem 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.65rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        ${docBadge}
+                        <strong style="font-size: 0.88rem; color: #0f172a;">${formattedDate}</strong>
+                    </div>
+                    ${record ? `
+                        <button type="button" class="btn-edit-record btn-action btn-secondary" data-date="${dateStr}" style="font-size: 0.76rem; font-weight: 700; padding: 0.35rem 0.85rem; border-radius: 8px;">
+                            <span>✏️ Edit</span>
+                        </button>
+                    ` : `
+                        <button type="button" class="btn-log-day btn-action btn-primary" data-date="${dateStr}" style="font-size: 0.76rem; font-weight: 800; padding: 0.35rem 0.95rem; border-radius: 8px;">
+                            <span>➕ Log</span>
+                        </button>
+                    `}
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45rem; background: ${isToday ? '#ffffff' : '#f8fafc'}; padding: 0.55rem 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                    <div>
+                        <span style="font-size: 0.68rem; color: #64748b; font-weight: 700; display: block;">Feed</span>
+                        <strong style="font-size: 0.88rem; color: #0369a1;">${feedText}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.68rem; color: #64748b; font-weight: 700; display: block;">Tray Left</span>
+                        <div style="margin-top: 0.15rem;">${remnantBadge}</div>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.68rem; color: #64748b; font-weight: 700; display: block;">Water Lvl</span>
+                        <strong style="font-size: 0.88rem; color: #334155;">${waterLvl}</strong>
+                    </div>
+                </div>
+
+                ${(mortKg > 0 || remarksText || (treatments && treatments.length > 0)) ? `
+                    <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.75rem;">
+                        ${mortKg > 0 ? `<div style="color: #b91c1c; font-weight: 700;">⚠️ Mortality: ${mortKg.toFixed(1)} kg</div>` : ''}
+                        ${(treatments && treatments.length > 0) ? `
+                            <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                                ${treatments.map(t => `<span style="background: #f1f5f9; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; color: #334155;">${t.category === 'MINERAL' ? '🧪' : '🦠'} ${t.item_name} (${t.amount_used} ${t.unit})</span>`).join('')}
+                            </div>
+                        ` : ''}
+                        ${remarksText ? `<div style="color: #64748b; font-style: italic;">“${remarksText}”</div>` : ''}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+
+    closeModal() {
+        const modal = this.container.querySelector("#modal-daily-entry");
+        if (modal) modal.style.display = "none";
+        if (this.isModalOnlyMode) {
+            this.isModalOnlyMode = false;
+            if (this.callbacks.onCloseQuickModal) {
+                this.callbacks.onCloseQuickModal();
+            }
+        }
+    }
+
+    async switchPondInModal(delta) {
+        if (!this.activePondsList || this.activePondsList.length <= 1) return null;
+        const currIdx = this.activePondsList.findIndex(p =>
+            (p.pond_index && p.pond_index === this.currentPond.pond_index) ||
+            (p.pond && p.pond === this.currentPond.pond)
+        );
+        const nextIdx = ((currIdx >= 0 ? currIdx : 0) + delta + this.activePondsList.length) % this.activePondsList.length;
+        const nextPond = this.activePondsList[nextIdx];
+        if (!nextPond) return null;
+
+        if (this.isModalOnlyMode) {
+            await this.openQuickModal(nextPond, this.activePondsList);
+        } else {
+            await this.render(nextPond, this.activePondsList);
+            const todayStr = getLocalDateStr();
+            const existing = this.records.find(r => r.log_date === todayStr) || null;
+            this.openEntryModal(todayStr, existing, { autoFocusFeed: false });
+        }
+        return nextPond;
+    }
+
+    syncPresetHighlights() {
+        const inputTray = this.container.querySelector("#input-tray-pct");
+        const selectColour = this.container.querySelector("#select-water-colour");
+        const selectedOrb = this.container.querySelector("#selected-colour-orb");
+        const selectedLabel = this.container.querySelector("#selected-colour-label");
+
+        const trayVal = inputTray ? String(inputTray.value).trim() : "";
+        this.container.querySelectorAll(".btn-tray-chip").forEach(chip => {
+            if (chip.getAttribute("data-pct") === trayVal) {
+                chip.classList.add("active");
+            } else {
+                chip.classList.remove("active");
+            }
+        });
+
+        const colVal = selectColour ? selectColour.value : "";
+        const meta = getWaterColourMeta(colVal);
+        const activeValue = meta ? meta.value : colVal;
+
+        if (selectedOrb && selectedLabel) {
+            if (meta) {
+                selectedOrb.style.background = meta.orbBg;
+                selectedOrb.style.borderColor = meta.orbBorder;
+                selectedOrb.style.display = "inline-block";
+                selectedLabel.textContent = meta.fullLabel;
+            } else {
+                selectedOrb.style.display = "none";
+                selectedLabel.textContent = colVal || "— Select Colour —";
+            }
+        }
+
+        this.container.querySelectorAll(".btn-colour-chip").forEach(chip => {
+            if (chip.getAttribute("data-colour") === activeValue) {
+                chip.classList.add("active");
+            } else {
+                chip.classList.remove("active");
+            }
+        });
+    }
+
+    syncOptionalTogglePills() {
+        const minCard = this.container.querySelector("#section-minerals-card");
+        const proCard = this.container.querySelector("#section-probiotics-card");
+        const mortCard = this.container.querySelector("#section-mortality-card");
+
+        const btnMin = this.container.querySelector("#btn-toggle-minerals-sec");
+        const btnPro = this.container.querySelector("#btn-toggle-probiotics-sec");
+        const btnMort = this.container.querySelector("#btn-toggle-mortality-sec");
+
+        if (btnMin && minCard) {
+            const open = minCard.style.display !== "none";
+            btnMin.classList.toggle("active", open);
+            btnMin.innerHTML = open ? "🧪 Minerals ▲" : "🧪 + Minerals";
+        }
+        if (btnPro && proCard) {
+            const open = proCard.style.display !== "none";
+            btnPro.classList.toggle("active", open);
+            btnPro.innerHTML = open ? "🦠 Probiotics ▲" : "🦠 + Probiotics";
+        }
+        if (btnMort && mortCard) {
+            const open = mortCard.style.display !== "none";
+            btnMort.classList.toggle("active", open);
+            btnMort.innerHTML = open ? "⚠️ Mortality / Note ▲" : "⚠️ + Mortality / Note";
+        }
     }
 
     bindEvents() {
@@ -741,7 +1151,7 @@ export class DailyRecordsPage {
         const btnQuickToday = this.container.querySelector("#btn-quick-log-today");
         if (btnQuickToday) {
             btnQuickToday.addEventListener("click", () => {
-                const todayStr = new Date().toISOString().split("T")[0];
+                const todayStr = getLocalDateStr();
                 const existing = this.records.find(r => r.log_date === todayStr);
                 this.openEntryModal(todayStr, existing);
             });
@@ -768,8 +1178,135 @@ export class DailyRecordsPage {
         const modal = this.container.querySelector("#modal-daily-entry");
         const btnClose = this.container.querySelector("#btn-close-entry-modal");
         const btnCancel = this.container.querySelector("#btn-cancel-modal");
-        if (btnClose) btnClose.addEventListener("click", () => modal.style.display = "none");
-        if (btnCancel) btnCancel.addEventListener("click", () => modal.style.display = "none");
+        if (btnClose) btnClose.addEventListener("click", () => this.closeModal());
+        if (btnCancel) btnCancel.addEventListener("click", () => this.closeModal());
+        if (modal) {
+            modal.addEventListener("click", (e) => {
+                if (e.target === modal) this.closeModal();
+            });
+        }
+
+        // Pond Switcher inside Modal (Prev / Next / Open Full Book)
+        const btnPrevPond = this.container.querySelector("#btn-modal-prev-pond");
+        const btnNextPond = this.container.querySelector("#btn-modal-next-pond");
+        const btnOpenFullBook = this.container.querySelector("#btn-modal-open-full-book");
+        if (btnPrevPond) {
+            btnPrevPond.addEventListener("click", () => this.switchPondInModal(-1));
+        }
+        if (btnNextPond) {
+            btnNextPond.addEventListener("click", () => this.switchPondInModal(1));
+        }
+        if (btnOpenFullBook) {
+            btnOpenFullBook.addEventListener("click", () => {
+                this.isModalOnlyMode = false;
+                this.container.classList.remove("daily-mount-modal-only");
+                const mapMount = document.getElementById("field-ops-map-mount");
+                if (mapMount) mapMount.style.display = "none";
+                if (modal) modal.style.display = "none";
+                this.renderView();
+            });
+        }
+
+        // 1-Tap Feed Steppers (-5, -1, +1, +5)
+        const inputFeed = this.container.querySelector("#input-feed-kg");
+        this.container.querySelectorAll(".btn-feed-stepper").forEach(btn => {
+            btn.addEventListener("click", () => {
+                if (!inputFeed) return;
+                const step = parseFloat(btn.getAttribute("data-step") || "0");
+                const curr = parseFloat(inputFeed.value || "0") || 0;
+                const next = Math.max(0, Math.round((curr + step) * 10) / 10);
+                inputFeed.value = next.toFixed(1).replace(/\.0$/, "");
+            });
+        });
+
+        // 1-Tap Tray Remnant Preset Chips (0%, 5%, 10%, 15%, 25%)
+        const inputTray = this.container.querySelector("#input-tray-pct");
+        this.container.querySelectorAll(".btn-tray-chip").forEach(chip => {
+            chip.addEventListener("click", () => {
+                if (!inputTray) return;
+                inputTray.value = chip.getAttribute("data-pct") || "0";
+                this.syncPresetHighlights();
+            });
+        });
+        if (inputTray) {
+            inputTray.addEventListener("input", () => this.syncPresetHighlights());
+        }
+
+        // 1-Tap Water Level Steppers (-5, -2, +2, +5)
+        const inputWaterLevel = this.container.querySelector("#input-water-level");
+        this.container.querySelectorAll(".btn-water-stepper").forEach(btn => {
+            btn.addEventListener("click", () => {
+                if (!inputWaterLevel) return;
+                const step = parseInt(btn.getAttribute("data-step") || "0", 10);
+                const curr = parseInt(inputWaterLevel.value || "110", 10) || 110;
+                inputWaterLevel.value = String(Math.max(0, curr + step));
+            });
+        });
+
+        // 1-Tap Water Colour Swatch Pills & Display Box
+        const selectColour = this.container.querySelector("#select-water-colour");
+        const selectedDisplay = this.container.querySelector("#selected-water-colour-display");
+        this.container.querySelectorAll(".btn-colour-chip").forEach(chip => {
+            chip.addEventListener("click", () => {
+                if (!selectColour) return;
+                selectColour.value = chip.getAttribute("data-colour") || "";
+                this.syncPresetHighlights();
+            });
+        });
+        if (selectedDisplay && selectColour) {
+            selectedDisplay.addEventListener("click", () => {
+                const currMeta = getWaterColourMeta(selectColour.value);
+                const currIdx = currMeta ? WATER_COLOUR_OPTIONS.findIndex(o => o.value === currMeta.value) : -1;
+                const nextOpt = WATER_COLOUR_OPTIONS[(currIdx + 1) % WATER_COLOUR_OPTIONS.length];
+                if (nextOpt) {
+                    selectColour.value = nextOpt.value;
+                    this.syncPresetHighlights();
+                }
+            });
+        }
+        if (selectColour) {
+            selectColour.addEventListener("change", () => this.syncPresetHighlights());
+        }
+
+        // Progressive Disclosure Toggles for Optional Sections
+        const minCard = this.container.querySelector("#section-minerals-card");
+        const proCard = this.container.querySelector("#section-probiotics-card");
+        const mortCard = this.container.querySelector("#section-mortality-card");
+        const mineralContainer = this.container.querySelector("#mineral-rows-container");
+        const probioticContainer = this.container.querySelector("#probiotic-rows-container");
+
+        const btnToggleMin = this.container.querySelector("#btn-toggle-minerals-sec");
+        if (btnToggleMin && minCard) {
+            btnToggleMin.addEventListener("click", () => {
+                const isHidden = minCard.style.display === "none";
+                minCard.style.display = isHidden ? "block" : "none";
+                if (isHidden && mineralContainer && mineralContainer.children.length === 0) {
+                    this.appendMineralRow(mineralContainer, { name: "", amount: "", unit: "KG" });
+                }
+                this.syncOptionalTogglePills();
+            });
+        }
+
+        const btnTogglePro = this.container.querySelector("#btn-toggle-probiotics-sec");
+        if (btnTogglePro && proCard) {
+            btnTogglePro.addEventListener("click", () => {
+                const isHidden = proCard.style.display === "none";
+                proCard.style.display = isHidden ? "block" : "none";
+                if (isHidden && probioticContainer && probioticContainer.children.length === 0) {
+                    this.appendProbioticRow(probioticContainer, { name: "", amount: "", unit: "L" });
+                }
+                this.syncOptionalTogglePills();
+            });
+        }
+
+        const btnToggleMort = this.container.querySelector("#btn-toggle-mortality-sec");
+        if (btnToggleMort && mortCard) {
+            btnToggleMort.addEventListener("click", () => {
+                const isHidden = mortCard.style.display === "none";
+                mortCard.style.display = isHidden ? "block" : "none";
+                this.syncOptionalTogglePills();
+            });
+        }
 
         // Date input change -> recalculate DOC
         const inputDate = this.container.querySelector("#input-entry-date");
@@ -788,7 +1325,6 @@ export class DailyRecordsPage {
 
         // Add Mineral Row Button
         const btnAddMineral = this.container.querySelector("#btn-add-mineral-row");
-        const mineralContainer = this.container.querySelector("#mineral-rows-container");
         if (btnAddMineral && mineralContainer) {
             btnAddMineral.addEventListener("click", () => {
                 this.appendMineralRow(mineralContainer, { name: "", amount: "", unit: "KG" });
@@ -797,19 +1333,26 @@ export class DailyRecordsPage {
 
         // Add Probiotic Row Button
         const btnAddProbiotic = this.container.querySelector("#btn-add-probiotic-row");
-        const probioticContainer = this.container.querySelector("#probiotic-rows-container");
         if (btnAddProbiotic && probioticContainer) {
             btnAddProbiotic.addEventListener("click", () => {
                 this.appendProbioticRow(probioticContainer, { name: "", amount: "", unit: "L" });
             });
         }
 
-        // Form Submit
+        // Form Submit (Standard Save)
         const form = this.container.querySelector("#form-daily-record");
         if (form) {
             form.addEventListener("submit", async (e) => {
                 e.preventDefault();
-                await this.handleSaveRecord();
+                await this.handleSaveRecord({ advanceToNextPond: false });
+            });
+        }
+
+        // Save & Next Pond Button (Sequential Rapid Mode)
+        const btnSaveNext = this.container.querySelector("#btn-save-and-next");
+        if (btnSaveNext) {
+            btnSaveNext.addEventListener("click", async () => {
+                await this.handleSaveRecord({ advanceToNextPond: true });
             });
         }
 
@@ -822,8 +1365,13 @@ export class DailyRecordsPage {
                     try {
                         await DailyRecordsRepository.deleteRecord(this.activeModalRecord.id);
                         Toast.success("Daily record deleted.");
-                        modal.style.display = "none";
-                        await this.render(this.currentPond);
+                        if (this.callbacks.onRecordSaved) this.callbacks.onRecordSaved();
+                        if (this.isModalOnlyMode) {
+                            this.closeModal();
+                        } else {
+                            if (modal) modal.style.display = "none";
+                            await this.render(this.currentPond, this.activePondsList);
+                        }
                     } catch (err) {
                         Toast.error("Failed to delete record: " + err.message);
                     }
@@ -838,11 +1386,10 @@ export class DailyRecordsPage {
     appendMineralRow(container, item = { name: "", amount: "", unit: "KG" }) {
         const row = document.createElement("div");
         row.className = "mineral-item-row";
-        row.style.cssText = "display: grid; grid-template-columns: 1fr 110px 90px 36px; gap: 0.5rem; align-items: center;";
 
         row.innerHTML = `
-            <input type="text" list="minerals-autocomplete" class="form-control mineral-name" placeholder="Search or type mineral name" value="${item.name || item.item_name || ''}" style="font-size: 0.85rem; font-weight: 600;" required />
-            <input type="number" step="0.1" min="0" class="form-control mineral-amount" placeholder="Qty" value="${item.amount !== undefined ? item.amount : ''}" style="font-size: 0.85rem; font-weight: 700;" required />
+            <input type="text" list="minerals-autocomplete" class="form-control mineral-name" placeholder="Search or type mineral name" value="${item.name || item.item_name || ''}" style="font-size: 0.85rem; font-weight: 600;" />
+            <input type="number" step="0.1" min="0" class="form-control mineral-amount" placeholder="Qty" value="${item.amount !== undefined ? item.amount : ''}" style="font-size: 0.85rem; font-weight: 700;" />
             <select class="form-control mineral-unit" style="font-size: 0.82rem; font-weight: 700;">
                 <option value="KG" ${(item.unit || '').toUpperCase() === 'KG' ? 'selected' : ''}>KG</option>
                 <option value="L" ${(item.unit || '').toUpperCase() === 'L' ? 'selected' : ''}>L</option>
@@ -864,11 +1411,10 @@ export class DailyRecordsPage {
     appendProbioticRow(container, item = { name: "", amount: "", unit: "L" }) {
         const row = document.createElement("div");
         row.className = "probiotic-item-row";
-        row.style.cssText = "display: grid; grid-template-columns: 1fr 110px 90px 36px; gap: 0.5rem; align-items: center;";
 
         row.innerHTML = `
-            <input type="text" list="probiotics-autocomplete" class="form-control probiotic-name" placeholder="Search or type probiotic name" value="${item.name || item.item_name || ''}" style="font-size: 0.85rem; font-weight: 600;" required />
-            <input type="number" step="0.1" min="0" class="form-control probiotic-amount" placeholder="Qty" value="${item.amount !== undefined ? item.amount : ''}" style="font-size: 0.85rem; font-weight: 700;" required />
+            <input type="text" list="probiotics-autocomplete" class="form-control probiotic-name" placeholder="Search or type probiotic name" value="${item.name || item.item_name || ''}" style="font-size: 0.85rem; font-weight: 600;" />
+            <input type="number" step="0.1" min="0" class="form-control probiotic-amount" placeholder="Qty" value="${item.amount !== undefined ? item.amount : ''}" style="font-size: 0.85rem; font-weight: 700;" />
             <select class="form-control probiotic-unit" style="font-size: 0.82rem; font-weight: 700;">
                 <option value="L" ${(item.unit || '').toUpperCase() === 'L' ? 'selected' : ''}>L</option>
                 <option value="KG" ${(item.unit || '').toUpperCase() === 'KG' ? 'selected' : ''}>KG</option>
@@ -885,9 +1431,9 @@ export class DailyRecordsPage {
     }
 
     /**
-     * Opens modal pre-populated for a given date and existing record
+     * Opens modal pre-populated for a given date and existing record (or smart carry-forward from previous log)
      */
-    openEntryModal(targetDate, existingRecord = null) {
+    openEntryModal(targetDate, existingRecord = null, options = { autoFocusFeed: true }) {
         this.activeModalRecord = existingRecord;
         const modal = this.container.querySelector("#modal-daily-entry");
         const titleEl = this.container.querySelector("#modal-entry-title");
@@ -903,9 +1449,14 @@ export class DailyRecordsPage {
         const mineralContainer = this.container.querySelector("#mineral-rows-container");
         const probioticContainer = this.container.querySelector("#probiotic-rows-container");
         const btnDelete = this.container.querySelector("#btn-delete-entry");
+        const carryBadge = this.container.querySelector("#carry-forward-badge");
+        const carryText = this.container.querySelector("#carry-forward-text");
+        const minCard = this.container.querySelector("#section-minerals-card");
+        const proCard = this.container.querySelector("#section-probiotics-card");
+        const mortCard = this.container.querySelector("#section-mortality-card");
 
         const pondLabel = this.currentPond.pond || this.currentPond.pond_index || "Pond";
-        const dateVal = targetDate || new Date().toISOString().split("T")[0];
+        const dateVal = targetDate || getLocalDateStr();
         inputDate.value = dateVal;
 
         const doc = this.currentPond.stck_date ? calculateDOC(this.currentPond.stck_date, dateVal) : 0;
@@ -920,42 +1471,88 @@ export class DailyRecordsPage {
         const existingProbiotics = dayTreatments.filter(t => t.category === 'PROBIOTIC');
 
         if (existingRecord) {
-            titleEl.textContent = `Edit Record — DOC ${doc} (${dateVal})`;
-            subTitleEl.textContent = `Update existing log for Pond ${pondLabel}`;
+            titleEl.textContent = `Edit Record — Pond ${pondLabel}`;
+            subTitleEl.textContent = `DOC ${doc} · ${formatLocalDateDisplay(dateVal)} (Existing Log)`;
             inputFeed.value = existingRecord.feed_kg !== null && existingRecord.feed_kg !== undefined ? existingRecord.feed_kg : "";
-            inputTray.value = existingRecord.feed_tray_remnant_pct !== null && existingRecord.feed_tray_remnant_pct !== undefined ? existingRecord.feed_tray_remnant_pct : "";
-            inputWaterLevel.value = existingRecord.water_level_cm !== null && existingRecord.water_level_cm !== undefined ? existingRecord.water_level_cm : "";
-            selectColour.value = existingRecord.water_colour || "";
-            inputMortality.value = existingRecord.mortality_count !== null && existingRecord.mortality_count !== undefined ? existingRecord.mortality_count : "0";
+            inputTray.value = existingRecord.feed_tray_remnant_pct !== null && existingRecord.feed_tray_remnant_pct !== undefined ? existingRecord.feed_tray_remnant_pct : "0";
+            inputWaterLevel.value = existingRecord.water_level_cm !== null && existingRecord.water_level_cm !== undefined ? existingRecord.water_level_cm : "110";
+            selectColour.value = getWaterColourMeta(existingRecord.water_colour)?.value || "Brownish Green";
+            inputMortality.value = (existingRecord.mortality_kg !== null && existingRecord.mortality_kg !== undefined)
+                ? existingRecord.mortality_kg
+                : (existingRecord.mortality_count !== null && existingRecord.mortality_count !== undefined ? existingRecord.mortality_count : "0");
             inputRemarks.value = existingRecord.remarks || "";
             btnDelete.style.display = "block";
+            if (carryBadge) carryBadge.style.display = "none";
         } else {
-            titleEl.textContent = `New Record — DOC ${doc} (${dateVal})`;
-            subTitleEl.textContent = `Record daily data for Pond ${pondLabel}`;
-            inputFeed.value = "";
-            inputTray.value = "0";
-            inputWaterLevel.value = "110";
-            selectColour.value = "Brownish Green";
+            titleEl.textContent = `Quick Log — Pond ${pondLabel}`;
+            subTitleEl.textContent = `DOC ${doc} · ${formatLocalDateDisplay(dateVal)}`;
+
+            // Smart Yesterday Carry-Forward: find latest previous record
+            const sortedPrev = [...this.records]
+                .filter(r => r && r.log_date && r.log_date < dateVal)
+                .sort((a, b) => b.log_date.localeCompare(a.log_date));
+            const prevRecord = sortedPrev.length > 0 ? sortedPrev[0] : (this.records.length > 0 ? this.records[0] : null);
+
+            if (prevRecord) {
+                inputFeed.value = (prevRecord.feed_kg !== null && prevRecord.feed_kg !== undefined && parseFloat(prevRecord.feed_kg) > 0)
+                    ? prevRecord.feed_kg
+                    : "";
+                inputTray.value = "0";
+                inputWaterLevel.value = prevRecord.water_level_cm || "110";
+                selectColour.value = getWaterColourMeta(prevRecord.water_colour)?.value || "Brownish Green";
+                if (carryBadge && carryText) {
+                    const prevFeedStr = prevRecord.feed_kg ? `${parseFloat(prevRecord.feed_kg).toFixed(1)} kg` : "—";
+                    carryText.textContent = `↺ Pre-filled from ${formatLocalDateDisplay(prevRecord.log_date)} (${prevFeedStr}, ${prevRecord.water_level_cm || 110} cm)`;
+                    carryBadge.style.display = "flex";
+                }
+            } else {
+                inputFeed.value = "";
+                inputTray.value = "0";
+                inputWaterLevel.value = "110";
+                selectColour.value = "Brownish Green";
+                if (carryBadge) carryBadge.style.display = "none";
+            }
+
             inputMortality.value = "0";
             inputRemarks.value = "";
             btnDelete.style.display = "none";
         }
 
-        // Populate minerals from mineral_probiotic_used
+        // Populate minerals & probiotics from mineral_probiotic_used
         existingMinerals.forEach(m => this.appendMineralRow(mineralContainer, m));
-
-        // Populate probiotics from mineral_probiotic_used
         existingProbiotics.forEach(p => this.appendProbioticRow(probioticContainer, p));
 
+        // Progressive disclosure: auto-expand optional sections only if populated
+        if (minCard) minCard.style.display = existingMinerals.length > 0 ? "block" : "none";
+        if (proCard) proCard.style.display = existingProbiotics.length > 0 ? "block" : "none";
+        const hasMortOrNote = existingRecord && (
+            parseFloat(existingRecord.mortality_kg || existingRecord.mortality_count || 0) > 0 ||
+            Boolean(existingRecord.remarks && existingRecord.remarks.trim())
+        );
+        if (mortCard) mortCard.style.display = hasMortOrNote ? "block" : "none";
+
+        this.syncPresetHighlights();
+        this.syncOptionalTogglePills();
+
+        const dialog = modal.querySelector(".modal-dialog");
+        if (dialog) dialog.scrollTop = 0;
         modal.style.display = "flex";
+
+        const isMobileViewport = window.innerWidth <= 768;
+        if (options.autoFocusFeed && !isMobileViewport && !inputFeed.value) {
+            setTimeout(() => {
+                if (inputFeed) inputFeed.focus();
+            }, 50);
+        }
     }
 
     /**
      * Handles saving record to Supabase:
      * 1. Upserts into daily_pond_records
      * 2. Syncs rows into mineral_probiotic_used
+     * 3. Supports sequential "Save & Next Pond" workflow
      */
-    async handleSaveRecord() {
+    async handleSaveRecord({ advanceToNextPond = false } = {}) {
         const inputDate = this.container.querySelector("#input-entry-date");
         const inputFeed = this.container.querySelector("#input-feed-kg");
         const inputTray = this.container.querySelector("#input-tray-pct");
@@ -964,6 +1561,7 @@ export class DailyRecordsPage {
         const inputMortality = this.container.querySelector("#input-mortality");
         const inputRemarks = this.container.querySelector("#input-remarks");
         const btnSave = this.container.querySelector("#btn-save-record");
+        const btnSaveNext = this.container.querySelector("#btn-save-and-next");
 
         const logDate = inputDate.value;
         if (!logDate) {
@@ -994,6 +1592,7 @@ export class DailyRecordsPage {
 
         const pondIndex = this.currentPond.pond_index;
         const pondName = this.currentPond.pond || pondIndex;
+        const mortVal = inputMortality.value !== "" ? parseFloat(inputMortality.value) : 0;
 
         const dailyPayload = {
             pond_index: pondIndex,
@@ -1003,7 +1602,8 @@ export class DailyRecordsPage {
             feed_tray_remnant_pct: inputTray.value !== "" ? parseInt(inputTray.value, 10) : 0,
             water_level_cm: inputWaterLevel.value !== "" ? parseFloat(inputWaterLevel.value) : null,
             water_colour: selectColour.value || null,
-            mortality_count: inputMortality.value !== "" ? parseInt(inputMortality.value, 10) : 0,
+            mortality_kg: isNaN(mortVal) ? 0.0 : mortVal,
+            mortality_count: isNaN(mortVal) ? 0 : Math.round(mortVal),
             remarks: (inputRemarks.value || "").trim() || null
         };
 
@@ -1011,8 +1611,14 @@ export class DailyRecordsPage {
             dailyPayload.id = this.activeModalRecord.id;
         }
 
-        btnSave.disabled = true;
-        btnSave.textContent = "Saving to Supabase...";
+        if (btnSave) {
+            btnSave.disabled = true;
+            btnSave.textContent = "Saving...";
+        }
+        if (btnSaveNext) {
+            btnSaveNext.disabled = true;
+            btnSaveNext.textContent = "Saving...";
+        }
 
         try {
             // 1. Upsert daily_pond_records
@@ -1028,17 +1634,35 @@ export class DailyRecordsPage {
                 treatmentsPayload
             );
 
-            Toast.success(`Daily record & treatments for ${logDate} saved successfully!`);
-            this.container.querySelector("#modal-daily-entry").style.display = "none";
+            // Notify parent map so Today's status badge updates live
+            if (this.callbacks.onRecordSaved) {
+                this.callbacks.onRecordSaved();
+            }
 
-            // Refresh ledger book & totals
-            await this.render(this.currentPond);
+            if (advanceToNextPond && this.activePondsList && this.activePondsList.length > 1) {
+                const nextPond = await this.switchPondInModal(1);
+                const nextName = nextPond ? (nextPond.pond || nextPond.pond_index) : "Next Pond";
+                Toast.success(`✅ Saved Pond ${pondName} — Ready for Pond ${nextName}!`);
+            } else if (this.isModalOnlyMode) {
+                Toast.success(`✅ Saved Pond ${pondName} (${dailyPayload.feed_kg} kg)!`);
+                this.closeModal();
+            } else {
+                Toast.success(`Daily record & treatments for ${logDate} saved!`);
+                this.container.querySelector("#modal-daily-entry").style.display = "none";
+                await this.render(this.currentPond, this.activePondsList);
+            }
         } catch (err) {
             console.error("Save error:", err);
             Toast.error("Failed to save daily record: " + err.message);
         } finally {
-            btnSave.disabled = false;
-            btnSave.textContent = "💾 Save Daily Record";
+            if (btnSave) {
+                btnSave.disabled = false;
+                btnSave.textContent = "💾 Save";
+            }
+            if (btnSaveNext) {
+                btnSaveNext.disabled = false;
+                btnSaveNext.textContent = "⚡ Save & Next ➔";
+            }
         }
     }
 }

@@ -147,13 +147,14 @@ export class PondWqsDetail {
             <div class="pond-wqs-wrapper" style="padding: 1.25rem 2rem; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.4rem;">
                 
                 <!-- Top Navigation & Pond Identity Bar -->
-                <div class="wqs-header-bar flex-between" style="background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 1); border-radius: 16px; padding: 0.9rem 1.4rem; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.08); flex-wrap: wrap; gap: 0.75rem;">
-                    <div style="display: flex; align-items: center; gap: 1rem;">
+                <div class="wqs-nav-bar flex-between" style="background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 1); border-radius: 16px; padding: 0.9rem 1.4rem; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.08); flex-wrap: wrap; gap: 0.75rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
                         <button type="button" id="btn-wqs-back" class="btn-action btn-secondary" style="font-size: 0.82rem; font-weight: 700; padding: 0.45rem 0.95rem; display: flex; align-items: center; gap: 0.4rem;">
-                            <span>← Back to 24 Ponds</span>
+                            <span class="btn-text-full">← Back to 24 Ponds</span>
+                            <span class="btn-text-short">← Back to Map</span>
                         </button>
                         <div>
-                            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
                                 <h1 style="margin: 0; font-size: 1.4rem; color: #0f172a; font-weight: 900;">Pond ${pondLabel}</h1>
                                 <span style="font-size: 0.75rem; font-weight: 800; background: #e0f2fe; color: #0369a1; padding: 0.2rem 0.65rem; border-radius: 999px;">
                                     Cycle ${pond.cycle_no || (pond.pond_index ? pond.pond_index.split(".")[1] : '—')}
@@ -169,13 +170,14 @@ export class PondWqsDetail {
                     </div>
 
                     <!-- Action Navigation Buttons: Daily Records & Management Entry -->
-                    <div style="display: flex; align-items: center; gap: 0.65rem;">
+                    <div class="wqs-nav-actions" style="display: flex; align-items: center; gap: 0.65rem;">
                         <button type="button" id="btn-open-daily-page" class="btn-action btn-primary" style="font-size: 0.86rem; font-weight: 800; padding: 0.52rem 1.3rem; display: flex; align-items: center; gap: 0.45rem; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);">
                             <span>📖 Daily Records</span>
                             <span style="font-size: 0.72rem; opacity: 0.85;">➔</span>
                         </button>
                         <button type="button" id="btn-open-mgmt-page" class="btn-action btn-secondary" style="font-size: 0.86rem; font-weight: 800; padding: 0.52rem 1.3rem; display: flex; align-items: center; gap: 0.45rem;">
-                            <span>📝 Management Entry</span>
+                            <span class="btn-text-full">📝 Management Entry</span>
+                            <span class="btn-text-short">📝 Management</span>
                             <span style="font-size: 0.72rem; opacity: 0.85;">➔</span>
                         </button>
                     </div>
@@ -212,7 +214,7 @@ export class PondWqsDetail {
                     </div>
 
                     <!-- Recent Sampling Sub-grid -->
-                    <div id="wqs-sampling-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem;">
+                    <div id="wqs-sampling-grid" class="wqs-biometrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem;">
                         <div style="background: rgba(240, 249, 255, 0.7); border: 1px solid #bae6fd; border-radius: 10px; padding: 0.65rem 0.85rem; text-align: center;">
                             <div style="font-size: 0.7rem; font-weight: 700; color: #0284c7;">Sample ABW</div>
                             <div id="wqs-val-abw" style="font-size: 1.25rem; font-weight: 900; color: #0f172a; margin: 0.2rem 0;">—</div>
@@ -271,7 +273,7 @@ export class PondWqsDetail {
                 </section>
 
                 <!-- SECTION 3: DAILY FLUCTUATIONS & FEEDING ACTIVITY (IoT Devices) -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                <div class="wqs-iot-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
                     
                     <!-- Daily Fluctuations (water_quality_logs) -->
                     <section class="glass-card" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.2rem 1.4rem;">
@@ -366,7 +368,7 @@ export class PondWqsDetail {
                         </div>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem;">
+                    <div class="wqs-weather-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.85rem;">
                         <!-- Solar Irradiance -->
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem;">
                             <span style="font-size: 0.72rem; font-weight: 700; color: #64748b; display: block;">Solar Irradiance</span>
@@ -432,7 +434,7 @@ export class PondWqsDetail {
                         </button>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem;">
+                    <div class="wqs-crew-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.85rem;">
                         <!-- Pond Operator -->
                         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem;">
                             <span style="font-size: 0.72rem; font-weight: 700; color: #64748b;">🦐 Pond Operator</span>

@@ -103,3 +103,41 @@ Every modification action must respect user roles defined in `src/config/permiss
 - Use live `weather_logs` for meteorological mast telemetry (Solar Lux, Rainfall, Air Temp, Humidity, Pressure).
 - Biometrics sampling queries must always order by `smpl_doc.desc` so the latest sampling record is resolved first.
 
+---
+
+## 8. Daily Mortality Standard (Kilograms / kg Only)
+
+- On this farm, **mortality is estimated and recorded in kilograms (kg), never pieces (pcs)**.
+- Dead shrimp are scooped from feeding trays or pond perimeters and weighed as biomass.
+- **Database Schema**:
+  - `public.daily_pond_records.mortality_kg` is type `numeric(8,2) DEFAULT 0.0`.
+  - For backward compatibility with legacy tools, `mortality_count` is kept synchronized as `Math.round(mortality_kg)`.
+- **Form Inputs & Displays**:
+  - All input fields must specify `step="0.1"` and `min="0"`.
+  - Display values must format to 1 decimal place (e.g. `2.5 kg`).
+
+---
+
+## 9. Mobile-First Standard for Field Operations
+
+- The **Field Operations module (`#view-field-ops`)** is strictly dedicated to field workers, row leaders, and supervisors on smartphones and rugged outdoor tablets.
+- **Executive Dashboard** and **iSHARP DBMS** remain desktop-only views.
+- **Ergonomics Rules**:
+  - Minimum touch target size: 44px (`min-height: 44px; touch-action: manipulation;`).
+  - Active touch feedback: `transform: scale(0.97)` on active press.
+  - iOS auto-zoom prevention: Input font sizes must be $\ge 16\text{px}$.
+  - Zero horizontal jitter & strict card containment: Root container enforces `overflow-x: hidden; max-width: 100vw;`. Multi-column form grids on mobile must use `grid-template-columns: minmax(0, 1fr)` with `min-width: 0; max-width: 100%; box-sizing: border-box;` on children so stepper rows and chip grids never overflow their card border.
+  - Wet-finger ergonomics: Provide large `+` / `−` stepper buttons and 1-tap preset chips alongside numeric inputs, and suppress automatic virtual keyboard popups on mobile (`window.innerWidth <= 768`).
+  - Responsive button labels: Use `.btn-text-full` (desktop) and `.btn-text-short` (mobile) for navigation buttons so headers never wrap awkwardly on narrow phone viewports.
+  - Desktop tables with >6 columns must be hidden on mobile (`.hide-mobile`) and replaced with high-contrast timeline cards (`.show-mobile`).
+
+---
+
+## 10. Timezone-Safe Local Date & Water Colour Swatch Standards
+
+- **Never use `new Date().toISOString().split('T')[0]` for local farm dates**:
+  - In Malaysia (`UTC+8`), `toISOString()` converts to UTC and shifts the calendar date back by 1 day between `00:00` and `07:59` local time, causing the `TODAY` badge and DOC calculations to lag by one day.
+  - Always construct and parse `YYYY-MM-DD` strings using local calendar components (`getFullYear()`, `getMonth() + 1`, `getDate()`).
+- **Observed Water Colour Swatches (True 3D CSS Orbs + Simple Names)**:
+  - Never use generic Unicode emojis (`🟢`, `🟤`, `⚪`) to represent multiple distinct water colours.
+  - Always render custom `.water-swatch-orb` radial-gradient spheres paired with the 8 standardized simple names: **`Lt Green`**, **`Green`**, **`Dk Green`**, **`Brn Green`**, **`Tea`**, **`Brown`**, **`Clear`**, and **`Turbid`**.

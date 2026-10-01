@@ -10,21 +10,32 @@ import { calculateTotalActiveHP } from "../../domain/aeration.js";
 import { supabase } from "../../infrastructure/supabase.js";
 import { StaffRepository } from "../../infrastructure/repositories/staffRepository.js";
 
+function getLocalDateStr(d = new Date()) {
+    const dt = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(dt.getTime())) return "";
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, "0");
+    const day = String(dt.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
 export class FieldOpsMap {
     /**
      * @param {string} containerId Container ID
      * @param {number} moduleNo Module number (1 to 9)
      * @param {Function} onSelectPond Callback when pond tile is clicked
+     * @param {Function} onQuickLogPond Callback when quick "+ Log" button is clicked
      */
-    constructor(containerId = "field-ops-map-mount", moduleNo = 1, onSelectPond = null) {
+    constructor(containerId = "field-ops-map-mount", moduleNo = 1, onSelectPond = null, onQuickLogPond = null) {
         this.container = document.getElementById(containerId);
         this.moduleNo = moduleNo;
         this.onSelectPond = onSelectPond;
+        this.onQuickLogPond = onQuickLogPond;
 
-        this.filter = "ALL"; // ALL, PRODUCTION, IDLE
+        this.filter = "ALL"; // ALL, PRODUCTION, IDLE, UNLOGGED
         this.searchTerm = "";
 
-        this.pondsData = new Map(); // pondLabel -> { pond, cycleRecord, isIdle, operatorName, totalHP }
+        this.pondsData = new Map(); // pondLabel -> { pond, cycleRecord, isIdle, operatorName, totalHP, todayRecord }
         this.isLoading = false;
 
         this.initStructure();
@@ -36,6 +47,12 @@ export class FieldOpsMap {
         this.loadModulePonds();
     }
 
+    getActivePondsList() {
+        return Array.from(this.pondsData.values())
+            .filter(p => !p.isIdle && p.cycleRecord)
+            .map(p => p.cycleRecord);
+    }
+
     initStructure() {
         if (!this.container) return;
         const modStr = String(this.moduleNo).padStart(2, "0");
@@ -43,22 +60,27 @@ export class FieldOpsMap {
         this.container.innerHTML = `
             <div class="field-ops-map-wrapper" style="display: flex; flex-direction: column; gap: 1rem;">
                 
-                <!-- Toolbar: Filter Pills, Search, and Refresh -->
+                <!-- Toolbar: Filter Pills, Daily Progress, Rapid Log, Search, and Refresh -->
                 <div class="field-ops-toolbar flex-between" style="background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 16px; padding: 0.75rem 1.25rem; box-shadow: 0 4px 16px rgba(2, 132, 199, 0.05); flex-wrap: wrap; gap: 0.75rem;">
                     
                     <!-- Left: Operational Status Filter Buttons -->
-                    <div class="feeding-filter-group" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
-                        <span style="font-size: 0.76rem; font-weight: 800; color: #475569; margin-right: 0.2rem;">Culture Status:</span>
-                        <button type="button" class="btn-filter-action active" data-action-filter="ALL" style="font-size: 0.74rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 999px; border: 1px solid #cbd5e1; background: #ffffff; cursor: pointer;">All 24 Ponds</button>
-                        <button type="button" class="btn-filter-action" data-action-filter="PRODUCTION" style="font-size: 0.74rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 999px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; cursor: pointer;">🟢 In Culture</button>
-                        <button type="button" class="btn-filter-action" data-action-filter="IDLE" style="font-size: 0.74rem; font-weight: 700; padding: 0.25rem 0.75rem; border-radius: 999px; border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b; cursor: pointer;">⚪ Idle / Prep</button>
+                    <div class="feeding-filter-group field-ops-filter-scroll" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
+                        <span style="font-size: 0.76rem; font-weight: 800; color: #475569; margin-right: 0.2rem;">Status:</span>
+                        <button type="button" class="btn-filter-action active" data-action-filter="ALL" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #cbd5e1; background: #ffffff; cursor: pointer;">
+                            <span class="btn-text-full">All 24 Ponds</span>
+                            <span class="btn-text-short">All</span>
+                        </button>
+                        <button type="button" class="btn-filter-action" data-action-filter="PRODUCTION" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; cursor: pointer;">🟢 In Culture</button>
+                        <button type="button" class="btn-filter-action" data-action-filter="UNLOGGED" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #fde68a; background: #fffbeb; color: #b45309; cursor: pointer;">⏳ Pending Log</button>
+                        <button type="button" class="btn-filter-action" data-action-filter="IDLE" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b; cursor: pointer;">⚪ Idle</button>
                     </div>
 
-                    <!-- Right: Search and Refresh -->
-                    <div style="display: flex; align-items: center; gap: 0.6rem; margin-left: auto;">
-                        <input type="text" id="input-field-ops-search" placeholder="Search pond (e.g. 11)..." style="font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; width: 170px; background: rgba(255, 255, 255, 0.9);" />
-                        <button type="button" id="btn-refresh-field-ops" class="btn-action btn-secondary" style="font-size: 0.76rem; font-weight: 700; padding: 0.35rem 0.8rem;">
-                            <span>🔄 Refresh</span>
+                    <!-- Center/Right: Daily Progress & Rapid Log + Search and Refresh -->
+                    <div class="field-ops-search-box" style="display: flex; align-items: center; gap: 0.6rem; margin-left: auto; flex-wrap: wrap;">
+                        <div id="field-ops-daily-progress-mount" style="display: flex; align-items: center; gap: 0.5rem;"></div>
+                        <input type="text" id="input-field-ops-search" placeholder="Search pond..." style="font-size: 0.82rem; padding: 0.4rem 0.75rem; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; width: 155px; background: rgba(255, 255, 255, 0.9);" />
+                        <button type="button" id="btn-refresh-field-ops" class="btn-action btn-secondary" title="Refresh Module Status" style="font-size: 0.76rem; font-weight: 700; padding: 0.4rem 0.8rem;">
+                            <span>🔄</span>
                         </button>
                     </div>
                 </div>
@@ -108,7 +130,7 @@ export class FieldOpsMap {
 
     async loadModulePonds() {
         const gridMount = this.container.querySelector("#field-ops-grid-mount");
-        if (gridMount) {
+        if (gridMount && this.pondsData.size === 0) {
             gridMount.innerHTML = `
                 <div style="text-align: center; color: #64748b; padding: 3rem 0;">
                     <div class="spinner-sm" style="margin: 0 auto 0.75rem auto;"></div>
@@ -129,6 +151,26 @@ export class FieldOpsMap {
 
             // Fetch staff directory into memory for quick name resolution
             await StaffRepository.getStaffDirectory();
+
+            // Fetch today's daily_pond_records for active ponds in this module
+            const todayStr = getLocalDateStr();
+            const todayRecordsMap = new Map();
+            const activeIndices = (cycles || [])
+                .filter(c => c && (c.pond_status || "").toUpperCase() !== "IDLE" && c.stck_date && c.pond_index)
+                .map(c => c.pond_index);
+
+            if (activeIndices.length > 0) {
+                try {
+                    const inList = activeIndices.map(idx => `"${idx}"`).join(",");
+                    const todayRows = await supabase.request(`daily_pond_records?log_date=eq.${todayStr}&pond_index=in.(${inList})&select=id,pond_index,pond,log_date,feed_kg,feed_tray_remnant_pct,water_level_cm,water_colour,mortality_kg`);
+                    (todayRows || []).forEach(r => {
+                        if (r.pond_index) todayRecordsMap.set(r.pond_index, r);
+                        if (r.pond) todayRecordsMap.set(r.pond, r);
+                    });
+                } catch (e) {
+                    console.warn("Unable to load today's records summary for module map:", e);
+                }
+            }
 
             // Construct 24 expected ponds for this module (2 rows x 12 ponds)
             this.pondsData.clear();
@@ -155,6 +197,10 @@ export class FieldOpsMap {
                     const u2 = parseInt(cycleRecord?.aerator_2hp || 0, 10);
                     const totalHP = calculateTotalActiveHP(u1, u2);
 
+                    const todayRecord = (!isIdle && cycleRecord)
+                        ? (todayRecordsMap.get(cycleRecord.pond_index) || todayRecordsMap.get(pondLabel) || null)
+                        : null;
+
                     this.pondsData.set(pondLabel, {
                         pondLabel,
                         rowNo: r,
@@ -171,7 +217,8 @@ export class FieldOpsMap {
                         operatorName,
                         totalHP,
                         u1,
-                        u2
+                        u2,
+                        todayRecord
                     });
                 }
             }
@@ -200,9 +247,42 @@ export class FieldOpsMap {
         const r1Str = String(r1Num).padStart(2, "0");
         const r2Str = String(r2Num).padStart(2, "0");
 
+        // Update Daily Logging Progress & Rapid Log CTA in Toolbar
+        const allPonds = Array.from(this.pondsData.values());
+        const activePonds = allPonds.filter(p => !p.isIdle);
+        const loggedCount = activePonds.filter(p => Boolean(p.todayRecord)).length;
+        const totalActive = activePonds.length;
+        const allLogged = totalActive > 0 && loggedCount === totalActive;
+
+        const progressMount = this.container.querySelector("#field-ops-daily-progress-mount");
+        if (progressMount) {
+            if (totalActive > 0) {
+                progressMount.innerHTML = `
+                    <span style="font-size: 0.74rem; font-weight: 800; padding: 0.35rem 0.7rem; border-radius: 999px; background: ${allLogged ? '#dcfce7' : '#fffbeb'}; color: ${allLogged ? '#166534' : '#b45309'}; border: 1px solid ${allLogged ? '#86efac' : '#fde68a'}; white-space: nowrap;">
+                        ${allLogged ? '✅' : '📊'} Today: ${loggedCount}/${totalActive} Logged
+                    </span>
+                    <button type="button" id="btn-rapid-log-module" class="btn-action btn-primary" style="font-size: 0.76rem; font-weight: 800; padding: 0.4rem 0.85rem; border-radius: 999px; display: inline-flex; align-items: center; gap: 0.3rem; box-shadow: 0 3px 10px rgba(2, 132, 199, 0.25); white-space: nowrap;">
+                        <span>⚡ Rapid Log</span>
+                    </button>
+                `;
+                const btnRapid = progressMount.querySelector("#btn-rapid-log-module");
+                if (btnRapid) {
+                    btnRapid.addEventListener("click", () => {
+                        const firstUnlogged = activePonds.find(p => !p.todayRecord) || activePonds[0];
+                        if (firstUnlogged && typeof this.onQuickLogPond === "function") {
+                            this.onQuickLogPond(firstUnlogged.cycleRecord, this.getActivePondsList());
+                        }
+                    });
+                }
+            } else {
+                progressMount.innerHTML = "";
+            }
+        }
+
         // Filter ponds
-        const visiblePonds = Array.from(this.pondsData.values()).filter(p => {
+        const visiblePonds = allPonds.filter(p => {
             if (this.filter === "PRODUCTION" && p.isIdle) return false;
+            if (this.filter === "UNLOGGED" && (p.isIdle || Boolean(p.todayRecord))) return false;
             if (this.filter === "IDLE" && !p.isIdle) return false;
 
             if (this.searchTerm) {
@@ -225,13 +305,13 @@ export class FieldOpsMap {
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.1rem;">🌊</span>
                             <h3 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #0f172a;">
-                                Module ${modStr} — Row ${r1Str} (Line 01: Ponds 01–12)
+                                Module ${modStr} - Row ${r1Str}
                             </h3>
                         </div>
                         <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${row1Ponds.length} Ponds Visible</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.85rem;">
+                    <div class="field-ops-pond-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.85rem;">
                         ${row1Ponds.map(p => this.renderPondCard(p)).join("")}
                     </div>
                 </div>
@@ -242,13 +322,13 @@ export class FieldOpsMap {
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.1rem;">🌊</span>
                             <h3 style="margin: 0; font-size: 0.95rem; font-weight: 800; color: #0f172a;">
-                                Module ${modStr} — Row ${r2Str} (Line 02: Ponds 01–12)
+                                Module ${modStr} - Row ${r2Str}
                             </h3>
                         </div>
                         <span style="font-size: 0.72rem; color: #64748b; font-weight: 600;">${row2Ponds.length} Ponds Visible</span>
                     </div>
 
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.85rem;">
+                    <div class="field-ops-pond-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.85rem;">
                         ${row2Ponds.map(p => this.renderPondCard(p)).join("")}
                     </div>
                 </div>
@@ -256,7 +336,19 @@ export class FieldOpsMap {
             </div>
         `;
 
-        // Bind click events on pond cards
+        // Bind 1-Tap Quick Log button on active pond cards (stops propagation so card click stays Supervisor View)
+        gridMount.querySelectorAll(".btn-quick-log-pond").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const label = btn.getAttribute("data-pond-label");
+                const data = this.pondsData.get(label);
+                if (data && typeof this.onQuickLogPond === "function") {
+                    this.onQuickLogPond(data.cycleRecord, this.getActivePondsList());
+                }
+            });
+        });
+
+        // Bind click events on pond cards (opens Supervisor Pond WQS Detail View)
         gridMount.querySelectorAll(".field-ops-pond-tile").forEach(card => {
             card.addEventListener("click", () => {
                 const label = card.getAttribute("data-pond-label");
@@ -269,7 +361,7 @@ export class FieldOpsMap {
     }
 
     renderPondCard(data) {
-        const { pondLabel, cycleRecord, isIdle, operatorName, totalHP } = data;
+        const { pondLabel, cycleRecord, isIdle, operatorName, totalHP, todayRecord } = data;
         const doc = calculateDOC(cycleRecord.stck_date, cycleRecord.date_close);
         const area = parseFloat(cycleRecord.area) || 0.50;
 
@@ -286,7 +378,14 @@ export class FieldOpsMap {
             badgeBg = "#f1f5f9";
             badgeColor = "#64748b";
             shadowGlow = "rgba(148, 163, 184, 0.08)";
+        } else if (todayRecord) {
+            borderColor = "#16a34a";
+            shadowGlow = "rgba(22, 163, 74, 0.14)";
         }
+
+        const todayFeedKg = todayRecord && todayRecord.feed_kg !== null && todayRecord.feed_kg !== undefined
+            ? parseFloat(todayRecord.feed_kg).toFixed(1)
+            : "0.0";
 
         return `
             <div class="field-ops-pond-tile" data-pond-label="${pondLabel}" style="
@@ -300,12 +399,12 @@ export class FieldOpsMap {
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-                min-height: 145px;
+                min-height: 162px;
             " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 20px ${shadowGlow}';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px ${shadowGlow}';">
                 
                 <!-- Tile Header: Pond Code, Cycle, Status Badge -->
                 <div>
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.45rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem;">
                         <div>
                             <div style="font-size: 1.1rem; font-weight: 900; color: #0f172a; line-height: 1.1;">
                                 ${pondLabel}
@@ -319,19 +418,26 @@ export class FieldOpsMap {
                         </span>
                     </div>
 
-                    <!-- Middle Content: Real Operational Details (No Fake Sensor Numbers) -->
+                    <!-- Middle Content: Real Operational Details & Today's Log Status -->
                     ${!isIdle ? `
-                        <div style="margin: 0.4rem 0;">
+                        <div style="margin: 0.35rem 0;">
                             <div style="font-size: 0.72rem; color: #1e293b; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                ${cycleRecord.stck_species || 'P. VANNAMEI'}
+                                ${cycleRecord.stck_species || 'P. VANNAMEI'} · <span style="color: #0284c7;">⚡ ${totalHP} HP</span>
                             </div>
-                            <div style="font-size: 0.66rem; color: #64748b; margin-top: 0.1rem;">
-                                Line: ${cycleRecord.bs_line || 'Syaqua'} · ${area} Ha
+                            <div style="font-size: 0.65rem; color: #64748b; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Operator: ${operatorName}">
+                                🦐 ${operatorName}
                             </div>
-                            <div style="background: rgba(240, 249, 255, 0.7); border: 1px dashed #bae6fd; border-radius: 6px; padding: 0.25rem 0.4rem; text-align: center; margin-top: 0.35rem;">
-                                <span style="font-size: 0.62rem; color: #0369a1; font-weight: 700; display: block;">📡 IoT Node Offline</span>
-                                <span style="font-size: 0.6rem; color: #94a3b8;">DO: -- | pH: -- | T: --</span>
-                            </div>
+                            ${todayRecord ? `
+                                <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #166534;">
+                                    <span>✅ Logged Today</span>
+                                    <span>${todayFeedKg} kg</span>
+                                </div>
+                            ` : `
+                                <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #b45309;">
+                                    <span>⏳ Pending Today</span>
+                                    <span>DOC ${doc}</span>
+                                </div>
+                            `}
                         </div>
                     ` : `
                         <div style="padding: 0.8rem 0; text-align: center; color: #94a3b8; font-size: 0.74rem; font-weight: 600;">
@@ -341,12 +447,35 @@ export class FieldOpsMap {
                     `}
                 </div>
 
-                <!-- Tile Footer: Assigned Operator & Aeration (Real Data) -->
-                <div style="border-top: 1px solid rgba(0, 0, 0, 0.06); padding-top: 0.4rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem;">
-                    <div style="color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 125px;" title="Assigned Operator: ${operatorName}">
-                        🦐 ${operatorName}
-                    </div>
-                    <span style="color: #0284c7; font-weight: 700;">⚡ ${totalHP} HP ➔</span>
+                <!-- Tile Footer: 1-Tap Quick Log CTA (for Active Ponds) & Supervisor Detail Link -->
+                <div style="border-top: 1px solid rgba(0, 0, 0, 0.06); padding-top: 0.45rem; display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.68rem;">
+                    ${!isIdle ? `
+                        <button type="button" class="btn-quick-log-pond" data-pond-label="${pondLabel}" style="
+                            flex: 1;
+                            background: ${todayRecord ? '#f0fdf4' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'};
+                            color: ${todayRecord ? '#15803d' : '#ffffff'};
+                            border: 1px solid ${todayRecord ? '#86efac' : '#0284c7'};
+                            border-radius: 8px;
+                            padding: 0.32rem 0.5rem;
+                            font-size: 0.72rem;
+                            font-weight: 800;
+                            cursor: pointer;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            gap: 0.25rem;
+                            min-height: 32px;
+                            box-shadow: ${todayRecord ? 'none' : '0 2px 6px rgba(2, 132, 199, 0.25)'};
+                        ">
+                            <span>${todayRecord ? '✏️ Edit Log' : '⚡ + Log'}</span>
+                        </button>
+                        <span style="color: #64748b; font-weight: 700; font-size: 0.66rem; padding: 0 0.2rem; white-space: nowrap;" title="Open Pond WQS Detail">Details ➔</span>
+                    ` : `
+                        <div style="color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">
+                            ⚪ Idle Pond
+                        </div>
+                        <span style="color: #64748b; font-weight: 700;">Setup ➔</span>
+                    `}
                 </div>
 
             </div>

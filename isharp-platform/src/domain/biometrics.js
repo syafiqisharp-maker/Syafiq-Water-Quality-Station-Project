@@ -12,13 +12,29 @@
  */
 export function calculateDOC(stckDate, referenceDate = new Date()) {
     if (!stckDate) return 0;
-    const start = new Date(stckDate);
-    const end = referenceDate ? new Date(referenceDate) : new Date();
 
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+    const normalize = (val) => {
+        if (!val) return null;
+        if (val instanceof Date) {
+            return new Date(val.getFullYear(), val.getMonth(), val.getDate());
+        }
+        if (typeof val === 'string') {
+            const parts = val.split('T')[0].split('-').map(Number);
+            if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            }
+        }
+        const dt = new Date(val);
+        return isNaN(dt.getTime()) ? null : new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+    };
+
+    const start = normalize(stckDate);
+    const end = normalize(referenceDate) || normalize(new Date());
+
+    if (!start || !end) return 0;
 
     const diffMs = end.getTime() - start.getTime();
-    const doc = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const doc = Math.round(diffMs / (1000 * 60 * 60 * 24));
     return Math.max(0, doc);
 }
 

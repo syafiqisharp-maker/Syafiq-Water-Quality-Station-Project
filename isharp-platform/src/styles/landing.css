@@ -181,28 +181,53 @@
 }
 
 /* ==========================================================================
-   PURE 50/50 SPLIT: TWO CLICKABLE ORBS
+   ORBITAL CONSTELLATION STAGE: CENTER HUB & 6 SATELLITES
    ========================================================================== */
-.portal-split-stage {
+.portal-orbital-stage {
     position: relative;
     z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3rem;
     width: 100%;
-    max-width: 1120px;
+    max-width: 860px;
+    height: 520px;
     margin: auto 0;
 }
 
-@media (max-width: 960px) {
-    .portal-split-stage {
-        flex-direction: column;
-        gap: 2rem;
-    }
+/* Luminous Orbit Ellipse & Aura Tracks (Desktop) */
+.orbital-ring-track {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 680px;
+    height: 420px;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 30px rgba(56, 189, 248, 0.18), inset 0 0 30px rgba(255, 255, 255, 0.15);
+    pointer-events: none;
+    z-index: 1;
 }
 
-/* Clickable Portal Portal Card */
+.orbital-ring-track-inner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 230px;
+    height: 230px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, rgba(186, 230, 253, 0.1) 50%, transparent 75%);
+    pointer-events: none;
+    z-index: 1;
+    animation: pulseOrbitalAura 4s ease-in-out infinite;
+}
+
+@keyframes pulseOrbitalAura {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.65; }
+    50% { transform: translate(-50%, -50%) scale(1.08); opacity: 0.95; }
+}
+
+/* Base Orb Card Structure */
 .portal-option-orb {
     display: flex;
     flex-direction: column;
@@ -211,27 +236,137 @@
     text-decoration: none;
     outline: none;
     transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), filter 0.35s ease;
-    position: relative;
-    padding: 1.5rem 2rem;
-    border-radius: 28px;
+    user-select: none;
 }
 
-/* 3D Glossy Aero Glass Orb */
-.orb-sphere-shell {
+/* 1. CENTER HUB (Executive Dashboard) */
+.orb-center-hub {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 8;
+    width: 210px;
+    text-align: center;
+}
+
+.orb-center-hub .orb-sphere-shell {
     position: relative;
-    width: 180px;
-    height: 180px;
+    overflow: hidden;
+    width: 146px;
+    height: 146px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 1.75rem;
+    margin: 0 auto 0.65rem auto;
     box-shadow: 
-        0 20px 45px rgba(2, 132, 199, 0.3),
-        0 6px 14px rgba(12, 74, 110, 0.15),
+        0 20px 48px rgba(2, 132, 199, 0.38),
+        0 0 35px rgba(56, 189, 248, 0.35),
         inset 0 -12px 24px rgba(2, 132, 199, 0.4),
         inset 0 12px 24px rgba(255, 255, 255, 0.95);
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+
+.orb-center-hub .orb-title {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #071e33;
+    letter-spacing: -0.01em;
+    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9);
+}
+
+.orb-center-hub .orb-subtitle {
+    font-size: 0.74rem;
+    color: #0369a1;
+    font-weight: 600;
+    display: block;
+    margin-top: 0.15rem;
+}
+
+/* 2. SATELLITE ORBS (Desktop Coordinates) */
+.orb-satellite {
+    position: absolute;
+    z-index: 6;
+    width: 165px;
+    text-align: center;
+}
+
+.orb-satellite .orb-sphere-shell {
+    position: relative;
+    overflow: hidden;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.45rem auto;
+    box-shadow: 
+        0 14px 32px rgba(2, 132, 199, 0.25),
+        inset 0 -8px 16px rgba(2, 132, 199, 0.35),
+        inset 0 8px 18px rgba(255, 255, 255, 0.95);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+}
+
+.orb-satellite .orb-title {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.01em;
+    text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9);
+}
+
+.orb-satellite .orb-subtitle {
+    font-size: 0.68rem;
+    color: #64748b;
+    display: block;
+    margin-top: 0.15rem;
+    line-height: 1.3;
+}
+
+/* Hexagonal Satellite Coordinate Positioning (Matches Reference Diagram) */
+.pos-top-left {
+    top: 5%;
+    left: 23%;
+    transform: translate(-50%, 0);
+}
+
+.pos-top-right {
+    top: 5%;
+    right: 23%;
+    transform: translate(50%, 0);
+}
+
+.pos-mid-left {
+    top: 50%;
+    left: 4%;
+    transform: translate(-50%, -50%);
+}
+
+.pos-mid-right {
+    top: 50%;
+    right: 4%;
+    transform: translate(50%, -50%);
+}
+
+.pos-bottom-left {
+    bottom: 5%;
+    left: 23%;
+    transform: translate(-50%, 0);
+}
+
+.pos-bottom-right {
+    bottom: 5%;
+    right: 23%;
+    transform: translate(50%, 0);
+}
+
+/* Icon & Emoji depth layering */
+.orb-icon,
+.orb-emoji {
+    position: relative;
+    z-index: 2;
 }
 
 /* Executive Orb Coloring (Ocean Sky & Deep Blue) */
@@ -242,35 +377,36 @@
 .orb-executive::before {
     content: '';
     position: absolute;
-    top: 5px;
-    left: 20px;
-    right: 20px;
-    height: 70px;
+    top: 5%;
+    left: 14%;
+    right: 14%;
+    height: 42%;
     border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%);
     pointer-events: none;
+    z-index: 1;
 }
 
 /* Field Operations Orb Coloring (Vibrant Emerald & Marine Turquoise) */
 .orb-field-ops {
     background: radial-gradient(circle at 40% 30%, #ffffff 0%, #6ee7b7 30%, #059669 70%, #064e3b 100%);
     box-shadow: 
-        0 20px 45px rgba(5, 150, 105, 0.35),
-        0 6px 14px rgba(6, 78, 59, 0.2),
-        inset 0 -12px 24px rgba(5, 150, 105, 0.4),
-        inset 0 12px 24px rgba(255, 255, 255, 0.95);
+        0 14px 32px rgba(5, 150, 105, 0.32),
+        inset 0 -8px 16px rgba(5, 150, 105, 0.4),
+        inset 0 8px 18px rgba(255, 255, 255, 0.95) !important;
 }
 
 .orb-field-ops::before {
     content: '';
     position: absolute;
-    top: 5px;
-    left: 20px;
-    right: 20px;
-    height: 70px;
+    top: 5%;
+    left: 14%;
+    right: 14%;
+    height: 42%;
     border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%);
     pointer-events: none;
+    z-index: 1;
 }
 
 /* DBMS Orb Coloring (Pure Crystalline Cyan & Sapphire) */
@@ -281,57 +417,275 @@
 .orb-dbms::before {
     content: '';
     position: absolute;
-    top: 5px;
-    left: 20px;
-    right: 20px;
-    height: 70px;
+    top: 5%;
+    left: 14%;
+    right: 14%;
+    height: 42%;
     border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%);
     pointer-events: none;
+    z-index: 1;
 }
 
-/* Internal Icon */
-.orb-icon {
-    position: relative;
-    z-index: 5;
-    color: #ffffff;
-    filter: drop-shadow(0 4px 10px rgba(0, 30, 60, 0.45));
-    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+/* Upcoming Satellites Styling (Frosted Aero Glass) */
+.orb-upcoming {
+    background: radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(224, 242, 254, 0.8) 35%, rgba(186, 230, 253, 0.5) 70%, rgba(148, 163, 184, 0.35) 100%);
+    border: 1.5px solid rgba(255, 255, 255, 0.85);
+    box-shadow: 
+        0 10px 24px rgba(2, 132, 199, 0.12),
+        inset 0 -6px 14px rgba(186, 230, 253, 0.4),
+        inset 0 8px 16px rgba(255, 255, 255, 0.95) !important;
 }
 
-/* Clean Typography Under Orb (No Description, No Button) */
-.orb-title {
-    font-size: 1.45rem;
+.orb-upcoming::before {
+    content: '';
+    position: absolute;
+    top: 5%;
+    left: 14%;
+    right: 14%;
+    height: 42%;
+    border-radius: 50% 50% 45% 45% / 60% 60% 40% 40%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 100%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.orb-placeholder {
+    border: 1.5px dashed rgba(14, 165, 233, 0.45);
+}
+
+.orb-emoji {
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12));
+    transition: transform 0.3s ease;
+}
+
+.orb-badge-upcoming {
+    display: inline-block;
+    font-size: 0.6rem;
     font-weight: 800;
-    color: #071e33;
-    letter-spacing: -0.01em;
-    text-shadow: 0 2px 4px rgba(255, 255, 255, 0.9);
-    transition: color 0.25s ease, transform 0.25s ease;
-    text-align: center;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: rgba(224, 242, 254, 0.9);
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    margin-left: 0.25rem;
+}
+
+.orb-badge-active {
+    display: inline-block;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: #dcfce7;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    margin-top: 0.25rem;
+}
+
+.orb-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    flex-wrap: wrap;
 }
 
 /* Hover States (Tactile Frutiger Aero Lift) */
 .portal-option-orb:hover .orb-sphere-shell {
-    transform: translateY(-10px) scale(1.06);
-    box-shadow: 
-        0 28px 55px rgba(2, 132, 199, 0.45),
-        0 10px 22px rgba(12, 74, 110, 0.2),
-        inset 0 -14px 28px rgba(2, 132, 199, 0.5),
-        inset 0 16px 30px rgba(255, 255, 255, 1);
+    transform: translateY(-8px) scale(1.05);
 }
 
-.portal-option-orb:hover .orb-icon {
-    transform: scale(1.12);
+.portal-option-orb:hover .orb-icon,
+.portal-option-orb:hover .orb-emoji {
+    transform: scale(1.1);
 }
 
 .portal-option-orb:hover .orb-title {
     color: #0284c7;
-    transform: translateY(-2px);
 }
 
 /* Active Press State */
 .portal-option-orb:active .orb-sphere-shell {
     transform: translateY(-2px) scale(0.98);
+}
+
+/* Keyboard Accessibility Focus Ring (WCAG 2.2) */
+.portal-option-orb:focus-visible .orb-sphere-shell {
+    outline: 3px solid #0284c7;
+    outline-offset: 4px;
+}
+
+.portal-option-orb:focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 4px;
+    border-radius: 14px;
+}
+
+/* Respect Reduced Motion (Accessibility & Mobile Battery Saving) */
+@media (prefers-reduced-motion: reduce) {
+    .aero-bubble,
+    .orbital-ring-track-inner {
+        animation: none !important;
+    }
+    .portal-option-orb,
+    .portal-option-orb .orb-sphere-shell {
+        transition: none !important;
+    }
+}
+
+/* ==========================================================================
+   MOBILE RESPONSIVE: 1-COLUMN HIERARCHY WITH FIELD OPS AT THE TOP
+   ========================================================================== */
+@media (max-width: 860px) {
+    .portal-fullscreen {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow-y: auto !important;
+        padding: 1.25rem 1rem 3.5rem 1rem !important;
+        justify-content: flex-start !important;
+    }
+
+    .orbital-ring-track,
+    .orbital-ring-track-inner {
+        display: none !important;
+    }
+
+    .portal-orbital-stage {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.65rem !important;
+        width: 100% !important;
+        max-width: 440px !important;
+        height: auto !important;
+        margin: 1.25rem 0 !important;
+        position: static !important;
+    }
+
+    .portal-option-orb {
+        position: static !important;
+        transform: none !important;
+        width: 100% !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        text-align: left !important;
+        padding: 0.75rem 0.9rem !important;
+        background: rgba(255, 255, 255, 0.92) !important;
+        backdrop-filter: blur(16px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.95) !important;
+        border-radius: 14px !important;
+        box-shadow: 0 4px 14px rgba(2, 132, 199, 0.08) !important;
+        cursor: pointer;
+        box-sizing: border-box !important;
+    }
+
+    .portal-option-orb .orb-sphere-shell {
+        width: 50px !important;
+        height: 50px !important;
+        min-width: 50px !important;
+        margin: 0 0.8rem 0 0 !important;
+        box-shadow: 0 4px 12px rgba(2, 132, 199, 0.22) !important;
+    }
+
+    .portal-option-orb .orb-icon {
+        width: 26px !important;
+        height: 26px !important;
+    }
+
+    .portal-option-orb .orb-emoji {
+        font-size: 1.4rem !important;
+    }
+
+    .portal-option-orb .orb-content {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        flex: 1 !important;
+        text-align: left !important;
+    }
+
+    .portal-option-orb .orb-title {
+        font-size: 0.95rem !important;
+        font-weight: 800 !important;
+        margin: 0 !important;
+        text-align: left !important;
+    }
+
+    .portal-option-orb .orb-title-row {
+        justify-content: flex-start !important;
+        width: 100%;
+    }
+
+    .portal-option-orb .orb-subtitle {
+        font-size: 0.7rem !important;
+        color: #64748b !important;
+        margin-top: 0.1rem !important;
+        text-align: left !important;
+    }
+
+    /* MOBILE PRIORITY ORDER: FIELD OPERATIONS #1 AT THE TOP! */
+    #btn-portal-field-ops {
+        order: 1 !important;
+        border: 1.5px solid #86efac !important;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(240, 253, 244, 0.95) 100%) !important;
+        box-shadow: 0 6px 20px rgba(5, 150, 105, 0.16) !important;
+    }
+
+    #btn-portal-executive {
+        order: 2 !important;
+    }
+
+    #btn-portal-dbms {
+        order: 3 !important;
+    }
+
+    .portal-upcoming-divider {
+        order: 4 !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        margin: 0.65rem 0 0.15rem 0;
+        font-size: 0.68rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #0284c7;
+    }
+
+    .portal-upcoming-divider span {
+        background: rgba(224, 242, 254, 0.9);
+        border: 1px solid #bae6fd;
+        padding: 0.2rem 0.75rem;
+        border-radius: 999px;
+    }
+
+    #btn-portal-hatchery {
+        order: 5 !important;
+        opacity: 0.9;
+    }
+
+    #btn-portal-lab {
+        order: 6 !important;
+        opacity: 0.9;
+    }
+
+    #btn-portal-simulator {
+        order: 7 !important;
+        opacity: 0.9;
+    }
+
+    #btn-portal-future {
+        order: 8 !important;
+        opacity: 0.85;
+    }
 }
 
 /* ==========================================================================

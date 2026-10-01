@@ -1,0 +1,732 @@
+/* ==========================================================================
+   0. DESKTOP / BASE VISIBILITY UTILITIES
+   ========================================================================== */
+.show-mobile {
+    display: none !important;
+}
+
+.hide-mobile {
+    display: initial;
+}
+
+.btn-text-short {
+    display: none !important;
+}
+
+.btn-text-full {
+    display: inline !important;
+}
+
+.mineral-item-row,
+.probiotic-item-row {
+    display: grid;
+    grid-template-columns: 1fr 110px 90px 36px;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* ==========================================================================
+   1. GLOBAL MOBILE VIEWPORT & TOUCH BASICS
+   ========================================================================== */
+@media (max-width: 768px) {
+    /* Responsive toggles */
+    .show-mobile {
+        display: block !important;
+    }
+
+    .daily-mobile-timeline.show-mobile {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .hide-mobile {
+        display: none !important;
+    }
+
+    .btn-text-short {
+        display: inline !important;
+    }
+
+    .btn-text-full {
+        display: none !important;
+    }
+
+    /* Prevent unwanted horizontal overflow in Field Ops and enforce box-sizing */
+    #view-field-ops {
+        overflow-x: hidden !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        -webkit-overflow-scrolling: touch;
+        box-sizing: border-box !important;
+    }
+
+    #view-field-ops *,
+    #view-field-ops *::before,
+    #view-field-ops *::after {
+        box-sizing: border-box !important;
+    }
+
+    /* Minimum touch target size (44px) for interactive elements in Field Ops */
+    #view-field-ops button,
+    #view-field-ops .btn-action,
+    #view-field-ops .btn-filter-action,
+    #view-field-ops input[type="text"],
+    #view-field-ops input[type="number"],
+    #view-field-ops input[type="date"],
+    #view-field-ops input[type="password"],
+    #view-field-ops select,
+    #view-field-ops .field-ops-pond-tile {
+        min-height: 44px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Ensure inputs never blow past their grid container on mobile & prevent iOS zoom */
+    #view-field-ops input,
+    #view-field-ops select,
+    #view-field-ops textarea {
+        font-size: 16px !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Active touch feedback */
+    #view-field-ops button:active,
+    #view-field-ops .field-ops-pond-tile:active,
+    #view-field-ops .module-select-card:active {
+        transform: scale(0.97) !important;
+        opacity: 0.92;
+    }
+
+    /* ==========================================================================
+       2. MODULE LOGIN & AUTHENTICATION STAGE
+       ========================================================================== */
+    .field-ops-login-stage {
+        padding: 1.5rem 1rem !important;
+        min-height: 100vh !important;
+        justify-content: flex-start !important;
+    }
+
+    .field-ops-login-stage .module-select-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.75rem !important;
+    }
+
+    .module-select-card {
+        padding: 1rem 0.75rem !important;
+        border-radius: 14px !important;
+    }
+
+    /* ==========================================================================
+       3. SUPERVISOR WORKSPACE SHELL & HEADER
+       ========================================================================== */
+    .field-ops-workspace {
+        padding: 0.75rem 0.85rem !important;
+    }
+
+    .field-ops-header {
+        padding: 0.85rem 1rem !important;
+        border-radius: 14px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.85rem !important;
+    }
+
+    .field-ops-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .field-ops-header-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        gap: 0.5rem;
+    }
+
+    /* ==========================================================================
+       4. 24-POND OVERVIEW MAP & TOOLBAR
+       ========================================================================== */
+    .field-ops-toolbar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.75rem !important;
+        padding: 0.75rem 0.85rem !important;
+    }
+
+    .field-ops-filter-scroll {
+        display: flex !important;
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        padding-bottom: 0.35rem;
+        gap: 0.5rem !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+    .field-ops-filter-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+    .field-ops-search-box {
+        width: 100% !important;
+        margin-left: 0 !important;
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .field-ops-search-box input {
+        width: 100% !important;
+        flex: 1;
+    }
+
+    /* 24-Pond Grid: 2 columns on mobile */
+    .field-ops-pond-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.65rem !important;
+    }
+
+    .field-ops-pond-tile {
+        min-height: 125px !important;
+        padding: 0.75rem !important;
+    }
+
+    .field-ops-row-section {
+        padding: 0.85rem 0.85rem !important;
+        border-radius: 14px !important;
+    }
+
+    /* ==========================================================================
+       5. POND WQS OPERATIONAL DETAIL VIEW
+       ========================================================================== */
+    .wqs-detail-container {
+        padding: 0.75rem 0.85rem !important;
+        gap: 1rem !important;
+    }
+
+    .wqs-nav-bar {
+        padding: 0.85rem 1rem !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.85rem !important;
+    }
+
+    .wqs-nav-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        width: 100%;
+        gap: 0.5rem !important;
+    }
+
+    .wqs-nav-actions button {
+        width: 100% !important;
+        justify-content: center;
+        padding: 0.6rem 0.5rem !important;
+        font-size: 0.82rem !important;
+    }
+
+    /* Biometrics matrix on mobile: 2 or 3 columns */
+    .wqs-biometrics-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.55rem !important;
+    }
+
+    /* IoT split section (Diurnal & Barrel): stack to 1 column */
+    .wqs-iot-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+    }
+
+    /* Weather stats grid on mobile */
+    .wqs-weather-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.65rem !important;
+    }
+
+    /* Personnel status grid on mobile */
+    .wqs-crew-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.65rem !important;
+    }
+
+    /* ==========================================================================
+       6. DAILY RECORDS LEDGER & MOBILE MODAL
+       ========================================================================== */
+    .daily-records-page-wrapper {
+        padding: 0.75rem 0.75rem 6rem 0.75rem !important;
+        gap: 0.85rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .daily-nav-bar {
+        padding: 0.75rem 0.85rem !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.65rem !important;
+        border-radius: 14px !important;
+    }
+
+    .daily-nav-bar .btn-group {
+        display: flex;
+        gap: 0.45rem;
+        width: 100%;
+    }
+
+    .daily-nav-bar .btn-group button {
+        flex: 1;
+        justify-content: center;
+        font-size: 0.8rem !important;
+        padding: 0.5rem 0.4rem !important;
+    }
+
+    .daily-quick-actions {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        gap: 0.5rem;
+    }
+
+    .daily-quick-actions button {
+        width: 100% !important;
+        justify-content: center;
+        min-height: 44px !important;
+    }
+
+    .daily-metrics-summary-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.55rem !important;
+    }
+
+    /* Mobile Timeline Cards for Daily Records */
+    .daily-mobile-timeline {
+        width: 100% !important;
+    }
+
+    .daily-mobile-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 0.85rem 0.9rem;
+        margin-bottom: 0.65rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    }
+
+    .daily-mobile-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.45rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+
+    .daily-mobile-card-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.45rem;
+        margin-bottom: 0.65rem;
+    }
+
+    /* Full-screen Mobile Entry Modal with natural vertical block scroll */
+    #modal-daily-entry {
+        padding: 0 !important;
+    }
+
+    #modal-daily-entry .modal-dialog {
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100% !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        padding: 1rem 0.85rem 6.5rem 0.85rem !important;
+        margin: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        display: block !important;
+    }
+
+    #modal-daily-entry form {
+        width: 100% !important;
+        max-width: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 0.95rem !important;
+        min-height: min-content !important;
+        overflow-x: hidden !important;
+    }
+
+    #modal-daily-entry form > *,
+    .daily-entry-card {
+        flex-shrink: 0 !important;
+        min-height: auto !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    #modal-daily-entry .form-control {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Stack multi-column form sections on mobile and strictly confine children inside card borders */
+    .daily-entry-grid-2col,
+    .daily-entry-date-doc,
+    .daily-entry-mortality-grid {
+        grid-template-columns: 1fr !important;
+        display: grid !important;
+        gap: 0.85rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .daily-entry-grid-2col > *,
+    .daily-entry-date-doc > *,
+    .daily-entry-mortality-grid > * {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Dynamic Treatment Rows on Mobile: 2-tier responsive layout */
+    .mineral-item-row,
+    .probiotic-item-row {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 85px 44px !important;
+        gap: 0.4rem !important;
+        align-items: center !important;
+        background: #f8fafc !important;
+        padding: 0.55rem !important;
+        border-radius: 8px !important;
+        border: 1px solid #e2e8f0 !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .mineral-item-row input[type="text"],
+    .probiotic-item-row input[type="text"] {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+    }
+
+    .mineral-item-row .mineral-amount,
+    .probiotic-item-row .probiotic-amount {
+        min-width: 0 !important;
+    }
+
+    .mineral-item-row .mineral-unit,
+    .probiotic-item-row .probiotic-unit {
+        width: 85px !important;
+        min-width: 0 !important;
+    }
+
+    .mineral-item-row .btn-remove-row,
+    .probiotic-item-row .btn-remove-row {
+        width: 44px !important;
+        height: 44px !important;
+        min-height: 44px !important;
+    }
+
+    /* Quick steppers for numeric inputs */
+    .stepper-btn {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        font-size: 1.2rem;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #0369a1;
+        cursor: pointer;
+    }
+    .stepper-btn:active {
+        background: #e0f2fe;
+    }
+
+    /* ==========================================================================
+       7. MANAGEMENT & PERSONNEL ENTRY PAGE
+       ========================================================================== */
+    .mgmt-entry-wrapper {
+        padding: 0.65rem 0.65rem 6.5rem 0.65rem !important;
+        gap: 0.85rem !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .mgmt-entry-wrapper .glass-card {
+        padding: 0.85rem 0.75rem !important;
+        border-radius: 14px !important;
+    }
+
+    /* Navigation Header */
+    .mgmt-nav-bar {
+        padding: 0.75rem 0.85rem !important;
+        border-radius: 14px !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.65rem !important;
+    }
+
+    .mgmt-nav-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        width: 100% !important;
+        gap: 0.45rem !important;
+    }
+
+    .mgmt-nav-actions button {
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 0.55rem 0.35rem !important;
+        font-size: 0.78rem !important;
+        white-space: nowrap !important;
+    }
+
+    /* Responsive staff input rows: stack label on top, ID and name responsive */
+    .mgmt-staff-row {
+        display: grid !important;
+        grid-template-columns: 72px minmax(0, 1fr) !important;
+        gap: 0.4rem !important;
+        padding: 0.5rem 0.6rem !important;
+        border-radius: 10px !important;
+        align-items: center !important;
+    }
+
+    .mgmt-staff-row label {
+        grid-column: 1 / -1 !important;
+        font-size: 0.82rem !important;
+        margin-bottom: 0.1rem !important;
+    }
+
+    .mgmt-staff-row input {
+        min-width: 0 !important;
+        font-size: 0.85rem !important;
+    }
+
+    .mgmt-staff-row input[readonly] {
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    /* Paddlewheels grid on mobile: Stack into 1 column for full width & large touch targets */
+    .mgmt-paddlewheels-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
+    }
+
+    .mgmt-paddlewheels-grid .form-group {
+        padding: 0.85rem 0.65rem !important;
+    }
+
+    /* Feeding Hardware & Hut grid on mobile */
+    .mgmt-hardware-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.65rem !important;
+    }
+
+    /* Mobile Sticky Save Bar: floating cleanly above bottom viewport & Netlify badge */
+    .mgmt-sticky-bottom-bar {
+        position: sticky !important;
+        bottom: 0.65rem !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 100 !important;
+        margin-top: 1rem !important;
+        padding: 0.55rem 0.65rem !important;
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 0.5rem !important;
+        background: rgba(255, 255, 255, 0.96) !important;
+        backdrop-filter: blur(14px) !important;
+        border: 1px solid #bae6fd !important;
+        border-radius: 14px !important;
+        box-shadow: 0 6px 20px rgba(2, 132, 199, 0.22) !important;
+    }
+
+    .mgmt-sticky-bottom-bar button {
+        min-height: 46px !important;
+        font-size: 0.88rem !important;
+        justify-content: center !important;
+    }
+
+    #btn-mgmt-cancel {
+        flex: 0 0 85px !important;
+        padding: 0.5rem 0.4rem !important;
+    }
+
+    #btn-mgmt-save {
+        flex: 1 !important;
+        padding: 0.5rem 0.75rem !important;
+    }
+
+    /* ==========================================================================
+       8. UI/UX PRO MAX: 44PX TOUCH TARGETS & OUTDOOR SUNLIGHT CONTRAST
+       ========================================================================== */
+    .btn-filter-action,
+    #btn-add-mineral-row,
+    #btn-add-probiotic-row,
+    .btn-edit-record,
+    .btn-log-day,
+    .btn-quick-log-pond,
+    #btn-rapid-log-module,
+    .quick-chip-btn,
+    .quick-toggle-pill,
+    #btn-wqs-back,
+    #btn-daily-back-pond,
+    #btn-daily-back-map,
+    #btn-mgmt-back-pond,
+    #btn-mgmt-back-map,
+    #btn-refresh-field-ops {
+        min-height: 42px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Boost secondary text contrast for bright tropical pond-dike sunlight */
+    .daily-records-page-wrapper label,
+    .mgmt-entry-wrapper label,
+    .pond-wqs-wrapper label {
+        color: #334155 !important;
+    }
+
+    /* Sticky bottom submit actions in mobile Daily Entry Modal (with bottom clearance for Netlify badge) */
+    .daily-modal-footer-actions {
+        position: sticky !important;
+        bottom: 0 !important;
+        background: rgba(255, 255, 255, 0.97) !important;
+        backdrop-filter: blur(12px) !important;
+        padding: 0.65rem 0.25rem 2.85rem 0.25rem !important;
+        border-top: 1px solid #e2e8f0 !important;
+        z-index: 20 !important;
+    }
+}
+
+/* ==========================================================================
+   9. RAPID FIELD LOGGING: MODAL-ONLY OVERLAY & 1-TAP CHIPS (DESKTOP + MOBILE)
+   ========================================================================== */
+.daily-mount-modal-only .daily-records-page-wrapper {
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+}
+
+.daily-mount-modal-only .daily-records-page-wrapper > *:not(#modal-daily-entry):not(#modal-usage-summary) {
+    display: none !important;
+}
+
+.water-swatch-orb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.28);
+    box-shadow: inset 0 1.5px 2px rgba(255, 255, 255, 0.75), 0 1px 2px rgba(0, 0, 0, 0.16);
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+.btn-modal-pond-nav {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 64px !important;
+    max-width: 80px !important;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.76rem !important;
+    font-weight: 800 !important;
+    min-height: 36px !important;
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    color: #0369a1 !important;
+    cursor: pointer !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+    user-select: none;
+}
+
+.btn-modal-pond-nav:active {
+    background: #e0f2fe !important;
+    border-color: #0284c7 !important;
+}
+
+.quick-chip-btn {
+    background: #f8fafc;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    color: #1e293b;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 0.38rem 0.25rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+    user-select: none;
+    min-height: 36px;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.quick-chip-btn:hover {
+    background: #f0f9ff;
+    border-color: #38bdf8;
+    color: #0369a1;
+}
+
+.quick-chip-btn.active {
+    background: #e0f2fe !important;
+    border-color: #0284c7 !important;
+    color: #0369a1 !important;
+    box-shadow: 0 0 0 1px #0284c7;
+}
+
+.quick-toggle-pill {
+    background: #ffffff;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 999px;
+    color: #334155;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 0.35rem 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.quick-toggle-pill:hover {
+    border-color: #0284c7;
+    color: #0284c7;
+}
+
+.quick-toggle-pill.active {
+    background: #e0f2fe !important;
+    border-color: #0284c7 !important;
+    color: #0369a1 !important;
+}
+
+/* ==========================================================================
+   GLOBAL TABULAR NUMERALS FOR DATA & KPI ALIGNMENT (UI/UX PRO MAX)
+   ========================================================================== */
+.exec-kpi-num,
+.logbook-row td,
+.daily-mobile-card,
+input[type="number"] {
+    font-variant-numeric: tabular-nums;
+}
+
+
