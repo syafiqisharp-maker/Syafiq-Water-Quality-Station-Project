@@ -739,10 +739,12 @@ input[type="number"] {
     --aero-ink-subtle: #0f3d63;
     --aero-cerulean: #0284c7;
     --aero-sky-wash: linear-gradient(180deg, #d8f1fc 0%, #bde7f8 40%, #76d0ee 100%);
-    --glass-opacity: 0.18;
-    --glass-blur: 10px;
+    
+    /* Aero 28% Glassmorphism Standard */
+    --glass-opacity: 0.28;
+    --glass-blur: 14px;
 
-    /* Organic Aero Glass Surface (Crystal 18% Standard) */
+    /* Organic Aero Glass Surface (Aero 28% Standard) */
     --aero-card-bg: linear-gradient(
         135deg,
         rgba(255, 255, 255, calc(var(--glass-opacity) + 0.18)) 0%,
@@ -766,6 +768,7 @@ input[type="number"] {
     background-repeat: no-repeat !important;
     min-height: 100vh !important;
     color: var(--aero-deep-ocean);
+    position: relative;
 }
 
 /* Clear solid/gradient backgrounds on inner wrapper containers */
@@ -776,6 +779,33 @@ input[type="number"] {
 #view-field-ops .daily-records-page-wrapper {
     background: transparent !important;
     background-image: none !important;
+}
+
+/* Typography Mapping per Frutiger Aero Preview Standard */
+#view-field-ops h1,
+#view-field-ops h2,
+#view-field-ops h3,
+#view-field-ops .field-ops-header h1,
+#view-field-ops .wqs-nav-bar h1,
+#view-field-ops .btn-action,
+#view-field-ops .btn-filter-action,
+#view-field-ops .banner-headline,
+#view-field-ops .form-section-label,
+#view-field-ops .badge-aero-pill,
+#view-field-ops .badge,
+#view-field-ops .aero-btn {
+    font-family: 'Plus Jakarta Sans', -apple-system, sans-serif !important;
+}
+
+#view-field-ops .pond-no-box,
+#view-field-ops .field-ops-pond-tile [style*="font-size: 1.1rem"],
+#view-field-ops .sensor-big-val,
+#view-field-ops .exec-kpi-num,
+#view-field-ops input[type="number"],
+#view-field-ops .aero-stepper-btn,
+#view-field-ops .tile-feed-val {
+    font-family: 'Space Grotesk', monospace, sans-serif !important;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Primary Translucent Aero Glass Containers */
@@ -865,16 +895,195 @@ input[type="number"] {
     text-shadow: 0 1px 1px rgba(255, 255, 255, 0.75);
 }
 
-/* Micro-Hover & Active Physical Bounce for Touch & Mouse */
+/* Tactile 3D Aero Glass Buttons */
+#view-field-ops .btn-action.btn-primary,
+#view-field-ops .aero-btn-primary {
+    background: linear-gradient(180deg, #38bdf8 0%, #0284c7 52%, #0369a1 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    color: #ffffff !important;
+    text-shadow: 0 1px 2px rgba(7, 38, 66, 0.4) !important;
+    box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35), inset 0 1.5px 1px rgba(255, 255, 255, 0.8), inset 0 -2px 3px rgba(3, 105, 161, 0.6) !important;
+    border-radius: 999px !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+#view-field-ops .btn-action.btn-primary::after,
+#view-field-ops .aero-btn-primary::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 2px !important;
+    left: 8px !important;
+    right: 8px !important;
+    height: 42% !important;
+    border-radius: 999px !important;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, transparent 100%) !important;
+    pointer-events: none !important;
+}
+
+#view-field-ops .btn-action.btn-secondary,
+#view-field-ops .aero-btn-secondary {
+    background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 60%, #e0f2fe 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    border-bottom: 2px solid #bae6fd !important;
+    color: var(--aero-deep-ocean) !important;
+    box-shadow: 0 3px 8px rgba(2, 132, 199, 0.1), inset 0 1.5px 1px #fff !important;
+    border-radius: 12px !important;
+}
+
+#view-field-ops .btn-action:active,
+#view-field-ops .aero-btn:active {
+    transform: translateY(1.5px) scale(0.97) !important;
+}
+
+/* Micro-Hover & Active Physical Bounce */
 #view-field-ops .field-ops-pond-tile:hover,
 #view-field-ops .module-select-card:hover {
     transform: translateY(-4px) scale(1.02) !important;
     box-shadow: 0 16px 34px rgba(2, 132, 199, 0.28), inset 0 2px 2px #fff !important;
 }
-
 #view-field-ops .field-ops-pond-tile:active,
 #view-field-ops .module-select-card:active {
     transform: scale(0.97) !important;
+}
+
+/* 3D Jewel Status Orbs */
+#view-field-ops .aero-orb {
+    width: 13px !important;
+    height: 13px !important;
+    border-radius: 50% !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+    display: inline-block !important;
+    box-shadow: 0 0 8px currentColor, inset 0 -2px 3px rgba(0, 0, 0, 0.35) !important;
+    vertical-align: middle !important;
+}
+#view-field-ops .aero-orb::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 2px !important;
+    left: 2px !important;
+    width: 4px !important;
+    height: 3px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+}
+#view-field-ops .orb-emerald {
+    background: radial-gradient(circle at 35% 30%, #a7f3d0 0%, #10b981 60%, #047857 100%) !important;
+    color: rgba(16, 185, 129, 0.6) !important;
+}
+#view-field-ops .orb-amber {
+    background: radial-gradient(circle at 35% 30%, #fde68a 0%, #f59e0b 60%, #b45309 100%) !important;
+    color: rgba(245, 158, 11, 0.6) !important;
+}
+#view-field-ops .orb-idle {
+    background: radial-gradient(circle at 35% 30%, #f1f5f9 0%, #cbd5e1 60%, #64748b 100%) !important;
+    color: rgba(100, 116, 139, 0.4) !important;
+}
+
+/* Dynamic Ambient Micro-Bubble System (+50% Scale) */
+#view-field-ops .bubble-layer {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+    overflow: hidden !important;
+}
+#view-field-ops .aero-bubble {
+    position: absolute !important;
+    bottom: -80px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(186, 230, 253, 0.45) 55%, rgba(2, 132, 199, 0.25) 100%) !important;
+    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.95), 0 4px 12px rgba(2, 132, 199, 0.22) !important;
+    pointer-events: none !important;
+    will-change: transform, opacity !important;
+}
+
+#view-field-ops .aero-bubble.lazy-1 { animation: rise-lazy-wobble-1 linear infinite !important; }
+#view-field-ops .aero-bubble.lazy-2 { animation: rise-lazy-wobble-2 linear infinite !important; }
+#view-field-ops .aero-bubble.burst-bubble { animation: rise-burst cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards !important; }
+
+@keyframes rise-lazy-wobble-1 {
+    0% { transform: translate3d(0, 0, 0) scale(0.75); opacity: 0; }
+    10% { opacity: 0.65; }
+    35% { transform: translate3d(14px, -35vh, 0) scale(0.9); }
+    65% { transform: translate3d(-10px, -70vh, 0) scale(1.05); opacity: 0.65; }
+    90% { opacity: 0.5; }
+    100% { transform: translate3d(8px, -112vh, 0) scale(1.15); opacity: 0; }
+}
+
+@keyframes rise-lazy-wobble-2 {
+    0% { transform: translate3d(0, 0, 0) scale(0.8); opacity: 0; }
+    12% { opacity: 0.7; }
+    40% { transform: translate3d(-16px, -40vh, 0) scale(0.95); }
+    70% { transform: translate3d(12px, -75vh, 0) scale(1.1); opacity: 0.6; }
+    92% { opacity: 0.45; }
+    100% { transform: translate3d(-6px, -112vh, 0) scale(1.2); opacity: 0; }
+}
+
+@keyframes rise-burst {
+    0% { transform: translate3d(0, 0, 0) scale(0.45); opacity: 0; }
+    15% { opacity: 0.9; }
+    50% { opacity: 0.85; }
+    85% { opacity: 0.6; }
+    100% { transform: translate3d(var(--drift-x, 0px), -115vh, 0) scale(1.25); opacity: 0; }
+}
+
+/* Feeding Horizon Banner & 4-Sensor Grid in WQS Detail */
+#view-field-ops .feeding-horizon-banner {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(224, 242, 254, 0.88) 100%) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+    border-bottom: 2.5px solid #38bdf8 !important;
+    border-radius: 28px 14px 28px 14px !important;
+    padding: 1.25rem 1.5rem !important;
+    box-shadow: var(--aero-card-shadow) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0.85rem !important;
+}
+
+#view-field-ops .aero-badge-optimal {
+    background: linear-gradient(180deg, #34d399 0%, #10b981 50%, #059669 100%) !important;
+    color: #ffffff !important;
+    padding: 4px 12px !important;
+    border-radius: 999px !important;
+    font-weight: 800 !important;
+    font-size: 0.76rem !important;
+    text-shadow: 0 1px 2px rgba(6, 78, 59, 0.4) !important;
+    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+    box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35), inset 0 1px 1px #fff !important;
+}
+
+#view-field-ops .telemetry-grid-4 {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 1rem !important;
+}
+
+#view-field-ops .sensor-aero-card {
+    background: var(--aero-card-bg) !important;
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%) !important;
+    border: var(--aero-card-border) !important;
+    border-bottom: var(--aero-card-border-b) !important;
+    border-radius: 24px 12px 24px 12px !important;
+    padding: 1.1rem 1.25rem !important;
+    box-shadow: var(--aero-card-shadow) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+#view-field-ops .standby-housing-box {
+    background: rgba(240, 249, 255, 0.7) !important;
+    border: 1.5px dashed rgba(2, 132, 199, 0.4) !important;
+    border-radius: 16px !important;
+    padding: 1rem !important;
+    text-align: center !important;
+    color: var(--aero-ink-subtle) !important;
 }
 
 /* Modal Dialog Glassmorphism (High-readability Frosted Acrylic) */

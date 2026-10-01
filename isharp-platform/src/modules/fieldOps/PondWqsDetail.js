@@ -243,118 +243,94 @@ export class PondWqsDetail {
                     </div>
                 </section>
 
-                <!-- SECTION 2: FEEDING ACTION PLAN (EXECUTIVE DECISION & WHY BREAKDOWN) -->
-                <section class="glass-card" style="border: 2px solid ${bannerBorder}; background: ${bannerBg}; border-radius: 16px; padding: 1.3rem 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem;">
-                        <div>
-                            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span style="font-size: 1.6rem;">${evalResult.bannerIcon}</span>
-                                <h3 style="margin: 0; font-size: 1.2rem; color: ${bannerColor}; font-weight: 900;">
-                                    Feeding Action Plan
-                                </h3>
-                            </div>
+                <!-- SECTION 2: FEEDING ACTION PLAN (AERO HORIZON BANNER) -->
+                <section class="feeding-horizon-banner">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 0.6rem;">
+                            <span style="font-size: 1.6rem;">${evalResult.bannerIcon || '🦐'}</span>
+                            <h3 class="banner-headline" style="margin: 0; font-size: 1.2rem; color: ${bannerColor}; font-weight: 900;">
+                                Feeding Action Plan: Pond ${pondLabel}
+                            </h3>
                         </div>
-                        <span class="badge" style="font-size: 0.82rem; font-weight: 800; padding: 0.35rem 0.85rem; border-radius: 999px; background: ${bannerBorder}; color: #ffffff;">
+                        <span class="${evalResult.level === 'optimal' ? 'aero-badge-optimal' : 'badge'}" style="${evalResult.level === 'optimal' ? '' : `font-size: 0.82rem; font-weight: 800; padding: 0.35rem 0.85rem; border-radius: 999px; background: ${bannerBorder}; color: #ffffff;`}">
                             ${evalResult.badgeText}
                         </span>
                     </div>
 
                     <!-- "Why?" Diagnostics List -->
-                    <div style="margin-left: 2.3rem; display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.6rem;">
+                    <div style="display: flex; flex-direction: column; gap: 0.45rem; margin-top: 0.4rem;">
                         ${evalResult.reasons.map(r => `
-                            <div style="display: flex; align-items: center; gap: 0.5rem; background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 8px; padding: 0.5rem 0.75rem;">
+                            <div style="display: flex; align-items: center; gap: 0.6rem; background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 10px; padding: 0.5rem 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
                                 <span style="font-size: 1.1rem; line-height: 1;">${r.icon}</span>
-                                <div style="font-size: 0.8rem; color: #1e293b;">
+                                <div style="font-size: 0.82rem; color: #072642;">
                                     <strong>${r.headline}</strong>
+                                    ${r.desc ? `<span style="font-size: 0.74rem; color: #64748b; margin-left: 0.4rem;">— ${r.desc}</span>` : ''}
                                 </div>
                             </div>
                         `).join("")}
                     </div>
                 </section>
 
-                <!-- SECTION 3: DAILY FLUCTUATIONS & FEEDING ACTIVITY (IoT Devices) -->
-                <div class="wqs-iot-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
-                    
-                    <!-- Daily Fluctuations (water_quality_logs) -->
-                    <section class="glass-card" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.2rem 1.4rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
-                            <h3 style="margin: 0; font-size: 0.98rem; color: #0f172a; font-weight: 800;">
-                                💧 Daily Fluctuations (Diurnal Trends)
-                            </h3>
-                            <span style="font-size: 0.68rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 6px;">
-                                ${hasWqIot ? 'Live IoT Stream' : 'Awaiting IoT Sensor'}
-                            </span>
+                <!-- SECTION 3: TELEMETRY MATRIX (4 HIGH-CONTRAST AERO SENSOR CARDS) -->
+                <div class="telemetry-grid-4">
+                    <!-- Card 1: Biometrics Status -->
+                    <div class="sensor-aero-card">
+                        <div class="sensor-title-row">
+                            <span>Biometrics Status</span>
+                            <span class="aero-orb ${isIdle ? 'orb-idle' : 'orb-emerald'}"></span>
                         </div>
+                        <div class="sensor-big-val">${isIdle ? 'IDLE' : `DOC ${doc}`}</div>
+                        <div style="font-size: 0.78rem; color: var(--aero-ink-subtle); font-weight: 600;">
+                            Species: <strong>${pond.stck_species || 'P. VANNAMEI'}</strong> • Area: <strong>${areaHa} Ha</strong>
+                        </div>
+                    </div>
 
+                    <!-- Card 2: Live Weather Station -->
+                    <div class="sensor-aero-card">
+                        <div class="sensor-title-row">
+                            <span>Weather Station iSHARP</span>
+                            <span style="font-size: 0.7rem; font-weight: 800; color: #0284c7;">● ONLINE (${weatherTime})</span>
+                        </div>
+                        <div class="sensor-big-val" style="color: #0284c7;">${airTemp.toFixed(1)} <span style="font-size: 1rem; font-weight: 700;">°C</span></div>
+                        <div style="font-size: 0.78rem; color: var(--aero-ink-subtle); font-weight: 600;">
+                            Lux: <strong>${Math.round(luxVal).toLocaleString()}</strong> • Rain: <strong>${rainToday.toFixed(1)} mm</strong>
+                        </div>
+                    </div>
+
+                    <!-- Card 3: Active Paddlewheels (1.0HP & 2.0HP per RULES.md) -->
+                    <div class="sensor-aero-card">
+                        <div class="sensor-title-row">
+                            <span>Active Paddlewheels</span>
+                            <span class="aero-orb ${totalHP > 0 ? 'orb-emerald' : 'orb-idle'}"></span>
+                        </div>
+                        <div class="sensor-big-val" style="color: #059669;">${totalHP.toFixed(1)} <span style="font-size: 1rem; font-weight: 700;">HP</span></div>
+                        <div style="font-size: 0.78rem; color: var(--aero-ink-subtle); font-weight: 600;">
+                            Density: <strong>${aerationDensity} HP/Ha</strong> (${u1}× 1HP + ${u2}× 2HP)
+                        </div>
+                    </div>
+
+                    <!-- Card 4: Pond IoT Node / Standby Crystalline Housing (Rule 7: Zero Fake Telemetry) -->
+                    <div class="sensor-aero-card">
+                        <div class="sensor-title-row">
+                            <span>Pond IoT Node</span>
+                            <span class="aero-orb ${hasWqIot ? 'orb-emerald' : 'orb-amber'}"></span>
+                        </div>
                         ${hasWqIot ? `
-                            <div style="display: flex; flex-direction: column; gap: 0.65rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: #f8fafc; border-radius: 8px;">
-                                    <span style="font-size: 0.8rem; font-weight: 700; color: #334155;">Morning Dissolved Oxygen</span>
-                                    <span style="font-size: 0.9rem; font-weight: 900; color: #10b981;">${rawDo.toFixed(2)} ppm</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: #f8fafc; border-radius: 8px;">
-                                    <span style="font-size: 0.8rem; font-weight: 700; color: #334155;">Pond Water pH</span>
-                                    <span style="font-size: 0.9rem; font-weight: 900; color: #6366f1;">${rawPh.toFixed(2)}</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: #f8fafc; border-radius: 8px;">
-                                    <span style="font-size: 0.8rem; font-weight: 700; color: #334155;">Water Temperature</span>
-                                    <span style="font-size: 0.9rem; font-weight: 900; color: #0284c7;">${rawTemp.toFixed(1)} °C</span>
-                                </div>
+                            <div class="sensor-big-val" style="color: #0284c7;">${rawDo.toFixed(2)} <span style="font-size: 1rem; font-weight: 700;">ppm</span></div>
+                            <div style="font-size: 0.78rem; color: var(--aero-ink-subtle); font-weight: 600;">
+                                pH: <strong>${rawPh.toFixed(2)}</strong> • Temp: <strong>${rawTemp.toFixed(1)} °C</strong>
                             </div>
                         ` : `
-                            <div style="text-align: center; padding: 1.5rem 1rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px;">
-                                <span style="font-size: 1.8rem; display: block; margin-bottom: 0.4rem;">📡</span>
-                                <strong style="font-size: 0.86rem; color: #475569; display: block;">IoT Water Quality Node Offline</strong>
-                                <span style="font-size: 0.74rem; color: #64748b; display: block; margin-top: 0.25rem;">
-                                    Station hardware not yet deployed for this pond. Sensor telemetry will populate automatically once online in <code>water_quality_logs</code>.
-                                </span>
-                                <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 0.85rem; font-size: 0.74rem; color: #94a3b8;">
-                                    <span>DO: <strong>-- ppm</strong></span>
-                                    <span>pH: <strong>--</strong></span>
-                                    <span>Temp: <strong>-- °C</strong></span>
+                            <div class="standby-housing-box" style="margin-top: 8px;">
+                                <div class="pulse-standby-beacon" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; font-weight: 800; color: var(--aero-cerulean); margin-bottom: 4px;">
+                                    <span>📡</span> Awaiting Sensor Deployment
+                                </div>
+                                <div style="font-size: 0.72rem; color: var(--aero-ink-subtle);">
+                                    DO: <strong>--</strong> | pH: <strong>--</strong> | Temp: <strong>--</strong>
                                 </div>
                             </div>
                         `}
-                    </section>
-
-                    <!-- Feeding Activity & Barrel Telemetry (feed_barrel_logs) -->
-                    <section class="glass-card" style="background: rgba(255, 255, 255, 0.9); border: 1px solid #e2e8f0; border-radius: 16px; padding: 1.2rem 1.4rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
-                            <h3 style="margin: 0; font-size: 0.98rem; color: #0f172a; font-weight: 800;">
-                                🛢️ Feeding Activity &amp; Barrel Telemetry
-                            </h3>
-                            <span style="font-size: 0.68rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 0.2rem 0.5rem; border-radius: 6px;">
-                                ${hasBarrelIot ? 'Active Sonar' : 'Awaiting Barrel IoT'}
-                            </span>
-                        </div>
-
-                        ${hasBarrelIot ? `
-                            <div style="display: flex; flex-direction: column; gap: 0.65rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: #f8fafc; border-radius: 8px;">
-                                    <span style="font-size: 0.8rem; font-weight: 700; color: #334155;">Sonar Distance</span>
-                                    <span style="font-size: 0.9rem; font-weight: 900; color: #0284c7;">${barrelLogs[0].distance_cm} cm</span>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: #f8fafc; border-radius: 8px;">
-                                    <span style="font-size: 0.8rem; font-weight: 700; color: #334155;">Feed Remaining</span>
-                                    <span style="font-size: 0.9rem; font-weight: 900; color: #166534;">${barrelLogs[0].weight_kg} kg</span>
-                                </div>
-                            </div>
-                        ` : `
-                            <div style="text-align: center; padding: 1.5rem 1rem; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px;">
-                                <span style="font-size: 1.8rem; display: block; margin-bottom: 0.4rem;">🛢️</span>
-                                <strong style="font-size: 0.86rem; color: #475569; display: block;">Feed Barrel Sonar Offline</strong>
-                                <span style="font-size: 0.74rem; color: #64748b; display: block; margin-top: 0.25rem;">
-                                    Barrel level sensor pending field mounting. Ultrasound distance &amp; refill alerts will display automatically once online in <code>feed_barrel_logs</code>.
-                                </span>
-                                <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 0.85rem; font-size: 0.74rem; color: #94a3b8;">
-                                    <span>Depth: <strong>-- cm</strong></span>
-                                    <span>Remaining: <strong>-- kg</strong></span>
-                                    <span>Battery: <strong>-- V</strong></span>
-                                </div>
-                            </div>
-                        `}
-                    </section>
-
+                    </div>
                 </div>
 
                 <!-- SECTION 4: WEATHER STATUS (LIVE TELEMETRY FROM weather_logs) -->

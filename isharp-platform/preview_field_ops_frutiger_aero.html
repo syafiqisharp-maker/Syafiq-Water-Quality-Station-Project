@@ -29,9 +29,9 @@
       --aero-amber-dark: #92400e;
       --aero-ruby: #ef4444;
 
-      /* Dynamic Glassmorphism Tuning (Translucent Frutiger Aero - Crystal 18% Standard) */
-      --glass-opacity: 0.18;
-      --glass-blur: 10px;
+      /* Dynamic Glassmorphism Tuning (Translucent Frutiger Aero - Aero 28% Standard) */
+      --glass-opacity: 0.28;
+      --glass-blur: 14px;
 
       /* Organic Aero Glass Surface (Ultra-Translucent to Reveal Photo Backdrops) */
       --aero-card-bg: linear-gradient(
@@ -98,7 +98,9 @@
       display: none;
     }
 
-    /* Floating Micro-Bubbles */
+    /* ==========================================================================
+       DYNAMIC AMBIENT MICRO-BUBBLE SYSTEM (Lazy Drifting + Aeration Bursts)
+       ========================================================================== */
     .bubble-layer {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 100%;
@@ -108,17 +110,93 @@
     }
     .aero-bubble {
       position: absolute;
-      bottom: -60px;
+      bottom: -80px;
       border-radius: 50%;
-      background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9) 0%, rgba(186, 230, 253, 0.35) 60%, rgba(2, 132, 199, 0.25) 100%);
-      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9), 0 4px 10px rgba(2, 132, 199, 0.15);
-      animation: rise 16s linear infinite;
+      background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(186, 230, 253, 0.45) 55%, rgba(2, 132, 199, 0.25) 100%);
+      box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.95), 0 4px 12px rgba(2, 132, 199, 0.22);
+      pointer-events: none;
+      will-change: transform, opacity;
     }
-    @keyframes rise {
-      0% { transform: translateY(0) scale(0.8); opacity: 0; }
-      15% { opacity: 0.7; }
-      85% { opacity: 0.7; }
-      100% { transform: translateY(-110vh) scale(1.15); opacity: 0; }
+
+    /* Track 1: Lazy continuous drifters with sinusoidal wobble */
+    .aero-bubble.lazy-1 {
+      animation: rise-lazy-wobble-1 linear infinite;
+    }
+    .aero-bubble.lazy-2 {
+      animation: rise-lazy-wobble-2 linear infinite;
+    }
+
+    @keyframes rise-lazy-wobble-1 {
+      0% {
+        transform: translate3d(0, 0, 0) scale(0.75);
+        opacity: 0;
+      }
+      10% {
+        opacity: 0.65;
+      }
+      35% {
+        transform: translate3d(14px, -35vh, 0) scale(0.9);
+      }
+      65% {
+        transform: translate3d(-10px, -70vh, 0) scale(1.05);
+        opacity: 0.65;
+      }
+      90% {
+        opacity: 0.5;
+      }
+      100% {
+        transform: translate3d(8px, -112vh, 0) scale(1.15);
+        opacity: 0;
+      }
+    }
+
+    @keyframes rise-lazy-wobble-2 {
+      0% {
+        transform: translate3d(0, 0, 0) scale(0.8);
+        opacity: 0;
+      }
+      12% {
+        opacity: 0.7;
+      }
+      40% {
+        transform: translate3d(-16px, -40vh, 0) scale(0.95);
+      }
+      70% {
+        transform: translate3d(12px, -75vh, 0) scale(1.1);
+        opacity: 0.6;
+      }
+      92% {
+        opacity: 0.45;
+      }
+      100% {
+        transform: translate3d(-6px, -112vh, 0) scale(1.2);
+        opacity: 0;
+      }
+    }
+
+    /* Track 2: Aeration Burst Pearls (Rapid, energetic vertical surge) */
+    .aero-bubble.burst-bubble {
+      animation: rise-burst cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    }
+
+    @keyframes rise-burst {
+      0% {
+        transform: translate3d(0, 0, 0) scale(0.45);
+        opacity: 0;
+      }
+      15% {
+        opacity: 0.9;
+      }
+      50% {
+        opacity: 0.85;
+      }
+      85% {
+        opacity: 0.6;
+      }
+      100% {
+        transform: translate3d(var(--drift-x, 0px), -115vh, 0) scale(1.25);
+        opacity: 0;
+      }
     }
 
     /* Top Preview Bar & Background Switcher */
@@ -956,13 +1034,15 @@
   <!-- Backdrop Light Softener Overlay -->
   <div class="bg-overlay"></div>
 
-  <!-- Background Animated Water Bubbles -->
+  <!-- Background Animated Water Bubbles (Track 1: Lazy Drifters - +50% Diameter Scale) -->
   <div class="bubble-layer">
-    <div class="aero-bubble" style="left: 10%; width: 24px; height: 24px; animation-duration: 14s;"></div>
-    <div class="aero-bubble" style="left: 28%; width: 36px; height: 36px; animation-duration: 20s; animation-delay: 3s;"></div>
-    <div class="aero-bubble" style="left: 55%; width: 18px; height: 18px; animation-duration: 12s; animation-delay: 1s;"></div>
-    <div class="aero-bubble" style="left: 78%; width: 30px; height: 30px; animation-duration: 17s; animation-delay: 5s;"></div>
-    <div class="aero-bubble" style="left: 90%; width: 15px; height: 15px; animation-duration: 11s; animation-delay: 2s;"></div>
+    <div class="aero-bubble lazy-1" style="left: 8%; width: 30px; height: 30px; animation-duration: 18s; animation-delay: 0s;"></div>
+    <div class="aero-bubble lazy-2" style="left: 23%; width: 42px; height: 42px; animation-duration: 24s; animation-delay: 3s;"></div>
+    <div class="aero-bubble lazy-1" style="left: 45%; width: 23px; height: 23px; animation-duration: 16s; animation-delay: 1.2s;"></div>
+    <div class="aero-bubble lazy-2" style="left: 60%; width: 36px; height: 36px; animation-duration: 21s; animation-delay: 7s;"></div>
+    <div class="aero-bubble lazy-1" style="left: 74%; width: 33px; height: 33px; animation-duration: 19s; animation-delay: 4.5s;"></div>
+    <div class="aero-bubble lazy-2" style="left: 88%; width: 27px; height: 27px; animation-duration: 15s; animation-delay: 2.5s;"></div>
+    <div class="aero-bubble lazy-1" style="left: 36%; width: 21px; height: 21px; animation-duration: 26s; animation-delay: 8s;"></div>
   </div>
 
   <!-- Preview Controller Bar (Includes Background Image Selector) -->
@@ -984,9 +1064,9 @@
       <i class="fa-solid fa-image"></i>
       <span>Wallpaper:</span>
       <select class="bg-select-dropdown" id="bg-selector" onchange="changeBackground(this.value)">
-        <option value="public/assets/seagrass_sand_sunbeams.jpg" selected>✨ Sunbeams & Seagrass on Sand (Option 1 - New)</option>
-        <option value="public/assets/lagoon_caustics_sand.jpg">✨ Lagoon Caustics & White Sand (Option 2 - New)</option>
-        <option value="public/assets/aero_seabed_rays.jpg">✨ Aero Seabed God Rays & Bubbles (Option 3 - New)</option>
+        <option value="public/assets/aero_seabed_rays.jpg" selected>✨ Aero Seabed God Rays & Bubbles (Option 3 - Active)</option>
+        <option value="public/assets/seagrass_sand_sunbeams.jpg">✨ Sunbeams & Seagrass on Sand (Option 1)</option>
+        <option value="public/assets/lagoon_caustics_sand.jpg">✨ Lagoon Caustics & White Sand (Option 2)</option>
         <option value="public/assets/frutiger_aero_seagrass_bg.jpg">Frutiger Aero Seagrass (Local Asset)</option>
         <option value="public/assets/test_caustics.jpg">Sunlit Water Caustics (Local Asset)</option>
         <option value="public/assets/seagrass_lagoon_monodon.jpg">Seagrass Lagoon & Monodon (Local Asset)</option>
@@ -998,19 +1078,24 @@
     </div>
 
     <!-- Live Glass Opacity Controls -->
-    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
       <div class="glass-slider-wrap">
         <i class="fa-solid fa-wand-magic-sparkles" style="color: #00c2ff;"></i>
         <span>Opacity:</span>
-        <input type="range" id="opacity-slider" min="10" max="85" value="18" oninput="setGlassOpacity(this.value)">
-        <span id="opacity-val-badge" style="background: rgba(0, 194, 255, 0.25); border: 1px solid #00c2ff; padding: 2px 7px; border-radius: 6px; font-weight: 800; color: #fff;">18%</span>
+        <input type="range" id="opacity-slider" min="10" max="85" value="28" oninput="setGlassOpacity(this.value)">
+        <span id="opacity-val-badge" style="background: rgba(0, 194, 255, 0.25); border: 1px solid #00c2ff; padding: 2px 7px; border-radius: 6px; font-weight: 800; color: #fff;">28%</span>
       </div>
       <div style="display: flex; gap: 4px;">
-        <button class="preset-chip active" id="btn-default-crystal" onclick="applyPreset(18, 10, this)">💎 Crystal 18%</button>
-        <button class="preset-chip" id="btn-default-aero" onclick="applyPreset(28, 14, this)">🌊 Aero 28%</button>
+        <button class="preset-chip" id="btn-default-crystal" onclick="applyPreset(18, 10, this)">💎 Crystal 18%</button>
+        <button class="preset-chip active" id="btn-default-aero" onclick="applyPreset(28, 14, this)">🌊 Aero 28%</button>
         <button class="preset-chip" onclick="applyPreset(45, 18, this)">🧊 Medium 45%</button>
         <button class="preset-chip" onclick="applyPreset(70, 20, this)">🛡️ High 70%</button>
       </div>
+
+      <!-- Live Dynamic Bubble Burst Trigger -->
+      <button class="preset-chip" style="background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); color: #fff; border-color: #7dd3fc; display: inline-flex; align-items: center; gap: 4px;" onclick="triggerAerationBurst()" title="Simulate a sudden aeration burst from seabed">
+        <i class="fa-solid fa-water"></i> 🫧 Burst Bubbles!
+      </button>
     </div>
 
     <button class="preview-mode-toggle" onclick="toggleNightMode()">
@@ -1422,8 +1507,8 @@
       }
     }
 
-    // Default load with generated seagrass & sand sunlight background
-    changeBackground('public/assets/seagrass_sand_sunbeams.jpg');
+    // Default load with Option 3 (Aero Seabed Rays & Sand)
+    changeBackground('public/assets/aero_seabed_rays.jpg');
 
     function setGlassOpacity(val) {
       const dec = (val / 100).toFixed(2);
@@ -1474,6 +1559,53 @@
       const label = document.getElementById('night-toggle-label');
       label.innerText = isNight ? 'Twilight Night Mode' : 'Daylight Sun Mode';
     }
+
+    // ==========================================================================
+    // DYNAMIC AMBIENT BUBBLE ENGINE (Lazy Stream + Randomized Aeration Bursts)
+    // ==========================================================================
+    function triggerAerationBurst(clusterOriginX = null) {
+      const layer = document.querySelector('.bubble-layer');
+      if (!layer) return;
+
+      const origin = clusterOriginX !== null ? clusterOriginX : (12 + Math.random() * 76); // 12% to 88% width
+      const bubbleCount = 7 + Math.floor(Math.random() * 6); // 7 to 12 bubbles in burst
+
+      for (let i = 0; i < bubbleCount; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = 'aero-bubble burst-bubble';
+
+        const size = 10 + Math.floor(Math.random() * 22); // 10px to 32px (+50% scale)
+        const spread = (Math.random() - 0.5) * 80; // +/- 40px cluster width
+        const drift = (Math.random() - 0.5) * 70; // horizontal drift while rising
+        const duration = 4.0 + Math.random() * 2.8; // 4.0s to 6.8s fast ascent
+        const delay = Math.random() * 0.8; // staggered eruption
+
+        bubble.style.left = `calc(${origin}% + ${spread}px)`;
+        bubble.style.width = `${size}px`;
+        bubble.style.height = `${size}px`;
+        bubble.style.setProperty('--drift-x', `${drift}px`);
+        bubble.style.animationDuration = `${duration.toFixed(2)}s`;
+        bubble.style.animationDelay = `${delay.toFixed(2)}s`;
+
+        layer.appendChild(bubble);
+
+        // Auto-remove element from DOM after animation completes (zero memory leak)
+        setTimeout(() => {
+          if (bubble.parentNode) bubble.parentNode.removeChild(bubble);
+        }, (duration + delay + 0.5) * 1000);
+      }
+    }
+
+    // Organic Aeration Loop: Triggers every 12–22 seconds automatically
+    function scheduleNextBurst() {
+      const nextTimeMs = 12000 + Math.random() * 10000;
+      setTimeout(() => {
+        triggerAerationBurst();
+        scheduleNextBurst();
+      }, nextTimeMs);
+    }
+    // Kick off automatic burst scheduler
+    scheduleNextBurst();
   </script>
 </body>
 </html>

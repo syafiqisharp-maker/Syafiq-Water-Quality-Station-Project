@@ -66,13 +66,19 @@ export class FieldOpsMap {
                     <!-- Left: Operational Status Filter Buttons -->
                     <div class="feeding-filter-group field-ops-filter-scroll" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap;">
                         <span style="font-size: 0.76rem; font-weight: 800; color: #475569; margin-right: 0.2rem;">Status:</span>
-                        <button type="button" class="btn-filter-action active" data-action-filter="ALL" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #cbd5e1; background: #ffffff; cursor: pointer;">
+                        <button type="button" class="btn-filter-action active" data-action-filter="ALL" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; cursor: pointer;">
                             <span class="btn-text-full">All 24 Ponds</span>
                             <span class="btn-text-short">All</span>
                         </button>
-                        <button type="button" class="btn-filter-action" data-action-filter="PRODUCTION" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #bbf7d0; background: #f0fdf4; color: #166534; cursor: pointer;">🟢 In Culture</button>
-                        <button type="button" class="btn-filter-action" data-action-filter="UNLOGGED" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #fde68a; background: #fffbeb; color: #b45309; cursor: pointer;">⏳ Pending Log</button>
-                        <button type="button" class="btn-filter-action" data-action-filter="IDLE" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; border: 1px solid #e2e8f0; background: #f8fafc; color: #64748b; cursor: pointer;">⚪ Idle</button>
+                        <button type="button" class="btn-filter-action" data-action-filter="PRODUCTION" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <span class="aero-orb orb-emerald"></span> In Culture
+                        </button>
+                        <button type="button" class="btn-filter-action" data-action-filter="UNLOGGED" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <span class="aero-orb orb-amber"></span> Pending Log
+                        </button>
+                        <button type="button" class="btn-filter-action" data-action-filter="IDLE" style="font-size: 0.74rem; font-weight: 700; padding: 0.35rem 0.8rem; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <span class="aero-orb orb-idle"></span> Idle
+                        </button>
                     </div>
 
                     <!-- Center/Right: Daily Progress & Rapid Log + Search and Refresh -->
@@ -406,15 +412,16 @@ export class FieldOpsMap {
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem;">
                         <div>
-                            <div style="font-size: 1.1rem; font-weight: 900; color: #0f172a; line-height: 1.1;">
-                                ${pondLabel}
+                            <div class="pond-no-box" style="font-size: 1.1rem; font-weight: 900; line-height: 1.1; display: flex; align-items: center; gap: 6px;">
+                                <span class="aero-orb ${isIdle ? 'orb-idle' : (todayRecord ? 'orb-emerald' : 'orb-amber')}"></span>
+                                <span>${pondLabel}</span>
                             </div>
                             <div style="font-size: 0.68rem; font-weight: 700; color: #64748b; margin-top: 0.15rem;">
                                 ${isIdle ? 'IDLE' : `Cycle ${cycleRecord.cycle_no || (cycleRecord.pond_index ? cycleRecord.pond_index.split(".")[1] : '—')}`}
                             </div>
                         </div>
-                        <span style="font-size: 0.68rem; font-weight: 800; background: ${badgeBg}; color: ${badgeColor}; padding: 0.2rem 0.5rem; border-radius: 999px;">
-                            ${isIdle ? '⚪ IDLE' : `🟢 DOC ${doc}`}
+                        <span style="font-size: 0.68rem; font-weight: 800; background: ${badgeBg}; color: ${badgeColor}; padding: 0.2rem 0.5rem; border-radius: 999px; box-shadow: inset 0 1px 1px #fff;">
+                            ${isIdle ? 'IDLE' : `DOC ${doc}`}
                         </span>
                     </div>
 
