@@ -371,6 +371,15 @@ export class FieldOpsMap {
         const doc = calculateDOC(cycleRecord.stck_date, cycleRecord.date_close);
         const area = parseFloat(cycleRecord.area) || 0.50;
 
+        // Resolve DO & pH Telemetry (Real IoT value or standby placeholder per Rule 7)
+        const doValue = data.telemetry?.do_ppm !== undefined && data.telemetry?.do_ppm !== null
+            ? parseFloat(data.telemetry.do_ppm).toFixed(1)
+            : (cycleRecord.latest_do !== undefined && cycleRecord.latest_do !== null ? parseFloat(cycleRecord.latest_do).toFixed(1) : "--");
+
+        const phValue = data.telemetry?.ph !== undefined && data.telemetry?.ph !== null
+            ? parseFloat(data.telemetry.ph).toFixed(2)
+            : (cycleRecord.latest_ph !== undefined && cycleRecord.latest_ph !== null ? parseFloat(cycleRecord.latest_ph).toFixed(2) : "--");
+
         // Active production styling
         let borderColor = todayRecord ? "#16a34a" : "#0284c7";
         let shadowGlow = todayRecord ? "rgba(22, 163, 74, 0.14)" : "rgba(2, 132, 199, 0.14)";
@@ -401,10 +410,15 @@ export class FieldOpsMap {
                         </div>
 
                         <!-- Middle Content: Drained Basin Indicator -->
-                        <div style="padding: 0.65rem 0; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+                        <div style="padding: 0.5rem 0; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
                             <span style="font-size: 1.1rem; opacity: 0.7;">⚙️</span>
                             <span style="color: #64748b; font-size: 0.74rem; font-weight: 700;">Pond In Preparation</span>
                             <span style="font-size: 0.66rem; color: #94a3b8;">Area: ${area} Ha · Dry</span>
+                            <div style="display: flex; gap: 0.45rem; font-size: 0.62rem; color: #94a3b8; font-weight: 600; margin-top: 2px;">
+                                <span>DO: --</span>
+                                <span>·</span>
+                                <span>pH: --</span>
+                            </div>
                         </div>
                     </div>
 
@@ -433,7 +447,7 @@ export class FieldOpsMap {
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
-                min-height: 162px;
+                min-height: 176px;
             " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 20px ${shadowGlow}';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px ${shadowGlow}';">
                 
                 <!-- Tile Header: High-Contrast Pond Code & DOC Badge -->
@@ -454,20 +468,41 @@ export class FieldOpsMap {
                     </div>
 
                     <!-- Middle Content: Real Operational Details & Today's Log Status -->
-                    <div style="margin: 0.35rem 0;">
+                    <div style="margin: 0.3rem 0;">
                         <div style="font-size: 0.72rem; color: #1e293b; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             ${cycleRecord.stck_species || 'P. VANNAMEI'} · <span style="color: #0284c7;">⚡ ${totalHP} HP</span>
                         </div>
                         <div style="font-size: 0.65rem; color: #64748b; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Operator: ${operatorName}">
                             🦐 ${operatorName}
                         </div>
+
+                        <!-- Live WQS Telemetry Twin Pill (DO & pH) -->
+                        <div class="pond-wqs-pills" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem; margin: 0.35rem 0;">
+                            <div style="background: rgba(240, 249, 255, 0.95); border: 1px solid #bae6fd; border-radius: 8px; padding: 0.22rem 0.4rem; display: flex; align-items: center; justify-content: space-between; box-shadow: inset 0 1px 1px #fff;" title="Dissolved Oxygen">
+                                <span style="font-size: 0.64rem; font-weight: 800; color: #0369a1; display: inline-flex; align-items: center; gap: 3px;">
+                                    <span style="font-size: 0.72rem;">🫧</span> DO
+                                </span>
+                                <span style="font-family: 'Space Grotesk', monospace, sans-serif; font-size: 0.78rem; font-weight: 800; color: #0284c7;">
+                                    ${doValue} <span style="font-size: 0.58rem; font-weight: 600; color: #64748b;">mg/L</span>
+                                </span>
+                            </div>
+                            <div style="background: rgba(240, 249, 255, 0.95); border: 1px solid #bae6fd; border-radius: 8px; padding: 0.22rem 0.4rem; display: flex; align-items: center; justify-content: space-between; box-shadow: inset 0 1px 1px #fff;" title="Water pH Level">
+                                <span style="font-size: 0.64rem; font-weight: 800; color: #0369a1; display: inline-flex; align-items: center; gap: 3px;">
+                                    <span style="font-size: 0.72rem;">🧪</span> pH
+                                </span>
+                                <span style="font-family: 'Space Grotesk', monospace, sans-serif; font-size: 0.78rem; font-weight: 800; color: #0284c7;">
+                                    ${phValue} <span style="font-size: 0.58rem; font-weight: 600; color: #64748b;">pH</span>
+                                </span>
+                            </div>
+                        </div>
+
                         ${todayRecord ? `
-                            <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #166534;">
+                            <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.35rem; font-size: 0.64rem; font-weight: 800; color: #166534;">
                                 <span>✅ Logged Today</span>
                                 <span>${todayFeedKg} kg</span>
                             </div>
                         ` : `
-                            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #b45309;">
+                            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.35rem; font-size: 0.64rem; font-weight: 800; color: #b45309;">
                                 <span>⏳ Pending Today</span>
                                 <span>DOC ${doc}</span>
                             </div>
