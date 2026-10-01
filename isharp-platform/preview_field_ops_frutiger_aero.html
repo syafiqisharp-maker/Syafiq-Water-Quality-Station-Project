@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>iSHARP Field Ops — Frutiger Aero Theme Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    /* ==========================================================================
+       FRUTIGER AERO FIELD OPS THEME SYSTEM (V2: Organic Aero Pods & Photo Backdrops)
+       ========================================================================== */
+    :root {
+      /* Sky & Ocean Palette */
+      --aero-sky-wash: linear-gradient(180deg, #d8f1fc 0%, #e0f2fe 30%, #f0f9ff 100%);
+      --aero-deep-ocean: #072642;   /* Sunlight-proof primary ink (11.4:1 contrast) */
+      --aero-ink-subtle: #1e4e79;   /* Secondary labels & timestamps */
+      --aero-cyan-vibrant: #00c2ff; /* Signature Aero cyan */
+      --aero-cerulean: #0284c7;     /* Focused interactive borders */
+      --aero-sky-blue: #38bdf8;
+      
+      /* Living Biome Accents */
+      --aero-emerald: #10b981;
+      --aero-emerald-dark: #065f46;
+      --aero-amber: #f59e0b;
+      --aero-amber-dark: #92400e;
+      --aero-ruby: #ef4444;
+
+      /* Dynamic Glassmorphism Tuning (Translucent Frutiger Aero - Crystal 18% Standard) */
+      --glass-opacity: 0.18;
+      --glass-blur: 10px;
+
+      /* Organic Aero Glass Surface (Ultra-Translucent to Reveal Photo Backdrops) */
+      --aero-card-bg: linear-gradient(
+        135deg,
+        rgba(255, 255, 255, calc(var(--glass-opacity) + 0.18)) 0%,
+        rgba(240, 249, 255, var(--glass-opacity)) 45%,
+        rgba(218, 241, 254, calc(var(--glass-opacity) + 0.10)) 100%
+      );
+      --aero-card-border: 1.5px solid rgba(255, 255, 255, 0.75);
+      --aero-card-border-b: 2px solid rgba(2, 132, 199, 0.45);
+      --aero-card-shadow: 
+        0 12px 30px -4px rgba(2, 132, 199, 0.20),
+        0 4px 10px rgba(7, 38, 66, 0.08),
+        inset 0 1.5px 2px rgba(255, 255, 255, 0.95),
+        inset 0 -1.5px 2px rgba(2, 132, 199, 0.15);
+
+      --aero-dock-bg: rgba(255, 255, 255, 0.85);
+    }
+
+    /* Twilight Aeration Mode */
+    body.night-mode {
+      --aero-sky-wash: linear-gradient(180deg, #051324 0%, #0a2540 50%, #06192c 100%);
+      --aero-deep-ocean: #f0f9ff;
+      --aero-ink-subtle: #93c5fd;
+      --aero-card-bg: linear-gradient(
+        135deg,
+        rgba(15, 38, 68, calc(var(--glass-opacity) + 0.25)) 0%,
+        rgba(10, 28, 52, var(--glass-opacity)) 50%,
+        rgba(7, 21, 39, calc(var(--glass-opacity) + 0.20)) 100%
+      );
+      --aero-card-border: 1.5px solid rgba(56, 189, 248, 0.45);
+      --aero-card-border-b: 2px solid rgba(2, 132, 199, 0.7);
+      --aero-card-shadow: 
+        0 16px 36px rgba(0, 0, 0, 0.5),
+        inset 0 1.5px 1px rgba(255, 255, 255, 0.3),
+        inset 0 -1.5px 2px rgba(0, 0, 0, 0.6);
+      --aero-dock-bg: rgba(10, 28, 52, 0.88);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--aero-sky-wash);
+      background-size: cover;
+      background-position: center top;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      color: var(--aero-deep-ocean);
+      min-height: 100vh;
+      overflow-x: hidden;
+      max-width: 100vw;
+      transition: background 0.4s ease, color 0.3s ease;
+      position: relative;
+    }
+
+    /* Minimal Softener Overlay so background is fully vivid and unwashed */
+    .bg-overlay {
+      display: none;
+    }
+
+    /* Floating Micro-Bubbles */
+    .bubble-layer {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .aero-bubble {
+      position: absolute;
+      bottom: -60px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.9) 0%, rgba(186, 230, 253, 0.35) 60%, rgba(2, 132, 199, 0.25) 100%);
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.9), 0 4px 10px rgba(2, 132, 199, 0.15);
+      animation: rise 16s linear infinite;
+    }
+    @keyframes rise {
+      0% { transform: translateY(0) scale(0.8); opacity: 0; }
+      15% { opacity: 0.7; }
+      85% { opacity: 0.7; }
+      100% { transform: translateY(-110vh) scale(1.15); opacity: 0; }
+    }
+
+    /* Top Preview Bar & Background Switcher */
+    .preview-controller-bar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(7, 38, 66, 0.94);
+      backdrop-filter: blur(14px);
+      color: #ffffff;
+      padding: 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.35);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+    .preview-tabs {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .preview-tab-btn {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #e0f2fe;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s ease;
+    }
+    .preview-tab-btn.active {
+      background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+      color: #ffffff;
+      border-color: #7dd3fc;
+      box-shadow: 0 2px 8px rgba(2, 132, 199, 0.4);
+    }
+
+    .bg-select-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: #bae6fd;
+    }
+    .bg-select-dropdown {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      outline: none;
+      cursor: pointer;
+    }
+    .bg-select-dropdown option {
+      background: #072642;
+      color: #ffffff;
+    }
+
+    .glass-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: #bae6fd;
+    }
+    .glass-slider-wrap input[type="range"] {
+      width: 75px;
+      height: 6px;
+      accent-color: #00c2ff;
+      cursor: pointer;
+    }
+    .preset-chip {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #e0f2fe;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .preset-chip.active {
+      background: #00c2ff;
+      color: #072642;
+      border-color: #fff;
+      font-weight: 800;
+    }
+
+    .preview-mode-toggle {
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: #fff;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Main Container (Field Ops Workspace) */
+    .field-ops-workspace {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 3rem 1rem;
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ==========================================================================
+       1. HEADER BAR: Organic Asymmetric Liquid Aero Shell
+       ========================================================================== */
+    .field-ops-header {
+      background: var(--aero-card-bg);
+      backdrop-filter: blur(22px) saturate(190%);
+      -webkit-backdrop-filter: blur(22px) saturate(190%);
+      border: var(--aero-card-border);
+      border-bottom: var(--aero-card-border-b);
+      /* Asymmetric organic contour */
+      border-radius: 28px 14px 28px 14px;
+      padding: 1rem 1.5rem;
+      box-shadow: var(--aero-card-shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      position: relative;
+      overflow: hidden;
+    }
+    /* Curved Crescent Specular Highlight */
+    .field-ops-header::before {
+      content: '';
+      position: absolute;
+      top: -20px; left: 10%; right: 10%; height: 55px;
+      background: radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 70%);
+      pointer-events: none;
+    }
+
+    .header-branding {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+    .header-titles h1 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: var(--aero-deep-ocean);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+    }
+    .badge-aero-pill {
+      font-size: 0.68rem;
+      font-weight: 800;
+      background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+      color: #ffffff;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3), inset 0 1px 1px #fff;
+    }
+    .header-subtext {
+      font-size: 0.74rem;
+      color: var(--aero-ink-subtle);
+      font-weight: 600;
+    }
+
+    /* Tactile Aero Buttons */
+    .aero-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      min-height: 44px;
+      border-radius: 14px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-weight: 800;
+      font-size: 0.8rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.12s ease-out;
+      text-decoration: none;
+    }
+    .aero-btn-secondary {
+      background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 60%, #e0f2fe 100%);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-bottom: 2px solid #bae6fd;
+      color: var(--aero-deep-ocean);
+      box-shadow: 0 3px 8px rgba(2, 132, 199, 0.1), inset 0 1.5px 1px #fff;
+    }
+    .aero-btn-primary {
+      background: linear-gradient(180deg, #38bdf8 0%, #0284c7 52%, #0369a1 100%);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      color: #ffffff;
+      text-shadow: 0 1px 2px rgba(7, 38, 66, 0.4);
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35), inset 0 1.5px 1px rgba(255, 255, 255, 0.8), inset 0 -2px 3px rgba(3, 105, 161, 0.6);
+      border-radius: 999px;
+    }
+    .aero-btn-primary::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 8px; right: 8px; height: 42%;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    .aero-btn:active {
+      transform: translateY(1.5px) scale(0.97);
+      box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    /* ==========================================================================
+       2. TOOLBAR: Filter Scroll, Progress & Rapid Log
+       ========================================================================== */
+    .field-ops-toolbar {
+      background: var(--aero-card-bg);
+      backdrop-filter: blur(20px);
+      border: var(--aero-card-border);
+      border-bottom: var(--aero-card-border-b);
+      border-radius: 20px;
+      padding: 0.75rem 1.25rem;
+      box-shadow: var(--aero-card-shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .filter-scroll-row {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+    }
+    .filter-scroll-row::-webkit-scrollbar { display: none; }
+
+    .aero-filter-chip {
+      padding: 0.45rem 0.95rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      color: var(--aero-ink-subtle);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04), inset 0 1px 1px #fff;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.12s ease;
+    }
+    .aero-filter-chip.active {
+      background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+      color: #ffffff;
+      border-color: #7dd3fc;
+      box-shadow: 0 3px 10px rgba(2, 132, 199, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.8);
+    }
+
+    /* 3D Jewel Status Orbs */
+    .aero-orb {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+      box-shadow: 0 0 8px currentColor, inset 0 -2px 3px rgba(0, 0, 0, 0.35);
+    }
+    .aero-orb::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 2px; width: 4px; height: 3px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.9);
+    }
+    .orb-emerald {
+      background: radial-gradient(circle at 35% 30%, #a7f3d0 0%, #10b981 60%, #047857 100%);
+      color: rgba(16, 185, 129, 0.6);
+    }
+    .orb-amber {
+      background: radial-gradient(circle at 35% 30%, #fde68a 0%, #f59e0b 60%, #b45309 100%);
+      color: rgba(245, 158, 11, 0.6);
+    }
+    .orb-idle {
+      background: radial-gradient(circle at 35% 30%, #f1f5f9 0%, #cbd5e1 60%, #64748b 100%);
+      color: rgba(100, 116, 139, 0.4);
+    }
+
+    .progress-pill {
+      font-size: 0.74rem;
+      font-weight: 800;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+      color: #065f46;
+      border: 1px solid #86efac;
+      box-shadow: inset 0 1px 1px #fff;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ==========================================================================
+       3. 24-POND MAP TILES: Organic Aero Marine Pods (Non-Generic Silhouettes)
+       ========================================================================== */
+    .row-card-container {
+      background: rgba(255, 255, 255, calc(var(--glass-opacity) * 0.45));
+      backdrop-filter: blur(calc(var(--glass-blur) * 0.6));
+      -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.6));
+      border: 1.5px solid rgba(255, 255, 255, 0.55);
+      border-radius: 26px 14px 26px 14px;
+      padding: 1.25rem;
+      box-shadow: 0 10px 28px rgba(2, 132, 199, 0.12);
+      margin-bottom: 1.25rem;
+    }
+    .row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .row-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--aero-deep-ocean);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+    }
+
+    .pond-grid-24 {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
+      gap: 0.95rem;
+    }
+
+    /* The Authentic Aero Pod Tile: Asymmetric Rounded Pebble Contour */
+    .aero-pond-tile {
+      position: relative;
+      background: var(--aero-card-bg);
+      backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(105%);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%) brightness(105%);
+      border: var(--aero-card-border);
+      border-bottom: var(--aero-card-border-b);
+      /* Asymmetric organic pod shape */
+      border-radius: 24px 12px 24px 12px;
+      padding: 1rem 0.9rem;
+      box-shadow: var(--aero-card-shadow);
+      cursor: pointer;
+      transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 145px;
+      overflow: hidden;
+    }
+
+    .pond-no-box, .header-titles h1, .banner-headline, .sensor-big-val, .modal-sheet-title {
+      text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+    }
+    .tile-stat-row {
+      text-shadow: 0 1px 1px rgba(255, 255, 255, 0.85);
+    }
+
+    /* Curved Convex Light Arc Sheen */
+    .aero-pond-tile::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 42%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.1) 80%, transparent 100%);
+      border-top-left-radius: 22px;
+      border-top-right-radius: 10px;
+      pointer-events: none;
+    }
+    
+    /* Subtle Aqua Hydro Glow at Bottom */
+    .aero-pond-tile::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 15%; right: 15%; height: 4px;
+      background: radial-gradient(ellipse at 50% 100%, #00c2ff 0%, transparent 80%);
+      pointer-events: none;
+    }
+
+    .aero-pond-tile:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 16px 34px rgba(2, 132, 199, 0.28), inset 0 2px 2px #fff;
+    }
+    .aero-pond-tile:active {
+      transform: scale(0.97);
+    }
+
+    .tile-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .pond-no-box {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--aero-deep-ocean);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tile-status-tag {
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .status-culture {
+      background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+      color: #065f46;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: inset 0 1px 1px #fff;
+    }
+    .status-idle {
+      background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+      color: #475569;
+      border: 1px solid rgba(100, 116, 139, 0.3);
+    }
+
+    .tile-body {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 0.74rem;
+      margin-top: 2px;
+    }
+    .tile-stat-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--aero-ink-subtle);
+      font-weight: 600;
+    }
+    .tile-stat-row strong {
+      color: var(--aero-deep-ocean);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    .tile-footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 6px;
+      border-top: 1px solid rgba(2, 132, 199, 0.15);
+    }
+    .tile-hp-tag {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--aero-cerulean);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 1-Tap Quick Action Log Button on tile */
+    .btn-tile-quick-log {
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.12s ease;
+    }
+    .btn-log-action {
+      background: linear-gradient(180deg, #fde68a 0%, #f59e0b 50%, #d97706 100%);
+      color: #78350f;
+      text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+      box-shadow: 0 3px 8px rgba(245, 158, 11, 0.35), inset 0 1.5px 1px #fff;
+    }
+    .btn-logged-status {
+      background: linear-gradient(180deg, #dcfce7 0%, #86efac 100%);
+      color: #14532d;
+      border-color: #86efac;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2), inset 0 1px 1px #fff;
+    }
+
+    /* ==========================================================================
+       4. POND WQS OPERATIONAL DETAIL VIEW
+       ========================================================================== */
+    .wqs-view-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Feeding Action Plan Aero Horizon Banner */
+    .feeding-horizon-banner {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(224, 242, 254, 0.88) 100%);
+      border: 1.5px solid rgba(255, 255, 255, 0.95);
+      border-bottom: 2.5px solid #38bdf8;
+      border-radius: 28px 14px 28px 14px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--aero-card-shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .banner-top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .banner-headline {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--aero-deep-ocean);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .aero-badge-optimal {
+      background: linear-gradient(180deg, #34d399 0%, #10b981 50%, #059669 100%);
+      color: #ffffff;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 0.76rem;
+      text-shadow: 0 1px 2px rgba(6, 78, 59, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      box-shadow: 0 3px 10px rgba(16, 185, 129, 0.35), inset 0 1px 1px #fff;
+    }
+
+    /* Sensor Matrix 4-Cards Grid */
+    .telemetry-grid-4 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .sensor-aero-card {
+      background: var(--aero-card-bg);
+      backdrop-filter: blur(20px);
+      border: var(--aero-card-border);
+      border-bottom: var(--aero-card-border-b);
+      border-radius: 24px 12px 24px 12px;
+      padding: 1.1rem 1.25rem;
+      box-shadow: var(--aero-card-shadow);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+    .sensor-aero-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 42%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, transparent 100%);
+      pointer-events: none;
+    }
+    .sensor-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--aero-ink-subtle);
+    }
+    .sensor-big-val {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: var(--aero-deep-ocean);
+      margin: 6px 0;
+    }
+
+    /* Standby Crystalline Housing (Rule 7: Zero Fake Telemetry) */
+    .standby-housing-box {
+      background: rgba(240, 249, 255, 0.7);
+      border: 1.5px dashed rgba(2, 132, 199, 0.4);
+      border-radius: 16px;
+      padding: 1rem;
+      text-align: center;
+      color: var(--aero-ink-subtle);
+    }
+    .pulse-standby-beacon {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.74rem;
+      font-weight: 800;
+      color: var(--aero-cerulean);
+      margin-bottom: 4px;
+    }
+
+    /* ==========================================================================
+       5. RAPID ENTRY MODAL: Tactile Steppers & 3D Water Orbs
+       ========================================================================== */
+    .modal-backdrop-aero {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(7, 38, 66, 0.55);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding: 0;
+    }
+    @media (min-width: 640px) {
+      .modal-backdrop-aero {
+        align-items: center;
+        padding: 20px;
+      }
+    }
+
+    .modal-sheet-aero {
+      background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 55%, #e0f2fe 100%);
+      border: 1.5px solid rgba(255, 255, 255, 0.95);
+      box-shadow: 0 -10px 40px rgba(7, 38, 66, 0.45), 0 10px 30px rgba(2, 132, 199, 0.25);
+      width: 100%;
+      max-width: 580px;
+      max-height: 92vh;
+      border-top-left-radius: 28px;
+      border-top-right-radius: 28px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @media (min-width: 640px) {
+      .modal-sheet-aero {
+        border-radius: 28px;
+      }
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-sheet-header {
+      background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 100%);
+      border-bottom: 1px solid rgba(2, 132, 199, 0.2);
+      padding: 1.1rem 1.4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-sheet-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--aero-deep-ocean);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .modal-sheet-body {
+      padding: 1.25rem;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    /* Form Section Cards */
+    .form-aero-section {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 20px 10px 20px 10px;
+      padding: 1.1rem;
+      box-shadow: 0 4px 16px rgba(2, 132, 199, 0.08), inset 0 1.5px 1px #fff;
+    }
+    .form-section-label {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.84rem;
+      font-weight: 800;
+      color: var(--aero-deep-ocean);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Tactile Convex Steppers (+ / -) */
+    .stepper-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .aero-stepper-btn {
+      flex: 1;
+      min-height: 48px; /* High touch target for wet fingers */
+      border-radius: 14px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 800;
+      font-size: 0.95rem;
+      background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 60%, #bae6fd 100%);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-bottom: 2.5px solid #7dd3fc;
+      box-shadow: 0 3px 8px rgba(2, 132, 199, 0.16), inset 0 1.5px 1px #ffffff;
+      color: var(--aero-deep-ocean);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.12s ease;
+    }
+    .aero-stepper-btn:active {
+      transform: scale(0.95);
+      box-shadow: inset 0 2px 4px rgba(2, 132, 199, 0.3);
+    }
+
+    /* Big Numeric Input Display */
+    .aero-num-input {
+      width: 100%;
+      min-height: 50px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.45rem;
+      font-weight: 700;
+      text-align: center;
+      color: var(--aero-deep-ocean);
+      background: rgba(255, 255, 255, 0.95);
+      border: 1.5px solid #7dd3fc;
+      border-radius: 14px;
+      box-shadow: inset 0 2px 4px rgba(2, 132, 199, 0.12);
+      outline: none;
+    }
+    .aero-num-input:focus {
+      border-color: #0284c7;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+    }
+
+    /* 3D Water Colour Orbs Grid */
+    .water-orbs-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .water-swatch-card {
+      background: rgba(255, 255, 255, 0.75);
+      border: 1.5px solid rgba(255, 255, 255, 0.95);
+      border-radius: 14px;
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+    }
+    .water-swatch-card.active {
+      background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 100%);
+      border-color: #00c2ff;
+      box-shadow: 0 0 0 2.5px #00c2ff, 0 4px 14px rgba(0, 194, 255, 0.35);
+      transform: translateY(-2px);
+    }
+
+    /* The 3D Glass Water Orb Sphere */
+    .water-sphere {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      position: relative;
+      box-shadow: inset 0 -3px 5px rgba(0, 0, 0, 0.35), 0 3px 8px rgba(0, 0, 0, 0.18);
+    }
+    /* Specular glass dome glare */
+    .water-sphere::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 4px; width: 9px; height: 6px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.85);
+    }
+    .swatch-name {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--aero-deep-ocean);
+      text-align: center;
+    }
+
+    /* Modal Footer Sticky Dock */
+    .modal-sheet-footer {
+      background: var(--aero-dock-bg);
+      backdrop-filter: blur(18px);
+      border-top: 1px solid rgba(2, 132, 199, 0.2);
+      padding: 0.9rem 1.25rem 1.35rem 1.25rem;
+      display: flex;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Backdrop Light Softener Overlay -->
+  <div class="bg-overlay"></div>
+
+  <!-- Background Animated Water Bubbles -->
+  <div class="bubble-layer">
+    <div class="aero-bubble" style="left: 10%; width: 24px; height: 24px; animation-duration: 14s;"></div>
+    <div class="aero-bubble" style="left: 28%; width: 36px; height: 36px; animation-duration: 20s; animation-delay: 3s;"></div>
+    <div class="aero-bubble" style="left: 55%; width: 18px; height: 18px; animation-duration: 12s; animation-delay: 1s;"></div>
+    <div class="aero-bubble" style="left: 78%; width: 30px; height: 30px; animation-duration: 17s; animation-delay: 5s;"></div>
+    <div class="aero-bubble" style="left: 90%; width: 15px; height: 15px; animation-duration: 11s; animation-delay: 2s;"></div>
+  </div>
+
+  <!-- Preview Controller Bar (Includes Background Image Selector) -->
+  <div class="preview-controller-bar">
+    <div class="preview-tabs">
+      <button class="preview-tab-btn active" id="tab-btn-map" onclick="showView('map')">
+        <i class="fa-solid fa-map"></i> 24-Pond Map
+      </button>
+      <button class="preview-tab-btn" id="tab-btn-detail" onclick="showView('detail')">
+        <i class="fa-solid fa-droplet"></i> Pond Detail (WQS)
+      </button>
+      <button class="preview-tab-btn" id="tab-btn-modal" onclick="openRapidModal()">
+        <i class="fa-solid fa-pen-to-square"></i> Open Rapid Modal
+      </button>
+    </div>
+
+    <!-- Background Image Selector -->
+    <div class="bg-select-wrap">
+      <i class="fa-solid fa-image"></i>
+      <span>Wallpaper:</span>
+      <select class="bg-select-dropdown" id="bg-selector" onchange="changeBackground(this.value)">
+        <option value="public/assets/seagrass_sand_sunbeams.jpg" selected>✨ Sunbeams & Seagrass on Sand (Option 1 - New)</option>
+        <option value="public/assets/lagoon_caustics_sand.jpg">✨ Lagoon Caustics & White Sand (Option 2 - New)</option>
+        <option value="public/assets/aero_seabed_rays.jpg">✨ Aero Seabed God Rays & Bubbles (Option 3 - New)</option>
+        <option value="public/assets/frutiger_aero_seagrass_bg.jpg">Frutiger Aero Seagrass (Local Asset)</option>
+        <option value="public/assets/test_caustics.jpg">Sunlit Water Caustics (Local Asset)</option>
+        <option value="public/assets/seagrass_lagoon_monodon.jpg">Seagrass Lagoon & Monodon (Local Asset)</option>
+        <option value="public/assets/frutiger_aero_pure_seagrass.jpg">Pure Seagrass (Local Asset)</option>
+        <option value="public/assets/wp15501501.jpg">Aero Horizon 01 (Local Asset)</option>
+        <option value="public/assets/wp15501486.jpg">Aero Horizon 02 (Local Asset)</option>
+        <option value="sky-mesh">Crystalline Sky Gradient</option>
+      </select>
+    </div>
+
+    <!-- Live Glass Opacity Controls -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <div class="glass-slider-wrap">
+        <i class="fa-solid fa-wand-magic-sparkles" style="color: #00c2ff;"></i>
+        <span>Opacity:</span>
+        <input type="range" id="opacity-slider" min="10" max="85" value="18" oninput="setGlassOpacity(this.value)">
+        <span id="opacity-val-badge" style="background: rgba(0, 194, 255, 0.25); border: 1px solid #00c2ff; padding: 2px 7px; border-radius: 6px; font-weight: 800; color: #fff;">18%</span>
+      </div>
+      <div style="display: flex; gap: 4px;">
+        <button class="preset-chip active" id="btn-default-crystal" onclick="applyPreset(18, 10, this)">💎 Crystal 18%</button>
+        <button class="preset-chip" id="btn-default-aero" onclick="applyPreset(28, 14, this)">🌊 Aero 28%</button>
+        <button class="preset-chip" onclick="applyPreset(45, 18, this)">🧊 Medium 45%</button>
+        <button class="preset-chip" onclick="applyPreset(70, 20, this)">🛡️ High 70%</button>
+      </div>
+    </div>
+
+    <button class="preview-mode-toggle" onclick="toggleNightMode()">
+      <i class="fa-solid fa-cloud-sun"></i>
+      <span id="night-toggle-label">Daylight Sun Mode</span>
+    </button>
+  </div>
+
+  <!-- FIELD OPERATIONS WORKSPACE -->
+  <div class="field-ops-workspace">
+
+    <!-- 1. HEADER: Organic Aero Glass Shell -->
+    <header class="field-ops-header">
+      <div class="header-branding">
+        <button class="aero-btn aero-btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.74rem;">
+          ← Portal
+        </button>
+        <div class="header-titles">
+          <h1>
+            <span>Field Ops — Module 01</span>
+            <span class="badge-aero-pill">24 PONDS</span>
+          </h1>
+          <span class="header-subtext">Precision Shrimp Culture Telemetry &amp; Rapid Field Logging</span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.6rem;">
+        <div style="display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 12px; background: rgba(255, 255, 255, 0.8); border: 1px solid rgba(255, 255, 255, 0.95); font-size: 0.76rem; font-weight: 800; color: var(--aero-deep-ocean); box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+          <span>👤 M01 Supervisor</span>
+        </div>
+        <button class="aero-btn aero-btn-secondary" style="font-size: 0.74rem;">
+          🔓 Switch
+        </button>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         VIEW 1: 24-POND MAP VIEW (Organic Aero Marine Pods)
+         ==================================================================== -->
+    <div id="view-map" style="display: flex; flex-direction: column; gap: 1.25rem;">
+      
+      <!-- Toolbar -->
+      <div class="field-ops-toolbar">
+        <div class="filter-scroll-row">
+          <span style="font-size: 0.76rem; font-weight: 800; color: var(--aero-ink-subtle); margin-right: 4px;">Status:</span>
+          <button class="aero-filter-chip active">All 24 Ponds</button>
+          <button class="aero-filter-chip">
+            <span class="aero-orb orb-emerald"></span> In Culture
+          </button>
+          <button class="aero-filter-chip">
+            <span class="aero-orb orb-amber"></span> Pending Log
+          </button>
+          <button class="aero-filter-chip">
+            <span class="aero-orb orb-idle"></span> Idle
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+          <div class="progress-pill">
+            <span>✅</span> Today: 18/24 Logged
+          </div>
+          <button class="aero-btn aero-btn-primary" onclick="openRapidModal()">
+            <span>⚡ Rapid Log</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Row 01 (Line 1: Ponds 01–12) -->
+      <div class="row-card-container">
+        <div class="row-head">
+          <div class="row-title">
+            <i class="fa-solid fa-water" style="color: #0284c7;"></i>
+            <span>Module 01 - Row 01</span>
+          </div>
+          <span style="font-size: 0.72rem; font-weight: 700; color: var(--aero-ink-subtle);">12 Ponds Active</span>
+        </div>
+
+        <div class="pond-grid-24">
+          <!-- Pond 01 -->
+          <div class="aero-pond-tile" onclick="showView('detail')">
+            <div>
+              <div class="tile-top-row">
+                <div class="pond-no-box">
+                  <span class="aero-orb orb-emerald"></span>
+                  <span>01.01.01</span>
+                </div>
+                <span class="tile-status-tag status-culture">DOC 48</span>
+              </div>
+              <div class="tile-body">
+                <div class="tile-stat-row"><span>Species:</span> <strong>VAN</strong></div>
+                <div class="tile-stat-row"><span>Area:</span> <strong>0.50 Ha</strong></div>
+                <div class="tile-stat-row"><span>Operator:</span> <strong>Ahmad R.</strong></div>
+              </div>
+            </div>
+            <div class="tile-footer">
+              <span class="tile-hp-tag"><i class="fa-solid fa-fan"></i> 14.0 HP</span>
+              <button class="btn-tile-quick-log btn-logged-status" onclick="event.stopPropagation(); openRapidModal('01.01.01');">
+                ✓ 42kg
+              </button>
+            </div>
+          </div>
+
+          <!-- Pond 02 -->
+          <div class="aero-pond-tile" onclick="showView('detail')">
+            <div>
+              <div class="tile-top-row">
+                <div class="pond-no-box">
+                  <span class="aero-orb orb-amber"></span>
+                  <span>01.01.02</span>
+                </div>
+                <span class="tile-status-tag status-culture">DOC 52</span>
+              </div>
+              <div class="tile-body">
+                <div class="tile-stat-row"><span>Species:</span> <strong>VAN</strong></div>
+                <div class="tile-stat-row"><span>Area:</span> <strong>0.50 Ha</strong></div>
+                <div class="tile-stat-row"><span>Operator:</span> <strong>Zul K.</strong></div>
+              </div>
+            </div>
+            <div class="tile-footer">
+              <span class="tile-hp-tag"><i class="fa-solid fa-fan"></i> 16.0 HP</span>
+              <button class="btn-tile-quick-log btn-log-action" onclick="event.stopPropagation(); openRapidModal('01.01.02');">
+                ➕ Log
+              </button>
+            </div>
+          </div>
+
+          <!-- Pond 03 (Idle) -->
+          <div class="aero-pond-tile" style="opacity: 0.85;" onclick="showView('detail')">
+            <div>
+              <div class="tile-top-row">
+                <div class="pond-no-box">
+                  <span class="aero-orb orb-idle"></span>
+                  <span>01.01.03</span>
+                </div>
+                <span class="tile-status-tag status-idle">IDLE</span>
+              </div>
+              <div class="tile-body">
+                <div class="tile-stat-row"><span>Status:</span> <strong>Drying</strong></div>
+                <div class="tile-stat-row"><span>Area:</span> <strong>0.50 Ha</strong></div>
+                <div class="tile-stat-row"><span>Next:</span> <strong>Liming</strong></div>
+              </div>
+            </div>
+            <div class="tile-footer">
+              <span class="tile-hp-tag" style="color: #64748b;"><i class="fa-solid fa-fan"></i> 0.0 HP</span>
+              <span style="font-size: 0.68rem; font-weight: 700; color: #64748b;">Standby</span>
+            </div>
+          </div>
+
+          <!-- Pond 04 -->
+          <div class="aero-pond-tile" onclick="showView('detail')">
+            <div>
+              <div class="tile-top-row">
+                <div class="pond-no-box">
+                  <span class="aero-orb orb-emerald"></span>
+                  <span>01.01.04</span>
+                </div>
+                <span class="tile-status-tag status-culture">DOC 36</span>
+              </div>
+              <div class="tile-body">
+                <div class="tile-stat-row"><span>Species:</span> <strong>VAN</strong></div>
+                <div class="tile-stat-row"><span>Area:</span> <strong>0.50 Ha</strong></div>
+                <div class="tile-stat-row"><span>Operator:</span> <strong>Faizal M.</strong></div>
+              </div>
+            </div>
+            <div class="tile-footer">
+              <span class="tile-hp-tag"><i class="fa-solid fa-fan"></i> 12.0 HP</span>
+              <button class="btn-tile-quick-log btn-logged-status" onclick="event.stopPropagation(); openRapidModal('01.01.04');">
+                ✓ 38kg
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ====================================================================
+         VIEW 2: POND WQS OPERATIONAL DETAIL VIEW
+         ==================================================================== -->
+    <div id="view-detail" class="wqs-view-container" style="display: none;">
+      
+      <!-- Sub-Nav -->
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+        <button class="aero-btn aero-btn-secondary" onclick="showView('map')">
+          ← Back to 24-Pond Map
+        </button>
+        <div style="display: flex; gap: 8px;">
+          <button class="aero-btn aero-btn-secondary" onclick="openRapidModal('01.01.01')">
+            📖 Book Records
+          </button>
+          <button class="aero-btn aero-btn-primary" onclick="openRapidModal('01.01.01')">
+            ⚡ Quick Daily Log
+          </button>
+        </div>
+      </div>
+
+      <!-- Feeding Action Plan Aero Horizon Banner -->
+      <div class="feeding-horizon-banner">
+        <div class="banner-top-bar">
+          <div class="banner-headline">
+            <i class="fa-solid fa-bowl-food" style="color: #0284c7;"></i>
+            <span>Feeding Action Plan: Pond 01.01.01</span>
+          </div>
+          <span class="aero-badge-optimal">NORMAL FEED (100%)</span>
+        </div>
+        <p style="font-size: 0.84rem; color: var(--aero-deep-ocean); line-height: 1.45;">
+          <strong>Ecosystem Diagnosis:</strong> Solar irradiance at <strong>72,500 Lux (Peak Sunlight)</strong> with stable barometric pressure (1010 hPa). Tray remnants averaged <strong>0%</strong> this morning. Maintain standard feed allocation (42.0 kg/day).
+        </p>
+      </div>
+
+      <!-- Telemetry Matrix: 4 High-Contrast Aero Cards -->
+      <div class="telemetry-grid-4">
+        <!-- Card 1: DOC & Biomass -->
+        <div class="sensor-aero-card">
+          <div class="sensor-title-row">
+            <span>Biometrics Status</span>
+            <span class="aero-orb orb-emerald"></span>
+          </div>
+          <div class="sensor-big-val">DOC 48</div>
+          <div style="font-size: 0.78rem; color: var(--aero-ink-subtle); font-weight: 600;">
+            Estimated Biomass: <strong>4,850 kg</strong> (ABW: 14.2g)
+          </div>
+        </div>
+
+        <!-- Card 2: Live Weather Mast -->
+        <div class="sensor-aero-card">
+          <div class="sensor-title-row">
+            <span>Setiu Weather Mast</span>
+            <span style="font-size: 0.7rem; color: #0284c7;">LIVE</span>
+          </div>
+          <div class="sensor-big-val" style="color: #0284c7;">32.4 <span style="font-size: 1rem;">°C</span></div>
+          <div style="font-size: 0.78rem; color: var(--aero-ink-subtle); font-weight: 600;">
+            Lux: <strong>72,500</strong> • Rain: <strong>0.0 mm</strong>
+          </div>
+        </div>
+
+        <!-- Card 3: Active Paddlewheels (1.0HP & 2.0HP per RULES.md) -->
+        <div class="sensor-aero-card">
+          <div class="sensor-title-row">
+            <span>Active Paddlewheels</span>
+            <span class="aero-orb orb-emerald"></span>
+          </div>
+          <div class="sensor-big-val" style="color: #059669;">14.0 <span style="font-size: 1rem;">HP</span></div>
+          <div style="font-size: 0.78rem; color: var(--aero-ink-subtle); font-weight: 600;">
+            Density: <strong>28.0 HP/Ha</strong> (2× 1HP + 6× 2HP)
+          </div>
+        </div>
+
+        <!-- Card 4: Standby Crystalline Housing (Rule 7: Zero Fake Telemetry) -->
+        <div class="sensor-aero-card">
+          <div class="sensor-title-row">
+            <span>Pond IoT Node</span>
+            <span class="aero-orb orb-amber"></span>
+          </div>
+          <div class="standby-housing-box" style="margin-top: 8px;">
+            <div class="pulse-standby-beacon">
+              <i class="fa-solid fa-satellite-dish"></i> Awaiting Sensor Deployment
+            </div>
+            <div style="font-size: 0.72rem; color: var(--aero-ink-subtle);">
+              DO: <strong>--</strong> | pH: <strong>--</strong> | Temp: <strong>--</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ====================================================================
+       VIEW 3: RAPID DAILY ENTRY MODAL (Interactive Preview)
+       ==================================================================== -->
+  <div id="rapid-modal" class="modal-backdrop-aero" style="display: none;" onclick="closeRapidModal(event)">
+    <div class="modal-sheet-aero" onclick="event.stopPropagation()">
+      
+      <!-- Modal Header with Pond Switcher -->
+      <div class="modal-sheet-header">
+        <div class="modal-sheet-title">
+          <i class="fa-solid fa-bolt" style="color: #0284c7;"></i>
+          <span id="modal-pond-title">Pond 01.01.01 — Daily Log</span>
+        </div>
+        <button class="aero-btn aero-btn-secondary" style="padding: 4px 10px; min-height: 32px;" onclick="closeRapidModal()">
+          ✕ Close
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-sheet-body">
+        
+        <!-- Smart Yesterday Carry-Forward Banner -->
+        <div style="background: rgba(224, 242, 254, 0.7); border: 1px solid #bae6fd; border-radius: 12px; padding: 8px 12px; font-size: 0.75rem; color: #0369a1; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+          <span>↺ Pre-filled from yesterday (2026-09-30)</span>
+        </div>
+
+        <!-- 1. FEED TODAY (KG) WITH TACTILE CONVEX STEPPERS -->
+        <div class="form-aero-section">
+          <div class="form-section-label">
+            <span>🦐 Feed Today (kg)</span>
+            <span style="color: var(--aero-cerulean); font-size: 0.72rem;">Yesterday: 42.0 kg</span>
+          </div>
+          <input type="number" id="input-feed" class="aero-num-input" value="42.0" step="0.5">
+          <div class="stepper-row">
+            <button class="aero-stepper-btn" onclick="stepValue('input-feed', -5)">-5</button>
+            <button class="aero-stepper-btn" onclick="stepValue('input-feed', -1)">-1</button>
+            <button class="aero-stepper-btn" onclick="stepValue('input-feed', 1)">+1</button>
+            <button class="aero-stepper-btn" onclick="stepValue('input-feed', 5)">+5</button>
+          </div>
+        </div>
+
+        <!-- 2. WATER LEVEL (CM) WITH TACTILE STEPPERS -->
+        <div class="form-aero-section">
+          <div class="form-section-label">
+            <span>🌊 Water Level (cm)</span>
+            <span style="color: var(--aero-cerulean); font-size: 0.72rem;">Target: 110 cm</span>
+          </div>
+          <input type="number" id="input-water-level" class="aero-num-input" value="108" step="1">
+          <div class="stepper-row">
+            <button class="aero-stepper-btn" onclick="stepValue('input-water-level', -5)">-5</button>
+            <button class="aero-stepper-btn" onclick="stepValue('input-water-level', -2)">-2</button>
+            <button class="aero-stepper-btn" onclick="stepValue('input-water-level', 2)">+2</button>
+            <button class="aero-stepper-btn" onclick="stepValue('input-water-level', 5)">+5</button>
+          </div>
+        </div>
+
+        <!-- 3. OBSERVED WATER COLOUR: 3D RADIAL-GRADIENT GLASS ORBS -->
+        <div class="form-aero-section">
+          <div class="form-section-label">
+            <span>🎨 Observed Water Colour</span>
+            <span id="selected-colour-label" style="color: #059669; font-weight: 800;">Lt Green</span>
+          </div>
+          <div class="water-orbs-grid">
+            <!-- 1. Lt Green -->
+            <div class="water-swatch-card active" onclick="selectWaterColour(this, 'Lt Green')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #e8f5e9 0%, #81c784 55%, #2e7d32 100%);"></div>
+              <span class="swatch-name">Lt Green</span>
+            </div>
+            <!-- 2. Green -->
+            <div class="water-swatch-card" onclick="selectWaterColour(this, 'Green')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #c8e6c9 0%, #43a047 55%, #1b5e20 100%);"></div>
+              <span class="swatch-name">Green</span>
+            </div>
+            <!-- 3. Dk Green -->
+            <div class="water-swatch-card" onclick="selectWaterColour(this, 'Dk Green')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #a5d6a7 0%, #2e7d32 55%, #052e16 100%);"></div>
+              <span class="swatch-name">Dk Green</span>
+            </div>
+            <!-- 4. Brn Green -->
+            <div class="water-swatch-card" onclick="selectWaterColour(this, 'Brn Green')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #d7ccc8 0%, #6d4c41 40%, #1b4d3e 100%);"></div>
+              <span class="swatch-name">Brn Green</span>
+            </div>
+            <!-- 5. Tea -->
+            <div class="water-swatch-card" onclick="selectWaterColour(this, 'Tea')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #ffecb3 0%, #d97706 55%, #78350f 100%);"></div>
+              <span class="swatch-name">Tea</span>
+            </div>
+            <!-- 6. Brown -->
+            <div class="water-swatch-card" onclick="selectWaterColour(this, 'Brown')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #bcaaa4 0%, #5d4037 55%, #271206 100%);"></div>
+              <span class="swatch-name">Brown</span>
+            </div>
+            <!-- 7. Clear -->
+            <div class="water-swatch-card" onclick="selectWaterColour(this, 'Clear')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #ffffff 0%, #e0f2fe 55%, #7dd3fc 100%);"></div>
+              <span class="swatch-name">Clear</span>
+            </div>
+            <!-- 8. Turbid -->
+            <div class="water-swatch-card" onclick="selectWaterColour(this, 'Turbid')">
+              <div class="water-sphere" style="background: radial-gradient(circle at 35% 30%, #e2e8f0 0%, #94a3b8 55%, #475569 100%);"></div>
+              <span class="swatch-name">Turbid</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. DAILY MORTALITY IN KG (Rule 8) -->
+        <div class="form-aero-section">
+          <div class="form-section-label">
+            <span>⚠️ Scooped Mortality (kg)</span>
+            <span style="color: var(--aero-ink-subtle); font-size: 0.72rem;">Kilograms only</span>
+          </div>
+          <input type="number" id="input-mort" class="aero-num-input" value="0.0" step="0.1" style="font-size: 1.2rem; min-height: 42px;">
+        </div>
+
+      </div>
+
+      <!-- Sticky Floating Aero Dock Footer -->
+      <div class="modal-sheet-footer">
+        <button class="aero-btn aero-btn-secondary" style="flex: 1;" onclick="closeRapidModal()">
+          Cancel
+        </button>
+        <button class="aero-btn aero-btn-secondary" style="flex: 1; color: #0284c7;" onclick="alert('Record Saved locally in preview!')">
+          💾 Save
+        </button>
+        <button class="aero-btn aero-btn-primary" style="flex: 2;" onclick="alert('Saved! Advancing to Pond 01.01.02...'); closeRapidModal();">
+          ⚡ Save &amp; Next ➔
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function changeBackground(bgVal) {
+      if (bgVal === 'sky-mesh') {
+        document.body.style.backgroundImage = 'none';
+        document.body.style.background = 'var(--aero-sky-wash)';
+      } else {
+        document.body.style.backgroundImage = `url('${bgVal}')`;
+      }
+    }
+
+    // Default load with generated seagrass & sand sunlight background
+    changeBackground('public/assets/seagrass_sand_sunbeams.jpg');
+
+    function setGlassOpacity(val) {
+      const dec = (val / 100).toFixed(2);
+      document.documentElement.style.setProperty('--glass-opacity', dec);
+      document.getElementById('opacity-val-badge').innerText = val + '%';
+      document.getElementById('opacity-slider').value = val;
+    }
+
+    function applyPreset(opacity, blur, btn) {
+      setGlassOpacity(opacity);
+      document.documentElement.style.setProperty('--glass-blur', blur + 'px');
+      document.querySelectorAll('.preset-chip').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function showView(viewId) {
+      document.getElementById('view-map').style.display = viewId === 'map' ? 'flex' : 'none';
+      document.getElementById('view-detail').style.display = viewId === 'detail' ? 'flex' : 'none';
+
+      document.getElementById('tab-btn-map').classList.toggle('active', viewId === 'map');
+      document.getElementById('tab-btn-detail').classList.toggle('active', viewId === 'detail');
+    }
+
+    function openRapidModal(pondLabel = '01.01.01') {
+      document.getElementById('modal-pond-title').innerText = `Pond ${pondLabel} — Daily Log`;
+      document.getElementById('rapid-modal').style.display = 'flex';
+    }
+
+    function closeRapidModal() {
+      document.getElementById('rapid-modal').style.display = 'none';
+    }
+
+    function stepValue(inputId, delta) {
+      const el = document.getElementById(inputId);
+      let val = parseFloat(el.value) || 0;
+      val = Math.max(0, val + delta);
+      el.value = Number.isInteger(val) ? val : val.toFixed(1);
+    }
+
+    function selectWaterColour(card, label) {
+      document.querySelectorAll('.water-swatch-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      document.getElementById('selected-colour-label').innerText = label;
+    }
+
+    function toggleNightMode() {
+      const isNight = document.body.classList.toggle('night-mode');
+      const label = document.getElementById('night-toggle-label');
+      label.innerText = isNight ? 'Twilight Night Mode' : 'Daylight Sun Mode';
+    }
+  </script>
+</body>
+</html>
