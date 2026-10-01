@@ -78,6 +78,12 @@ export class ViewRouter {
             }
         });
 
+        // Show bubble layer only in field-ops
+        const bubbleLayer = document.getElementById("aero-global-bubble-layer");
+        if (bubbleLayer) {
+            bubbleLayer.style.display = viewName === "field-ops" ? "block" : "none";
+        }
+
         // Scroll to top when view changes
         window.scrollTo({ top: 0, behavior: "smooth" });
     }

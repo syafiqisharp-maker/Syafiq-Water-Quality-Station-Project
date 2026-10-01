@@ -43,7 +43,7 @@ export class FieldOpsView {
      */
     async renderModuleLogin() {
         this.container.innerHTML = `
-            <div class="field-ops-login-stage" style="min-height: 100vh; padding: 2.5rem 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.7) 0%, rgba(186, 230, 253, 0.3) 30%, transparent 60%), linear-gradient(180deg, #d8f1fc 0%, #bde7f8 40%, #76d0ee 100%);">
+            <div class="field-ops-login-stage" style="min-height: 100vh; padding: 2.5rem 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; background: transparent;">
                 
                 <!-- Brand Header -->
                 <div style="text-align: center; margin-bottom: 2rem;">
@@ -201,7 +201,7 @@ export class FieldOpsView {
         const modStr = String(this.currentModule).padStart(2, "0");
 
         this.container.innerHTML = `
-            <div class="field-ops-workspace" style="min-height: 100vh; padding: 1.25rem 2rem; background: #f0f9ff; background-image: radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.12) 0%, transparent 40%), linear-gradient(180deg, #f8fafc 0%, #e0f2fe 100%);">
+            <div class="field-ops-workspace" style="min-height: 100vh; padding: 1.25rem 2rem; background: transparent;">
                 
                 <!-- Main Header Bar -->
                 <header class="field-ops-header flex-between" style="background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 1); border-radius: 18px; padding: 0.85rem 1.5rem; margin-bottom: 1.25rem; box-shadow: 0 4px 20px rgba(2, 132, 199, 0.08); flex-wrap: wrap; gap: 0.75rem;">
@@ -367,43 +367,47 @@ export class FieldOpsView {
      * Mounts the dynamic ambient micro-bubble layer (+50% Scale)
      */
     ensureBubbleLayer() {
-        if (!this.container) return;
-        let layer = this.container.querySelector(".bubble-layer");
+        let layer = document.getElementById("aero-global-bubble-layer");
         if (!layer) {
             layer = document.createElement("div");
+            layer.id = "aero-global-bubble-layer";
             layer.className = "bubble-layer";
             layer.innerHTML = `
                 <div class="aero-bubble lazy-1" style="left: 8%; width: 30px; height: 30px; animation-duration: 18s; animation-delay: 0s;"></div>
-                <div class="aero-bubble lazy-2" style="left: 23%; width: 42px; height: 42px; animation-duration: 24s; animation-delay: 3s;"></div>
-                <div class="aero-bubble lazy-1" style="left: 45%; width: 23px; height: 23px; animation-duration: 16s; animation-delay: 1.2s;"></div>
-                <div class="aero-bubble lazy-2" style="left: 60%; width: 36px; height: 36px; animation-duration: 21s; animation-delay: 7s;"></div>
-                <div class="aero-bubble lazy-1" style="left: 74%; width: 33px; height: 33px; animation-duration: 19s; animation-delay: 4.5s;"></div>
-                <div class="aero-bubble lazy-2" style="left: 88%; width: 27px; height: 27px; animation-duration: 15s; animation-delay: 2.5s;"></div>
-                <div class="aero-bubble lazy-1" style="left: 36%; width: 21px; height: 21px; animation-duration: 26s; animation-delay: 8s;"></div>
+                <div class="aero-bubble lazy-2" style="left: 23%; width: 42px; height: 42px; animation-duration: 24s; animation-delay: 2s;"></div>
+                <div class="aero-bubble lazy-1" style="left: 45%; width: 23px; height: 23px; animation-duration: 16s; animation-delay: 0.5s;"></div>
+                <div class="aero-bubble lazy-2" style="left: 60%; width: 36px; height: 36px; animation-duration: 21s; animation-delay: 4s;"></div>
+                <div class="aero-bubble lazy-1" style="left: 74%; width: 33px; height: 33px; animation-duration: 19s; animation-delay: 1.5s;"></div>
+                <div class="aero-bubble lazy-2" style="left: 88%; width: 27px; height: 27px; animation-duration: 15s; animation-delay: 0s;"></div>
+                <div class="aero-bubble lazy-1" style="left: 36%; width: 21px; height: 21px; animation-duration: 26s; animation-delay: 3s;"></div>
+                <div class="aero-bubble lazy-2" style="left: 15%; width: 34px; height: 34px; animation-duration: 17s; animation-delay: 1s;"></div>
+                <div class="aero-bubble lazy-1" style="left: 52%; width: 28px; height: 28px; animation-duration: 22s; animation-delay: 2.5s;"></div>
             `;
-            this.container.appendChild(layer);
+            document.body.appendChild(layer);
         }
+        layer.style.display = "block";
 
         if (!this.bubbleSchedulerActive) {
             this.bubbleSchedulerActive = true;
+            setTimeout(() => this.triggerAerationBurst(35), 400);
             this.scheduleNextBurst();
         }
     }
 
     triggerAerationBurst(clusterOriginX = null) {
-        const layer = this.container ? this.container.querySelector(".bubble-layer") : null;
+        const layer = document.getElementById("aero-global-bubble-layer") || (this.container ? this.container.querySelector(".bubble-layer") : null);
         if (!layer) return;
 
         const origin = clusterOriginX !== null ? clusterOriginX : (12 + Math.random() * 76);
-        const bubbleCount = 7 + Math.floor(Math.random() * 6);
+        const bubbleCount = 8 + Math.floor(Math.random() * 6);
 
         for (let i = 0; i < bubbleCount; i++) {
             const bubble = document.createElement("div");
             bubble.className = "aero-bubble burst-bubble";
 
-            const size = 10 + Math.floor(Math.random() * 22); // 10px to 32px (+50% scale)
-            const spread = (Math.random() - 0.5) * 80;
-            const drift = (Math.random() - 0.5) * 70;
+            const size = 12 + Math.floor(Math.random() * 24); // 12px to 36px
+            const spread = (Math.random() - 0.5) * 90;
+            const drift = (Math.random() - 0.5) * 80;
             const duration = 4.0 + Math.random() * 2.8;
             const delay = Math.random() * 0.8;
 

@@ -426,53 +426,23 @@ export class DailyRecordsPage {
                     </div>
                 </section>
 
-                <!-- 5. ENTRY / EDIT MODAL (Zero-Keyboard 1-Tap Steppers, Smart Carry-Forward, Progressive Disclosure & Sequential Pond Switcher) -->
-                <div id="modal-daily-entry" class="modal-overlay" style="display: none; align-items: center; justify-content: center; z-index: 9999;">
-                    <div class="modal-dialog modal-glass" style="max-width: 780px; width: 94%; max-height: 92vh; overflow-y: auto; padding: 1.4rem 1.75rem; border-radius: 20px;">
+                <!-- 5. ENTRY / EDIT MODAL (100% FRUTIGER AERO PREVIEW PARITY) -->
+                <div id="modal-daily-entry" class="modal-backdrop-aero" style="display: none;">
+                    <div class="modal-sheet-aero">
                         
-                        <!-- Modal Title Bar -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.65rem;">
-                            <div style="display: flex; align-items: center; gap: 0.6rem;">
-                                <span style="font-size: 1.35rem;">📝</span>
-                                <div>
-                                    <h3 id="modal-entry-title" style="margin: 0; font-size: 1.18rem; font-weight: 900; color: #0f172a;">
-                                        Log Daily Record — Pond ${pondLabel}
-                                    </h3>
-                                    <span id="modal-entry-subtitle" style="font-size: 0.75rem; color: #64748b;">
-                                        1-tap rapid field logging &amp; daily treatments
-                                    </span>
+                        <!-- Modal Sheet Header with Pond Title & Close -->
+                        <div class="modal-sheet-header">
+                            <div>
+                                <div class="modal-sheet-title">
+                                    <span style="font-size: 1.25rem;">⚡</span>
+                                    <span id="modal-entry-title">Pond ${pondLabel} — Daily Log</span>
                                 </div>
+                                <span id="modal-entry-subtitle" style="font-size: 0.72rem; color: #64748b; margin-left: 28px; display: block;">1-tap rapid field logging</span>
                             </div>
-                            <button type="button" id="btn-close-entry-modal" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 1.1rem; font-weight: 800; color: #475569; cursor: pointer; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center;">✕</button>
+                            <button type="button" id="btn-close-entry-modal" class="aero-btn aero-btn-secondary" style="padding: 4px 12px; min-height: 32px; font-size: 0.78rem;">
+                                ✕ Close
+                            </button>
                         </div>
-
-                        <!-- Sequential Pond Switcher Bar (When multiple active ponds exist in module) -->
-                        ${(this.activePondsList && this.activePondsList.length > 1) ? (() => {
-                            const currIdx = this.activePondsList.findIndex(p =>
-                                (p.pond_index && p.pond_index === pond.pond_index) ||
-                                (p.pond && p.pond === pond.pond)
-                            );
-                            const displayIdx = currIdx >= 0 ? currIdx + 1 : 1;
-                            return `
-                                <div id="modal-pond-switcher-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: 12px; padding: 0.45rem 0.65rem; margin-bottom: 0.9rem; flex-shrink: 0;">
-                                    <button type="button" id="btn-modal-prev-pond" class="btn-modal-pond-nav" style="flex: 0 0 auto; width: 68px; padding: 0.35rem 0.5rem; font-size: 0.76rem; font-weight: 800; min-height: 36px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; color: #0369a1; cursor: pointer; text-align: center;">
-                                        ◀ Prev
-                                    </button>
-                                    <div style="text-align: center; flex: 1; min-width: 0; padding: 0 0.35rem;">
-                                        <div style="font-size: 0.88rem; font-weight: 900; color: #0369a1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                            Pond ${pondLabel} · DOC ${doc || '—'}
-                                        </div>
-                                        <div style="font-size: 0.7rem; font-weight: 700; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                            Active Pond ${displayIdx} of ${this.activePondsList.length}
-                                            ${this.isModalOnlyMode ? ` · <button type="button" id="btn-modal-open-full-book" style="background: none; border: none; color: #0284c7; font-weight: 800; font-size: 0.7rem; text-decoration: underline; cursor: pointer; padding: 0;">📖 Full Book</button>` : ''}
-                                        </div>
-                                    </div>
-                                    <button type="button" id="btn-modal-next-pond" class="btn-modal-pond-nav" style="flex: 0 0 auto; width: 68px; padding: 0.35rem 0.5rem; font-size: 0.76rem; font-weight: 800; min-height: 36px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 8px; color: #0369a1; cursor: pointer; text-align: center;">
-                                        Next ▶
-                                    </button>
-                                </div>
-                            `;
-                        })() : ''}
 
                         <!-- Autocomplete Datalists -->
                         <datalist id="minerals-autocomplete">
@@ -482,192 +452,208 @@ export class DailyRecordsPage {
                             ${STANDARD_PROBIOTICS.map(p => `<option value="${p}"></option>`).join("")}
                         </datalist>
 
-                        <form id="form-daily-record" style="display: flex; flex-direction: column; gap: 0.95rem; min-height: min-content;">
+                        <form id="form-daily-record" style="display: flex; flex-direction: column; height: 100%; min-height: 0; margin: 0;">
                             
-                            <!-- Smart Yesterday Carry-Forward Indicator -->
-                            <div id="carry-forward-badge" style="display: none; background: #f0fdf4; border: 1px solid #86efac; color: #166534; padding: 0.45rem 0.8rem; border-radius: 10px; font-size: 0.75rem; font-weight: 700; align-items: center; justify-content: space-between; gap: 0.5rem; flex-shrink: 0;">
-                                <span id="carry-forward-text">↺ Pre-filled from last log — tap steppers to adjust</span>
-                                <span style="font-size: 0.66rem; background: #dcfce7; color: #15803d; padding: 0.12rem 0.45rem; border-radius: 999px; font-weight: 800; white-space: nowrap;">Smart Fill</span>
-                            </div>
+                            <!-- Modal Sheet Body (Scrollable) -->
+                            <div class="modal-sheet-body">
 
-                            <!-- Date & DOC Selector -->
-                            <div class="daily-entry-date-doc daily-entry-card" style="display: grid; grid-template-columns: 1fr 130px; gap: 0.85rem; background: #f8fafc; padding: 0.7rem 0.9rem; border-radius: 12px; border: 1px solid #e2e8f0; align-items: center; flex-shrink: 0;">
-                                <div>
-                                    <label style="font-size: 0.76rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
-                                        📅 Record Date
-                                    </label>
-                                    <input type="date" id="input-entry-date" class="form-control" style="font-size: 0.88rem; font-weight: 700; padding: 0.4rem 0.7rem; background: #ffffff;" required />
-                                </div>
-                                <div style="text-align: center;">
-                                    <span style="font-size: 0.7rem; font-weight: 700; color: #64748b; display: block;">Culture Age</span>
-                                    <div id="modal-calc-doc" style="font-size: 1.1rem; font-weight: 900; color: #0284c7; margin-top: 0.15rem;">
-                                        DOC —
-                                    </div>
-                                </div>
-                            </div>
+                                <!-- Sequential Pond Switcher Bar (When multiple active ponds exist in module) -->
+                                ${(this.activePondsList && this.activePondsList.length > 1) ? (() => {
+                                    const currIdx = this.activePondsList.findIndex(p =>
+                                        (p.pond_index && p.pond_index === pond.pond_index) ||
+                                        (p.pond && p.pond === pond.pond)
+                                    );
+                                    const displayIdx = currIdx >= 0 ? currIdx + 1 : 1;
+                                    return `
+                                        <div id="modal-pond-switcher-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: rgba(224, 242, 254, 0.75); border: 1.5px solid #bae6fd; border-radius: 14px; padding: 0.45rem 0.75rem; flex-shrink: 0;">
+                                            <button type="button" id="btn-modal-prev-pond" class="btn-modal-pond-nav aero-btn aero-btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.76rem; min-height: 32px;">
+                                                ◀ Prev
+                                            </button>
+                                            <div style="text-align: center; flex: 1; min-width: 0; padding: 0 0.35rem;">
+                                                <div style="font-family: 'Space Grotesk', monospace; font-size: 0.92rem; font-weight: 900; color: #0284c7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                    Pond ${pondLabel} · DOC ${doc || '—'}
+                                                </div>
+                                                <div style="font-size: 0.7rem; font-weight: 700; color: #475569; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                                    Active Pond ${displayIdx} of ${this.activePondsList.length}
+                                                    ${this.isModalOnlyMode ? ` · <button type="button" id="btn-modal-open-full-book" style="background: none; border: none; color: #0284c7; font-weight: 800; font-size: 0.7rem; text-decoration: underline; cursor: pointer; padding: 0;">📖 Full Book</button>` : ''}
+                                                </div>
+                                            </div>
+                                            <button type="button" id="btn-modal-next-pond" class="btn-modal-pond-nav aero-btn aero-btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.76rem; min-height: 32px;">
+                                                Next ▶
+                                            </button>
+                                        </div>
+                                    `;
+                                })() : ''}
 
-                            <!-- Section: Feeding & Tray Remnant (With 1-Tap Steppers & Preset Chips) -->
-                            <div class="daily-entry-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.9rem 0.95rem; flex-shrink: 0;">
-                                <h4 style="margin: 0 0 0.65rem 0; font-size: 0.86rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
-                                    <span>🌾 Feeding &amp; Tray Observation</span>
-                                </h4>
-                                <div class="daily-entry-grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; width: 100%;">
-                                    <div style="min-width: 0; width: 100%;">
-                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
-                                            Daily Feed (kg)
-                                        </label>
-                                        <input type="number" id="input-feed-kg" class="form-control" step="0.1" min="0" placeholder="e.g. 45.0" style="width: 100%; font-size: 0.95rem; font-weight: 800; color: #0f172a; box-sizing: border-box;" />
-                                        <div class="quick-stepper-row" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.4rem; width: 100%;">
-                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="-5">-5</button>
-                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="-1">-1</button>
-                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="1">+1</button>
-                                            <button type="button" class="btn-feed-stepper quick-chip-btn" data-step="5">+5</button>
-                                        </div>
-                                    </div>
-                                    <div style="min-width: 0; width: 100%;">
-                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
-                                            Tray Remnant Leftover (%)
-                                        </label>
-                                        <input type="number" id="input-tray-pct" class="form-control" step="1" min="0" max="100" placeholder="0" style="width: 100%; font-size: 0.95rem; font-weight: 800; color: #0f172a; box-sizing: border-box;" />
-                                        <div class="quick-stepper-row" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.3rem; margin-top: 0.4rem; width: 100%;">
-                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="0">0%</button>
-                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="5">5%</button>
-                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="10">10%</button>
-                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="15">15%</button>
-                                            <button type="button" class="btn-tray-chip quick-chip-btn" data-pct="25">25%</button>
-                                        </div>
-                                    </div>
+                                <!-- Smart Yesterday Carry-Forward Banner -->
+                                <div id="carry-forward-badge" style="display: none; background: rgba(224, 242, 254, 0.75); border: 1.5px solid #bae6fd; border-radius: 12px; padding: 8px 12px; font-size: 0.75rem; color: #0369a1; font-weight: 700; align-items: center; justify-content: space-between; gap: 6px; flex-shrink: 0;">
+                                    <span id="carry-forward-text">↺ Pre-filled from yesterday (tap steppers to adjust)</span>
+                                    <span style="font-size: 0.66rem; background: #dcfce7; color: #15803d; padding: 0.15rem 0.55rem; border-radius: 999px; font-weight: 800; white-space: nowrap;">Smart Fill</span>
                                 </div>
-                            </div>
 
-                            <!-- Section: Water Physical Condition (With 1-Tap Steppers & True Colour Orb Swatches) -->
-                            <div class="daily-entry-card" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 0.9rem 0.95rem; flex-shrink: 0;">
-                                <h4 style="margin: 0 0 0.65rem 0; font-size: 0.86rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
-                                    <span>💧 Pond Water Physical Conditions</span>
-                                </h4>
-                                <div class="daily-entry-grid-2col" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.9rem; width: 100%;">
-                                    <div style="min-width: 0; width: 100%;">
-                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
-                                            Water Level / Depth (cm)
-                                        </label>
-                                        <input type="number" id="input-water-level" class="form-control" step="1" min="0" placeholder="e.g. 110" style="width: 100%; font-size: 0.95rem; font-weight: 800; color: #0f172a; box-sizing: border-box;" />
-                                        <div class="quick-stepper-row" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.4rem; width: 100%;">
-                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="-5">-5</button>
-                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="-2">-2</button>
-                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="2">+2</button>
-                                            <button type="button" class="btn-water-stepper quick-chip-btn" data-step="5">+5</button>
+                                <!-- Date & DOC Selector -->
+                                <div class="form-aero-section" style="padding: 0.85rem 1.1rem;">
+                                    <div style="display: grid; grid-template-columns: 1fr 125px; gap: 0.85rem; align-items: center;">
+                                        <div>
+                                            <label style="font-size: 0.76rem; font-weight: 800; color: var(--aero-deep-ocean); display: block; margin-bottom: 0.25rem;">
+                                                📅 Record Date
+                                            </label>
+                                            <input type="date" id="input-entry-date" class="form-control" style="font-size: 0.9rem; font-weight: 700; padding: 0.45rem 0.75rem; border-radius: 10px; border: 1.5px solid #cbd5e1; width: 100%; box-sizing: border-box;" required />
                                         </div>
-                                    </div>
-                                    <div style="min-width: 0; width: 100%;">
-                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
-                                            Observed Water Colour
-                                        </label>
-                                        <!-- Hidden select synced for form submission -->
-                                        <select id="select-water-colour" style="display: none;">
-                                            <option value="">— Select Water Colour —</option>
-                                            ${WATER_COLOUR_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("")}
-                                        </select>
-                                        <!-- Live Selected Colour Display Box with True 3D CSS Orb -->
-                                        <div id="selected-water-colour-display" title="Tap a colour below or tap here to cycle" style="width: 100%; min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 0.55rem; padding: 0.45rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 8px; background: #f8fafc; font-size: 0.92rem; font-weight: 800; color: #0f172a; box-sizing: border-box; cursor: pointer; user-select: none;">
-                                            <span style="display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0;">
-                                                <span id="selected-colour-orb" class="water-swatch-orb" style="width: 16px; height: 16px; background: radial-gradient(circle at 35% 30%, #bef264 0%, #656d1b 52%, #422006 100%); border-color: #3f3f14;"></span>
-                                                <span id="selected-colour-label" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Brn Green</span>
-                                            </span>
-                                            <span style="font-size: 0.68rem; font-weight: 700; color: #64748b; flex-shrink: 0;">Tap below</span>
-                                        </div>
-                                        <!-- 8 Confined 1-Tap Water Colour Swatch Buttons -->
-                                        <div id="water-colour-chips" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.32rem; margin-top: 0.4rem; width: 100%; box-sizing: border-box;">
-                                            ${WATER_COLOUR_OPTIONS.map(o => `
-                                                <button type="button" class="btn-colour-chip quick-chip-btn" data-colour="${o.value}" style="display: inline-flex; align-items: center; justify-content: center; gap: 0.28rem; min-width: 0; width: 100%; padding: 0.35rem 0.2rem; font-size: 0.72rem;">
-                                                    <span class="water-swatch-orb" style="background: ${o.orbBg}; border-color: ${o.orbBorder};"></span>
-                                                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${o.label}</span>
-                                                </button>
-                                            `).join("")}
+                                        <div style="text-align: center; background: rgba(240, 249, 255, 0.8); border: 1px solid #bae6fd; border-radius: 10px; padding: 0.4rem 0.5rem;">
+                                            <span style="font-size: 0.68rem; font-weight: 700; color: #64748b; display: block;">Culture Age</span>
+                                            <div id="modal-calc-doc" style="font-family: 'Space Grotesk', monospace; font-size: 1.15rem; font-weight: 800; color: #0284c7; margin-top: 0.1rem;">
+                                                DOC —
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- Progressive Disclosure: 1-Tap Toggle Bar for Optional Sections -->
-                            <div class="optional-sections-toggle-bar" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; background: #f8fafc; padding: 0.55rem 0.8rem; border-radius: 12px; border: 1px dashed #cbd5e1;">
-                                <span style="font-size: 0.7rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-right: 0.15rem;">Add Optional:</span>
-                                <button type="button" id="btn-toggle-minerals-sec" class="quick-toggle-pill">🧪 + Minerals</button>
-                                <button type="button" id="btn-toggle-probiotics-sec" class="quick-toggle-pill">🦠 + Probiotics</button>
-                                <button type="button" id="btn-toggle-mortality-sec" class="quick-toggle-pill">⚠️ + Mortality / Note</button>
-                            </div>
-
-                            <!-- Collapsible Section: Minerals Applied (Stored in mineral_probiotic_used) -->
-                            <div id="section-minerals-card" style="display: none; background: #ffffff; border: 1px solid #bae6fd; border-radius: 12px; padding: 0.9rem 1rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-                                    <div>
-                                        <h4 style="margin: 0; font-size: 0.86rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
-                                            <span>🧪 Minerals &amp; Chemical Treatments</span>
-                                        </h4>
-                                        <span style="font-size: 0.7rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for kg summation</span>
+                                <!-- 1. FEED TODAY (KG) WITH TACTILE CONVEX STEPPERS -->
+                                <div class="form-aero-section">
+                                    <div class="form-section-label">
+                                        <span>🦐 Daily Feed (kg)</span>
+                                        <span id="feed-yesterday-hint" style="color: var(--aero-cerulean); font-size: 0.72rem; font-weight: 700;">Tap steppers to adjust</span>
                                     </div>
-                                    <button type="button" id="btn-add-mineral-row" class="btn-action btn-secondary" style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem;">
-                                        <span>+ Add Mineral</span>
-                                    </button>
-                                </div>
-                                <div id="mineral-rows-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                    <!-- Dynamic Mineral Rows injected here -->
-                                </div>
-                            </div>
-
-                            <!-- Collapsible Section: Probiotics Applied (Stored in mineral_probiotic_used) -->
-                            <div id="section-probiotics-card" style="display: none; background: #ffffff; border: 1px solid #fde68a; border-radius: 12px; padding: 0.9rem 1rem;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-                                    <div>
-                                        <h4 style="margin: 0; font-size: 0.86rem; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 0.4rem;">
-                                            <span>🦠 Probiotics &amp; Ferments Applied</span>
-                                        </h4>
-                                        <span style="font-size: 0.7rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for L/kg summation</span>
-                                    </div>
-                                    <button type="button" id="btn-add-probiotic-row" class="btn-action btn-secondary" style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem;">
-                                        <span>+ Add Probiotic</span>
-                                    </button>
-                                </div>
-                                <div id="probiotic-rows-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
-                                    <!-- Dynamic Probiotic Rows injected here -->
-                                </div>
-                            </div>
-
-                            <!-- Collapsible Section: Mortality & Remarks -->
-                            <div id="section-mortality-card" style="display: none; background: #ffffff; border: 1px solid #fecaca; border-radius: 12px; padding: 0.9rem 1rem;">
-                                <div class="daily-entry-mortality-grid" style="display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 0.85rem; width: 100%;">
-                                    <div style="min-width: 0; width: 100%;">
-                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
-                                            Daily Mortality (kg)
-                                        </label>
-                                        <input type="number" id="input-mortality" class="form-control" min="0" step="0.1" placeholder="0.0" style="width: 100%; font-size: 0.9rem; font-weight: 700; box-sizing: border-box;" />
-                                    </div>
-                                    <div style="min-width: 0; width: 100%;">
-                                        <label style="font-size: 0.75rem; font-weight: 700; color: #334155; display: block; margin-bottom: 0.25rem;">
-                                            Daily Observations &amp; Remarks
-                                        </label>
-                                        <input type="text" id="input-remarks" class="form-control" placeholder="e.g. Shrimp active on trays, liming after rain" style="width: 100%; font-size: 0.85rem; box-sizing: border-box;" />
+                                    <input type="number" id="input-feed-kg" class="aero-num-input" step="0.1" min="0" placeholder="0.0" />
+                                    <div class="stepper-row">
+                                        <button type="button" class="aero-stepper-btn btn-feed-stepper" data-step="-5">-5</button>
+                                        <button type="button" class="aero-stepper-btn btn-feed-stepper" data-step="-1">-1</button>
+                                        <button type="button" class="aero-stepper-btn btn-feed-stepper" data-step="1">+1</button>
+                                        <button type="button" class="aero-stepper-btn btn-feed-stepper" data-step="5">+5</button>
                                     </div>
                                 </div>
-                            </div>
 
-                            <!-- Modal Submit Actions (Single-row layout with bottom clearance) -->
-                            <div class="daily-modal-footer-actions" style="display: flex; justify-content: space-between; align-items: center; gap: 0.45rem; margin-top: 0.35rem; flex-wrap: nowrap;">
-                                <button type="button" id="btn-delete-entry" class="btn-action" title="Delete Record" style="font-size: 0.78rem; color: #ef4444; background: #fee2e2; border: 1px solid #fecaca; padding: 0.45rem 0.75rem; display: none; flex-shrink: 0;">
-                                    <span>🗑️</span>
-                                </button>
-                                <div style="display: flex; gap: 0.45rem; margin-left: auto; flex: 1; justify-content: flex-end; align-items: center;">
-                                    <button type="button" id="btn-cancel-modal" class="btn-action btn-secondary" style="font-size: 0.8rem; padding: 0.5rem 0.8rem;">
-                                        Cancel
-                                    </button>
-                                    <button type="submit" id="btn-save-record" class="btn-action btn-primary" style="font-size: 0.82rem; font-weight: 800; padding: 0.5rem 0.95rem;">
-                                        💾 Save
-                                    </button>
-                                    ${(this.activePondsList && this.activePondsList.length > 1) ? `
-                                        <button type="button" id="btn-save-and-next" class="btn-action" style="font-size: 0.82rem; font-weight: 900; padding: 0.5rem 0.95rem; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; border: 1px solid #15803d; border-radius: 10px; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.25); cursor: pointer;">
-                                            ⚡ Save &amp; Next ➔
+                                <!-- 2. TRAY REMNANT LEFTOVER (%) WITH TACTILE CHIPS -->
+                                <div class="form-aero-section">
+                                    <div class="form-section-label">
+                                        <span>🍽️ Tray Remnant Leftover (%)</span>
+                                        <span style="color: var(--aero-cerulean); font-size: 0.72rem; font-weight: 700;">Consumption assessment</span>
+                                    </div>
+                                    <input type="number" id="input-tray-pct" class="aero-num-input" step="1" min="0" max="100" placeholder="0" />
+                                    <div class="stepper-row">
+                                        <button type="button" class="aero-stepper-btn btn-tray-chip" data-pct="0">0%</button>
+                                        <button type="button" class="aero-stepper-btn btn-tray-chip" data-pct="5">5%</button>
+                                        <button type="button" class="aero-stepper-btn btn-tray-chip" data-pct="10">10%</button>
+                                        <button type="button" class="aero-stepper-btn btn-tray-chip" data-pct="15">15%</button>
+                                        <button type="button" class="aero-stepper-btn btn-tray-chip" data-pct="25">25%</button>
+                                    </div>
+                                </div>
+
+                                <!-- 3. WATER LEVEL (CM) WITH TACTILE STEPPERS -->
+                                <div class="form-aero-section">
+                                    <div class="form-section-label">
+                                        <span>🌊 Water Level / Depth (cm)</span>
+                                        <span style="color: var(--aero-cerulean); font-size: 0.72rem; font-weight: 700;">Target: 110 cm</span>
+                                    </div>
+                                    <input type="number" id="input-water-level" class="aero-num-input" step="1" min="0" placeholder="110" />
+                                    <div class="stepper-row">
+                                        <button type="button" class="aero-stepper-btn btn-water-stepper" data-step="-5">-5</button>
+                                        <button type="button" class="aero-stepper-btn btn-water-stepper" data-step="-2">-2</button>
+                                        <button type="button" class="aero-stepper-btn btn-water-stepper" data-step="2">+2</button>
+                                        <button type="button" class="aero-stepper-btn btn-water-stepper" data-step="5">+5</button>
+                                    </div>
+                                </div>
+
+                                <!-- 4. OBSERVED WATER COLOUR: 3D RADIAL-GRADIENT GLASS ORBS (4x2 Grid) -->
+                                <div class="form-aero-section">
+                                    <div class="form-section-label">
+                                        <span>🎨 Observed Water Colour</span>
+                                        <span id="selected-colour-label" style="color: #059669; font-weight: 800; font-size: 0.82rem;">Lt Green</span>
+                                    </div>
+                                    <!-- Hidden select synced for form submission -->
+                                    <select id="select-water-colour" style="display: none;">
+                                        <option value="">— Select Water Colour —</option>
+                                        ${WATER_COLOUR_OPTIONS.map(o => `<option value="${o.value}">${o.label}</option>`).join("")}
+                                    </select>
+                                    <div class="water-orbs-grid">
+                                        ${WATER_COLOUR_OPTIONS.map(o => `
+                                            <div class="water-swatch-card btn-colour-chip" data-colour="${o.value}">
+                                                <div class="water-sphere" style="background: ${o.orbBg}; border-color: ${o.orbBorder};"></div>
+                                                <span class="swatch-name">${o.label}</span>
+                                            </div>
+                                        `).join("")}
+                                    </div>
+                                </div>
+
+                                <!-- 5. DAILY MORTALITY IN KG (Rule 8) -->
+                                <div class="form-aero-section">
+                                    <div class="form-section-label">
+                                        <span>⚠️ Scooped Mortality (kg)</span>
+                                        <span style="color: var(--aero-ink-subtle); font-size: 0.72rem; font-weight: 700;">Kilograms only</span>
+                                    </div>
+                                    <input type="number" id="input-mortality" class="aero-num-input" min="0" step="0.1" placeholder="0.0" />
+                                </div>
+
+                                <!-- 6. OBSERVATIONS & REMARKS -->
+                                <div class="form-aero-section">
+                                    <div class="form-section-label">
+                                        <span>📝 Daily Observations &amp; Remarks</span>
+                                    </div>
+                                    <input type="text" id="input-remarks" class="form-control" placeholder="e.g. Shrimp active on trays, liming after rain..." style="width: 100%; font-size: 0.88rem; padding: 0.65rem 0.85rem; border-radius: 10px; border: 1.5px solid #cbd5e1; box-sizing: border-box;" />
+                                </div>
+
+                                <!-- 7. PROGRESSIVE DISCLOSURE: OPTIONAL TREATMENTS BAR -->
+                                <div class="optional-sections-toggle-bar" style="display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; background: rgba(248, 250, 252, 0.8); padding: 0.55rem 0.8rem; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                                    <span style="font-size: 0.72rem; font-weight: 800; color: #64748b; text-transform: uppercase;">Optional Treatments:</span>
+                                    <button type="button" id="btn-toggle-minerals-sec" class="quick-toggle-pill">🧪 + Minerals</button>
+                                    <button type="button" id="btn-toggle-probiotics-sec" class="quick-toggle-pill">🦠 + Probiotics</button>
+                                </div>
+
+                                <!-- Collapsible Section: Minerals Applied (Stored in mineral_probiotic_used) -->
+                                <div id="section-minerals-card" class="form-aero-section" style="display: none; border-color: #bae6fd;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                                        <div>
+                                            <h4 style="margin: 0; font-size: 0.86rem; font-weight: 800; color: #0284c7; display: flex; align-items: center; gap: 0.4rem;">
+                                                <span>🧪 Minerals &amp; Chemical Treatments</span>
+                                            </h4>
+                                            <span style="font-size: 0.7rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for kg summation</span>
+                                        </div>
+                                        <button type="button" id="btn-add-mineral-row" class="aero-btn aero-btn-secondary" style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; min-height: 28px;">
+                                            <span>+ Add Mineral</span>
                                         </button>
-                                    ` : ''}
+                                    </div>
+                                    <div id="mineral-rows-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                        <!-- Dynamic Mineral Rows injected here -->
+                                    </div>
                                 </div>
+
+                                <!-- Collapsible Section: Probiotics Applied (Stored in mineral_probiotic_used) -->
+                                <div id="section-probiotics-card" class="form-aero-section" style="display: none; border-color: #fde68a;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                                        <div>
+                                            <h4 style="margin: 0; font-size: 0.86rem; font-weight: 800; color: #92400e; display: flex; align-items: center; gap: 0.4rem;">
+                                                <span>🦠 Probiotics &amp; Ferments Applied</span>
+                                            </h4>
+                                            <span style="font-size: 0.7rem; color: #64748b;">Recorded in <code>mineral_probiotic_used</code> for L/kg summation</span>
+                                        </div>
+                                        <button type="button" id="btn-add-probiotic-row" class="aero-btn aero-btn-secondary" style="font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.65rem; min-height: 28px;">
+                                            <span>+ Add Probiotic</span>
+                                        </button>
+                                    </div>
+                                    <div id="probiotic-rows-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                        <!-- Dynamic Probiotic Rows injected here -->
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- Sticky Floating Aero Dock Footer (100% Preview Design) -->
+                            <div class="modal-sheet-footer">
+                                <button type="button" id="btn-delete-entry" class="aero-btn aero-btn-secondary" title="Delete Record" style="font-size: 0.82rem; color: #ef4444; border-color: #fecaca; display: none;">
+                                    🗑️
+                                </button>
+                                <button type="button" id="btn-cancel-modal" class="aero-btn aero-btn-secondary" style="flex: 1;">
+                                    Cancel
+                                </button>
+                                <button type="submit" id="btn-save-record" class="aero-btn aero-btn-secondary" style="flex: 1; color: #0284c7; font-weight: 800;">
+                                    💾 Save
+                                </button>
+                                ${(this.activePondsList && this.activePondsList.length > 1) ? `
+                                    <button type="button" id="btn-save-and-next" class="aero-btn aero-btn-primary" style="flex: 2;">
+                                        ⚡ Save &amp; Next ➔
+                                    </button>
+                                ` : ''}
                             </div>
 
                         </form>
@@ -1534,8 +1520,8 @@ export class DailyRecordsPage {
         this.syncPresetHighlights();
         this.syncOptionalTogglePills();
 
-        const dialog = modal.querySelector(".modal-dialog");
-        if (dialog) dialog.scrollTop = 0;
+        const sheetBody = modal.querySelector(".modal-sheet-body") || modal.querySelector(".modal-dialog");
+        if (sheetBody) sheetBody.scrollTop = 0;
         modal.style.display = "flex";
 
         const isMobileViewport = window.innerWidth <= 768;

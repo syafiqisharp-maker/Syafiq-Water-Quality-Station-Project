@@ -981,53 +981,58 @@ input[type="number"] {
 }
 
 /* Dynamic Ambient Micro-Bubble System (+50% Scale) */
+.bubble-layer,
 #view-field-ops .bubble-layer {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
+    width: 100vw !important;
+    height: 100vh !important;
     pointer-events: none !important;
-    z-index: 1 !important;
+    z-index: 5 !important;
     overflow: hidden !important;
 }
+.aero-bubble,
 #view-field-ops .aero-bubble {
     position: absolute !important;
     bottom: -80px !important;
     border-radius: 50% !important;
-    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95) 0%, rgba(186, 230, 253, 0.45) 55%, rgba(2, 132, 199, 0.25) 100%) !important;
-    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.95), 0 4px 12px rgba(2, 132, 199, 0.22) !important;
+    background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.98) 0%, rgba(186, 230, 253, 0.65) 55%, rgba(2, 132, 199, 0.38) 100%) !important;
+    box-shadow: inset 0 2px 4px rgba(255, 255, 255, 0.98), 0 4px 14px rgba(2, 132, 199, 0.32) !important;
     pointer-events: none !important;
     will-change: transform, opacity !important;
 }
 
+.aero-bubble.lazy-1,
 #view-field-ops .aero-bubble.lazy-1 { animation: rise-lazy-wobble-1 linear infinite !important; }
+.aero-bubble.lazy-2,
 #view-field-ops .aero-bubble.lazy-2 { animation: rise-lazy-wobble-2 linear infinite !important; }
+.aero-bubble.burst-bubble,
 #view-field-ops .aero-bubble.burst-bubble { animation: rise-burst cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards !important; }
 
 @keyframes rise-lazy-wobble-1 {
     0% { transform: translate3d(0, 0, 0) scale(0.75); opacity: 0; }
-    10% { opacity: 0.65; }
+    10% { opacity: 0.85; }
     35% { transform: translate3d(14px, -35vh, 0) scale(0.9); }
-    65% { transform: translate3d(-10px, -70vh, 0) scale(1.05); opacity: 0.65; }
-    90% { opacity: 0.5; }
+    65% { transform: translate3d(-10px, -70vh, 0) scale(1.05); opacity: 0.85; }
+    90% { opacity: 0.7; }
     100% { transform: translate3d(8px, -112vh, 0) scale(1.15); opacity: 0; }
 }
 
 @keyframes rise-lazy-wobble-2 {
     0% { transform: translate3d(0, 0, 0) scale(0.8); opacity: 0; }
-    12% { opacity: 0.7; }
+    12% { opacity: 0.9; }
     40% { transform: translate3d(-16px, -40vh, 0) scale(0.95); }
-    70% { transform: translate3d(12px, -75vh, 0) scale(1.1); opacity: 0.6; }
-    92% { opacity: 0.45; }
+    70% { transform: translate3d(12px, -75vh, 0) scale(1.1); opacity: 0.8; }
+    92% { opacity: 0.65; }
     100% { transform: translate3d(-6px, -112vh, 0) scale(1.2); opacity: 0; }
 }
 
 @keyframes rise-burst {
     0% { transform: translate3d(0, 0, 0) scale(0.45); opacity: 0; }
-    15% { opacity: 0.9; }
-    50% { opacity: 0.85; }
-    85% { opacity: 0.6; }
+    15% { opacity: 0.95; }
+    50% { opacity: 0.9; }
+    85% { opacity: 0.75; }
     100% { transform: translate3d(var(--drift-x, 0px), -115vh, 0) scale(1.25); opacity: 0; }
 }
 
@@ -1114,5 +1119,214 @@ input[type="number"] {
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06) !important;
 }
 
+/* ==========================================================================
+   11. RAPID DAILY ENTRY MODAL (100% PREVIEW PARITY)
+   ========================================================================== */
+#view-field-ops .modal-backdrop-aero {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(7, 38, 66, 0.55) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    z-index: 1000 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-end !important;
+    padding: 0 !important;
+}
+@media (min-width: 640px) {
+    #view-field-ops .modal-backdrop-aero {
+        align-items: center !important;
+        padding: 20px !important;
+    }
+}
 
+#view-field-ops .modal-sheet-aero {
+    background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 55%, #e0f2fe 100%) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+    box-shadow: 0 -10px 40px rgba(7, 38, 66, 0.45), 0 10px 30px rgba(2, 132, 199, 0.25) !important;
+    width: 100% !important;
+    max-width: 620px !important;
+    max-height: 92vh !important;
+    border-top-left-radius: 28px !important;
+    border-top-right-radius: 28px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+@media (min-width: 640px) {
+    #view-field-ops .modal-sheet-aero {
+        border-radius: 28px !important;
+    }
+}
+@keyframes modalSlideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
 
+#view-field-ops .modal-sheet-header {
+    background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 100%) !important;
+    border-bottom: 1px solid rgba(2, 132, 199, 0.2) !important;
+    padding: 1.1rem 1.4rem !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+}
+#view-field-ops .modal-sheet-title {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    font-size: 1.15rem !important;
+    font-weight: 800 !important;
+    color: var(--aero-deep-ocean) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+#view-field-ops .modal-sheet-body {
+    padding: 1.25rem !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1.15rem !important;
+    flex: 1 !important;
+}
+
+/* Form Section Cards */
+#view-field-ops .form-aero-section {
+    background: rgba(255, 255, 255, 0.88) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    border-radius: 20px 10px 20px 10px !important;
+    padding: 1.1rem !important;
+    box-shadow: 0 4px 16px rgba(2, 132, 199, 0.08), inset 0 1.5px 1px #fff !important;
+}
+#view-field-ops .form-section-label {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    font-size: 0.84rem !important;
+    font-weight: 800 !important;
+    color: var(--aero-deep-ocean) !important;
+    margin-bottom: 8px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+}
+
+/* Big Numeric Input Display */
+#view-field-ops .aero-num-input {
+    width: 100% !important;
+    min-height: 50px !important;
+    font-family: 'Space Grotesk', monospace, sans-serif !important;
+    font-size: 1.45rem !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    color: var(--aero-deep-ocean) !important;
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1.5px solid #7dd3fc !important;
+    border-radius: 14px !important;
+    box-shadow: inset 0 2px 4px rgba(2, 132, 199, 0.12) !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+}
+#view-field-ops .aero-num-input:focus {
+    border-color: #0284c7 !important;
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35) !important;
+}
+
+/* Tactile Convex Steppers (+ / -) */
+#view-field-ops .stepper-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    margin-top: 6px !important;
+}
+#view-field-ops .aero-stepper-btn {
+    flex: 1 !important;
+    min-height: 48px !important;
+    border-radius: 14px !important;
+    font-family: 'Space Grotesk', monospace, sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 60%, #bae6fd 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.95) !important;
+    border-bottom: 2.5px solid #7dd3fc !important;
+    box-shadow: 0 3px 8px rgba(2, 132, 199, 0.16), inset 0 1.5px 1px #ffffff !important;
+    color: var(--aero-deep-ocean) !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.12s ease !important;
+}
+#view-field-ops .aero-stepper-btn:active {
+    transform: scale(0.95) !important;
+    box-shadow: inset 0 2px 4px rgba(2, 132, 199, 0.3) !important;
+}
+
+/* 3D Water Colour Orbs Grid */
+#view-field-ops .water-orbs-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 8px !important;
+}
+#view-field-ops .water-swatch-card {
+    background: rgba(255, 255, 255, 0.75) !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.95) !important;
+    border-radius: 14px !important;
+    padding: 8px 4px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    transition: all 0.15s ease !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+}
+#view-field-ops .water-swatch-card.active {
+    background: linear-gradient(180deg, #ffffff 0%, #e0f2fe 100%) !important;
+    border-color: #00c2ff !important;
+    box-shadow: 0 0 0 2.5px #00c2ff, 0 4px 14px rgba(0, 194, 255, 0.35) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* The 3D Glass Water Orb Sphere */
+#view-field-ops .water-sphere {
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 50% !important;
+    position: relative !important;
+    box-shadow: inset 0 -3px 5px rgba(0, 0, 0, 0.35), 0 3px 8px rgba(0, 0, 0, 0.18) !important;
+    border: 1px solid rgba(0, 0, 0, 0.15) !important;
+}
+#view-field-ops .water-sphere::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 3px !important;
+    left: 4px !important;
+    width: 9px !important;
+    height: 6px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.85) !important;
+}
+#view-field-ops .swatch-name {
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    color: var(--aero-deep-ocean) !important;
+    text-align: center !important;
+}
+
+/* Modal Footer Sticky Blur Dock */
+#view-field-ops .modal-sheet-footer {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(224, 242, 254, 0.95) 100%) !important;
+    backdrop-filter: blur(18px) !important;
+    border-top: 1px solid rgba(2, 132, 199, 0.2) !important;
+    padding: 0.9rem 1.25rem 1.35rem 1.25rem !important;
+    display: flex !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+}
