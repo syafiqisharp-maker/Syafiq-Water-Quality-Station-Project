@@ -1485,17 +1485,29 @@
 /* ==========================================================================
    10. TOAST NOTIFICATION STACK (Aero Glass Bubbles)
    ========================================================================== */
-.toast-stack {
+.toast-stack, #toast-container {
     position: fixed;
     bottom: 1.5rem;
     right: 1.5rem;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    z-index: 10000;
+    z-index: 9990;
+    pointer-events: none;
+}
+
+@media (max-width: 640px) {
+    .toast-stack, #toast-container {
+        bottom: auto;
+        top: 1rem;
+        left: 1rem;
+        right: 1rem;
+        align-items: center;
+    }
 }
 
 .toast {
+    pointer-events: auto;
     background: var(--surface-glass-solid);
     backdrop-filter: var(--backdrop-blur-md);
     -webkit-backdrop-filter: var(--backdrop-blur-md);

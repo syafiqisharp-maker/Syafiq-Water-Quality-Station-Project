@@ -13,9 +13,11 @@ class ToastService {
         if (!document.getElementById("toast-container")) {
             this.container = document.createElement("div");
             this.container.id = "toast-container";
+            this.container.className = "toast-stack";
             document.body.appendChild(this.container);
         } else {
             this.container = document.getElementById("toast-container");
+            this.container.className = "toast-stack";
         }
     }
 

@@ -1128,14 +1128,16 @@ input[type="number"] {
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important;
     background: rgba(7, 38, 66, 0.55) !important;
     backdrop-filter: blur(10px) !important;
     -webkit-backdrop-filter: blur(10px) !important;
-    z-index: 1000 !important;
+    z-index: 10050 !important;
     display: flex !important;
     justify-content: center !important;
     align-items: flex-end !important;
     padding: 0 !important;
+    overflow: hidden !important;
 }
 @media (min-width: 640px) {
     #view-field-ops .modal-backdrop-aero {
@@ -1150,17 +1152,25 @@ input[type="number"] {
     box-shadow: 0 -10px 40px rgba(7, 38, 66, 0.45), 0 10px 30px rgba(2, 132, 199, 0.25) !important;
     width: 100% !important;
     max-width: 620px !important;
-    max-height: 92vh !important;
+    height: 90vh !important;
+    height: 90dvh !important;
+    max-height: 90vh !important;
+    max-height: 90dvh !important;
     border-top-left-radius: 28px !important;
     border-top-right-radius: 28px !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
     animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    margin: 0 !important;
 }
 @media (min-width: 640px) {
     #view-field-ops .modal-sheet-aero {
         border-radius: 28px !important;
+        height: min(88vh, 780px) !important;
+        height: min(88dvh, 780px) !important;
+        max-height: 88vh !important;
+        max-height: 88dvh !important;
     }
 }
 @keyframes modalSlideUp {
@@ -1191,10 +1201,13 @@ input[type="number"] {
     padding: 1.25rem !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    touch-action: pan-y !important;
     display: flex !important;
     flex-direction: column !important;
     gap: 1.15rem !important;
-    flex: 1 !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
 }
 
 /* Form Section Cards */

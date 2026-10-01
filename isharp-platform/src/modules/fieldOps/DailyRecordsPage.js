@@ -428,7 +428,7 @@ export class DailyRecordsPage {
 
                 <!-- 5. ENTRY / EDIT MODAL (100% FRUTIGER AERO PREVIEW PARITY) -->
                 <div id="modal-daily-entry" class="modal-backdrop-aero" style="display: none;">
-                    <div class="modal-sheet-aero">
+                    <form id="form-daily-record" class="modal-sheet-aero" novalidate style="margin: 0;">
                         
                         <!-- Modal Sheet Header with Pond Title & Close -->
                         <div class="modal-sheet-header">
@@ -452,10 +452,8 @@ export class DailyRecordsPage {
                             ${STANDARD_PROBIOTICS.map(p => `<option value="${p}"></option>`).join("")}
                         </datalist>
 
-                        <form id="form-daily-record" style="display: flex; flex-direction: column; height: 100%; min-height: 0; margin: 0;">
-                            
-                            <!-- Modal Sheet Body (Scrollable) -->
-                            <div class="modal-sheet-body">
+                        <!-- Modal Sheet Body (Scrollable) -->
+                        <div class="modal-sheet-body">
 
                                 <!-- Sequential Pond Switcher Bar (When multiple active ponds exist in module) -->
                                 ${(this.activePondsList && this.activePondsList.length > 1) ? (() => {
@@ -657,8 +655,6 @@ export class DailyRecordsPage {
                             </div>
 
                         </form>
-
-                    </div>
                 </div>
 
                 <!-- 6. TREATMENT TOTALS SUMMARY MODAL -->
