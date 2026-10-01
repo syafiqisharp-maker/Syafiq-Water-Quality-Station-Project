@@ -371,118 +371,132 @@ export class FieldOpsMap {
         const doc = calculateDOC(cycleRecord.stck_date, cycleRecord.date_close);
         const area = parseFloat(cycleRecord.area) || 0.50;
 
-        // Clean operational styling (No fake data)
-        let cardBg = "rgba(255, 255, 255, 0.95)";
-        let borderColor = "#0284c7";
-        let badgeBg = "#dcfce7";
-        let badgeColor = "#166534";
-        let shadowGlow = "rgba(2, 132, 199, 0.12)";
-
-        if (isIdle) {
-            cardBg = "rgba(248, 250, 252, 0.85)";
-            borderColor = "#cbd5e1";
-            badgeBg = "#f1f5f9";
-            badgeColor = "#64748b";
-            shadowGlow = "rgba(148, 163, 184, 0.08)";
-        } else if (todayRecord) {
-            borderColor = "#16a34a";
-            shadowGlow = "rgba(22, 163, 74, 0.14)";
-        }
+        // Active production styling
+        let borderColor = todayRecord ? "#16a34a" : "#0284c7";
+        let shadowGlow = todayRecord ? "rgba(22, 163, 74, 0.14)" : "rgba(2, 132, 199, 0.14)";
 
         const todayFeedKg = todayRecord && todayRecord.feed_kg !== null && todayRecord.feed_kg !== undefined
             ? parseFloat(todayRecord.feed_kg).toFixed(1)
             : "0.0";
 
+        if (isIdle) {
+            return `
+                <div class="field-ops-pond-tile pond-idle" data-pond-label="${pondLabel}">
+                    
+                    <!-- Tile Header: Muted Gray Pond Code & Ghost Badge -->
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem;">
+                            <div>
+                                <div class="pond-no-box" style="font-size: 1.1rem; line-height: 1.1; display: flex; align-items: center; gap: 6px;">
+                                    <span class="aero-orb orb-idle"></span>
+                                    <span style="color: #94a3b8 !important; font-weight: 700 !important; text-shadow: none !important;">${pondLabel}</span>
+                                </div>
+                                <div style="font-size: 0.68rem; font-weight: 600; color: #94a3b8; margin-top: 0.15rem; letter-spacing: 0.03em;">
+                                    DORMANT
+                                </div>
+                            </div>
+                            <span class="pond-badge-idle">
+                                ⏸️ IDLE
+                            </span>
+                        </div>
+
+                        <!-- Middle Content: Drained Basin Indicator -->
+                        <div style="padding: 0.65rem 0; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+                            <span style="font-size: 1.1rem; opacity: 0.7;">⚙️</span>
+                            <span style="color: #64748b; font-size: 0.74rem; font-weight: 700;">Pond In Preparation</span>
+                            <span style="font-size: 0.66rem; color: #94a3b8;">Area: ${area} Ha · Dry</span>
+                        </div>
+                    </div>
+
+                    <!-- Tile Footer: Subtle Setup Link -->
+                    <div style="border-top: 1px dashed rgba(148, 163, 184, 0.35); padding-top: 0.45rem; display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.68rem;">
+                        <span style="color: #94a3b8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ⚪ Idle Pond
+                        </span>
+                        <span style="color: #0284c7; font-weight: 700; white-space: nowrap;">Setup ➔</span>
+                    </div>
+
+                </div>
+            `;
+        }
+
+        // Active Culture Pond (Solid Aero High-Gloss Pedestal)
         return `
-            <div class="field-ops-pond-tile" data-pond-label="${pondLabel}" style="
-                background: ${cardBg}; 
+            <div class="field-ops-pond-tile pond-active" data-pond-label="${pondLabel}" style="
+                background: rgba(255, 255, 255, 0.95); 
                 border: 2px solid ${borderColor}; 
                 border-radius: 14px; 
                 padding: 0.85rem 0.95rem; 
                 cursor: pointer; 
                 transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
-                box-shadow: 0 4px 12px ${shadowGlow};
+                box-shadow: 0 4px 14px ${shadowGlow};
                 display: flex;
                 flex-direction: column;
                 justify-content: space-between;
                 min-height: 162px;
-            " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 20px ${shadowGlow}';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px ${shadowGlow}';">
+            " onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 20px ${shadowGlow}';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px ${shadowGlow}';">
                 
-                <!-- Tile Header: Pond Code, Cycle, Status Badge -->
+                <!-- Tile Header: High-Contrast Pond Code & DOC Badge -->
                 <div>
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem;">
                         <div>
                             <div class="pond-no-box" style="font-size: 1.1rem; font-weight: 900; line-height: 1.1; display: flex; align-items: center; gap: 6px;">
-                                <span class="aero-orb ${isIdle ? 'orb-idle' : (todayRecord ? 'orb-emerald' : 'orb-amber')}"></span>
+                                <span class="aero-orb ${todayRecord ? 'orb-emerald' : 'orb-amber'}"></span>
                                 <span>${pondLabel}</span>
                             </div>
                             <div style="font-size: 0.68rem; font-weight: 700; color: #64748b; margin-top: 0.15rem;">
-                                ${isIdle ? 'IDLE' : `Cycle ${cycleRecord.cycle_no || (cycleRecord.pond_index ? cycleRecord.pond_index.split(".")[1] : '—')}`}
+                                Cycle ${cycleRecord.cycle_no || (cycleRecord.pond_index ? cycleRecord.pond_index.split(".")[1] : '—')}
                             </div>
                         </div>
-                        <span style="font-size: 0.68rem; font-weight: 800; background: ${badgeBg}; color: ${badgeColor}; padding: 0.2rem 0.5rem; border-radius: 999px; box-shadow: inset 0 1px 1px #fff;">
-                            ${isIdle ? 'IDLE' : `DOC ${doc}`}
+                        <span style="font-size: 0.68rem; font-weight: 800; background: ${todayRecord ? '#dcfce7' : '#fef3c7'}; color: ${todayRecord ? '#166534' : '#92400e'}; padding: 0.2rem 0.55rem; border-radius: 999px; box-shadow: inset 0 1px 1px #fff; border: 1px solid ${todayRecord ? '#86efac' : '#fde68a'};">
+                            DOC ${doc}
                         </span>
                     </div>
 
                     <!-- Middle Content: Real Operational Details & Today's Log Status -->
-                    ${!isIdle ? `
-                        <div style="margin: 0.35rem 0;">
-                            <div style="font-size: 0.72rem; color: #1e293b; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                ${cycleRecord.stck_species || 'P. VANNAMEI'} · <span style="color: #0284c7;">⚡ ${totalHP} HP</span>
-                            </div>
-                            <div style="font-size: 0.65rem; color: #64748b; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Operator: ${operatorName}">
-                                🦐 ${operatorName}
-                            </div>
-                            ${todayRecord ? `
-                                <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #166534;">
-                                    <span>✅ Logged Today</span>
-                                    <span>${todayFeedKg} kg</span>
-                                </div>
-                            ` : `
-                                <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #b45309;">
-                                    <span>⏳ Pending Today</span>
-                                    <span>DOC ${doc}</span>
-                                </div>
-                            `}
+                    <div style="margin: 0.35rem 0;">
+                        <div style="font-size: 0.72rem; color: #1e293b; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            ${cycleRecord.stck_species || 'P. VANNAMEI'} · <span style="color: #0284c7;">⚡ ${totalHP} HP</span>
                         </div>
-                    ` : `
-                        <div style="padding: 0.8rem 0; text-align: center; color: #94a3b8; font-size: 0.74rem; font-weight: 600;">
-                            Pond In Preparation
-                            <div style="font-size: 0.65rem; color: #cbd5e1; margin-top: 0.2rem;">Area: ${area} Ha</div>
+                        <div style="font-size: 0.65rem; color: #64748b; margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="Operator: ${operatorName}">
+                            🦐 ${operatorName}
                         </div>
-                    `}
+                        ${todayRecord ? `
+                            <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #166534;">
+                                <span>✅ Logged Today</span>
+                                <span>${todayFeedKg} kg</span>
+                            </div>
+                        ` : `
+                            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.25rem 0.45rem; display: flex; align-items: center; justify-content: space-between; margin-top: 0.38rem; font-size: 0.64rem; font-weight: 800; color: #b45309;">
+                                <span>⏳ Pending Today</span>
+                                <span>DOC ${doc}</span>
+                            </div>
+                        `}
+                    </div>
                 </div>
 
                 <!-- Tile Footer: 1-Tap Quick Log CTA (for Active Ponds) & Supervisor Detail Link -->
                 <div style="border-top: 1px solid rgba(0, 0, 0, 0.06); padding-top: 0.45rem; display: flex; justify-content: space-between; align-items: center; gap: 0.4rem; font-size: 0.68rem;">
-                    ${!isIdle ? `
-                        <button type="button" class="btn-quick-log-pond" data-pond-label="${pondLabel}" style="
-                            flex: 1;
-                            background: ${todayRecord ? '#f0fdf4' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'};
-                            color: ${todayRecord ? '#15803d' : '#ffffff'};
-                            border: 1px solid ${todayRecord ? '#86efac' : '#0284c7'};
-                            border-radius: 8px;
-                            padding: 0.32rem 0.5rem;
-                            font-size: 0.72rem;
-                            font-weight: 800;
-                            cursor: pointer;
-                            display: inline-flex;
-                            align-items: center;
-                            justify-content: center;
-                            gap: 0.25rem;
-                            min-height: 32px;
-                            box-shadow: ${todayRecord ? 'none' : '0 2px 6px rgba(2, 132, 199, 0.25)'};
-                        ">
-                            <span>${todayRecord ? '✏️ Edit Log' : '⚡ + Log'}</span>
-                        </button>
-                        <span style="color: #64748b; font-weight: 700; font-size: 0.66rem; padding: 0 0.2rem; white-space: nowrap;" title="Open Pond WQS Detail">Details ➔</span>
-                    ` : `
-                        <div style="color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px;">
-                            ⚪ Idle Pond
-                        </div>
-                        <span style="color: #64748b; font-weight: 700;">Setup ➔</span>
-                    `}
+                    <button type="button" class="btn-quick-log-pond" data-pond-label="${pondLabel}" style="
+                        flex: 1;
+                        background: ${todayRecord ? '#f0fdf4' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'};
+                        color: ${todayRecord ? '#15803d' : '#ffffff'};
+                        border: 1px solid ${todayRecord ? '#86efac' : '#0284c7'};
+                        border-radius: 8px;
+                        padding: 0.32rem 0.5rem;
+                        font-size: 0.72rem;
+                        font-weight: 800;
+                        cursor: pointer;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 0.25rem;
+                        min-height: 32px;
+                        box-shadow: ${todayRecord ? 'none' : '0 2px 6px rgba(2, 132, 199, 0.25)'};
+                    ">
+                        <span>${todayRecord ? '✏️ Edit Log' : '⚡ + Log'}</span>
+                    </button>
+                    <span style="color: #64748b; font-weight: 700; font-size: 0.66rem; padding: 0 0.2rem; white-space: nowrap;" title="Open Pond WQS Detail">Details ➔</span>
                 </div>
 
             </div>
